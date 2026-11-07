@@ -1,0 +1,65 @@
+name: linjian
+services:
+  postgres:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_DB: linjian
+      POSTGRES_USER: linjian
+      POSTGRES_PASSWORD: ${LINJIAN_DATABASE_PASSWORD:?Set an independent database password}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U linjian -d linjian]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      LINJIAN_BIND_ADDR: 0.0.0.0:8080
+      LINJIAN_DATABASE_HOST: postgres
+      LINJIAN_DATABASE_NAME: linjian
+      LINJIAN_DATABASE_USER: linjian
+      LINJIAN_DATABASE_PASSWORD: ${LINJIAN_DATABASE_PASSWORD:?Set an independent database password}
+      LINJIAN_PUBLIC_ORIGIN: ${LINJIAN_PUBLIC_ORIGIN:?Set the independent forum origin}
+      LINJIAN_INSECURE_LOCAL_AUTH: ${LINJIAN_INSECURE_LOCAL_AUTH:-false}
+      LINJIAN_WX_APP_ID: ${LINJIAN_WX_APP_ID:-}
+      LINJIAN_WX_SECRET: ${LINJIAN_WX_SECRET:-}
+      LINJIAN_WECOM_CORP_ID: ${LINJIAN_WECOM_CORP_ID:-}
+      LINJIAN_WECOM_AGENT_ID: ${LINJIAN_WECOM_AGENT_ID:-}
+      LINJIAN_WECOM_SECRET: ${LINJIAN_WECOM_SECRET:-}
+      LINJIAN_SOURCE_ENDPOINT: ${LINJIAN_SOURCE_ENDPOINT:-}
+      LINJIAN_SOURCE_KEY_ID: ${LINJIAN_SOURCE_KEY_ID:-}
+      LINJIAN_SOURCE_SECRET: ${LINJIAN_SOURCE_SECRET:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, curl, -fsS, http://127.0.0.1:8080/readyz]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      LINJIAN_WEB_LISTEN: ${LINJIAN_WEB_LISTEN:-:80}
+    ports:
+      - ${LINJIAN_HTTP_PORT:-8091}:80
+      - ${LINJIAN_HTTPS_PORT:-8444}:443
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:

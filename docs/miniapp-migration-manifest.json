@@ -1,0 +1,310 @@
+{
+  "project": "linjian",
+  "files": [
+    {
+      "source": "wekeeper/frontend/apps/miniapp/.env.example",
+      "target": "frontend/apps/miniapp/.env.example",
+      "source_sha256": "0f461ae201f49dfa80f0ea931b81ea2604199e7ed3fdb009c9159d13925fd85c"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/eslint.config.js",
+      "target": "frontend/apps/miniapp/eslint.config.js",
+      "source_sha256": "50a8c4799795638b28e6915d1d0c1bfb29759bf9316dc2579b782971bd85d027"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/package.json",
+      "target": "frontend/apps/miniapp/package.json",
+      "source_sha256": "2066d465de825525ef87f4e1eee59ba01b0a3d04ee1d86716c53e820a186a61f"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/App.vue",
+      "target": "frontend/apps/miniapp/src/App.vue",
+      "source_sha256": "dc08c5e90f51bc928dccf4f0ea8371cbecc466d016197d56ea7b4618dae23d41"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/app/credentials.ts",
+      "target": "frontend/apps/miniapp/src/app/credentials.ts",
+      "source_sha256": "58f408a629a463646b3382c896b59513bb4840181cb0388513cb52322f40c93c"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/app/page-lifecycle.ts",
+      "target": "frontend/apps/miniapp/src/app/page-lifecycle.ts",
+      "source_sha256": "7ad568f5308f42fabb41fbba8a931d60814f6ce93f7edc93881cc8a6e678bb3b"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/app/transport.ts",
+      "target": "frontend/apps/miniapp/src/app/transport.ts",
+      "source_sha256": "8cf635cc67dc4babbb3503c7d8df91119f5fb2873cb0ddfe4727c396cc3b2b11"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/community/Detail.vue",
+      "target": "frontend/apps/miniapp/src/features/community/Detail.vue",
+      "source_sha256": "7a320d6442e6d20516b4d75702e93b31e832b8777f0e39f595b6426caaf0974a"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/community/Feed.vue",
+      "target": "frontend/apps/miniapp/src/features/community/Feed.vue",
+      "source_sha256": "84b39d1d050d6025afaf02f7455bdcd057afb1408724c731a700fbad84f90e2e"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/community/Following.vue",
+      "target": "frontend/apps/miniapp/src/features/community/Following.vue",
+      "source_sha256": "5f6e4322b9464f5937525f23317c5a5e4ea35dd71706a8890cddf02c3f655db1"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/community/Notifications.vue",
+      "target": "frontend/apps/miniapp/src/features/community/Notifications.vue",
+      "source_sha256": "7637c10959bf86e681753e092a80edf635641119c7d265b33ad85cc0d8ad648b"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/community/Profile.vue",
+      "target": "frontend/apps/miniapp/src/features/community/Profile.vue",
+      "source_sha256": "cebae595dd97c8af763aa09f0e193dbb53d0a32141c92a4456c711e174d1c1fc"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/community/Publish.vue",
+      "target": "frontend/apps/miniapp/src/features/community/Publish.vue",
+      "source_sha256": "1f517776ffc97e6ea0037be30e5ff486f415fb714c6e0b9db4f9233476ae1912"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/community/UserInfo.vue",
+      "target": "frontend/apps/miniapp/src/features/community/UserInfo.vue",
+      "source_sha256": "98025ac109e3ce136d17ddc0a837303f8d045d555ce28d34ba6146e7bbaa9faa"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/community/api/index.ts",
+      "target": "frontend/apps/miniapp/src/features/community/api/index.ts",
+      "source_sha256": "4da941e94a6e0d19d2b60b7bd58c86c6728871701a82adaa8b6de5e4311518b2"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/feedback/Feedback.vue",
+      "target": "frontend/apps/miniapp/src/features/feedback/Feedback.vue",
+      "source_sha256": "4004da9bd8af38f2eba2940c963771aa792a085a0a70f98846898df920c5fc9a"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/feedback/api/index.ts",
+      "target": "frontend/apps/miniapp/src/features/feedback/api/index.ts",
+      "source_sha256": "6b5aaabefcf019b825e6caeb8ddfd8bc1703b1a377dfd015a312cf5cd04f02a0"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/identity/Login.vue",
+      "target": "frontend/apps/miniapp/src/features/identity/Login.vue",
+      "source_sha256": "3a98c811cfc522dcfbe5f5efa23c6dc027cc3b57ecb7e8bf8b24c171bbe02466"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/identity/api/index.ts",
+      "target": "frontend/apps/miniapp/src/features/identity/api/index.ts",
+      "source_sha256": "6f8f823b61f7f2085ceaebfc282ee2cdb651a342aa8e24e12a20350e9803aad1"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/identity/session.ts",
+      "target": "frontend/apps/miniapp/src/features/identity/session.ts",
+      "source_sha256": "1a292cd5d732b78e30c06458ec819beefa2c6c55fa93d32c2fdd0014a6410072"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/media/PrivateImage.vue",
+      "target": "frontend/apps/miniapp/src/features/media/PrivateImage.vue",
+      "source_sha256": "cafaf82968ea87209eb42b3990cab0b5960bba30438ed8c2cdffeb74bc3a50a4"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/media/api/index.ts",
+      "target": "frontend/apps/miniapp/src/features/media/api/index.ts",
+      "source_sha256": "0b28fc76967c9562fe5ed858cee1fee386d7fa106d19241d070e0f148559ef53"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/media/files.ts",
+      "target": "frontend/apps/miniapp/src/features/media/files.ts",
+      "source_sha256": "dacee191fdc87e5a1afdda1b17b17a2f4f554cc46915489bc0f998d0bad203ff"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/resources/Resources.vue",
+      "target": "frontend/apps/miniapp/src/features/resources/Resources.vue",
+      "source_sha256": "89bafdcf7d63b4a81c56383f96eaca6587d8c6a23fc0c00d736e2434a78a5e87"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/resources/actions.ts",
+      "target": "frontend/apps/miniapp/src/features/resources/actions.ts",
+      "source_sha256": "dcbd72628439487467fbaf91b9812fdcfcf64916ee98c77b147e0abcd09360bd"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/resources/api/index.ts",
+      "target": "frontend/apps/miniapp/src/features/resources/api/index.ts",
+      "source_sha256": "5b4b7c7ac84c48861110acb0765c4d1e0826dae87ee2dbd18bdd444ad22911a3"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/school-context/SchoolPicker.vue",
+      "target": "frontend/apps/miniapp/src/features/school-context/SchoolPicker.vue",
+      "source_sha256": "e09c38c9d848a00c9f25662934298c1902ed581705baa0cac34ab458e29ad5f7"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/school-context/api/index.ts",
+      "target": "frontend/apps/miniapp/src/features/school-context/api/index.ts",
+      "source_sha256": "d4a3dccf54ef3c0b74275c2e139f2c5a125e30c61c28ead89d63cea52fe45fe7"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/school-context/context.ts",
+      "target": "frontend/apps/miniapp/src/features/school-context/context.ts",
+      "source_sha256": "5e962c7cb668c7126dacd7c0131c8ff1d11d16871cb36a1f242c5aeeac2f60fe"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/features/school-context/theme.ts",
+      "target": "frontend/apps/miniapp/src/features/school-context/theme.ts",
+      "source_sha256": "b9d1fdec56abb67d25e1c51649f9a6c89796ab46b07c9b2041f97610f1164c99"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/main.ts",
+      "target": "frontend/apps/miniapp/src/main.ts",
+      "source_sha256": "1bec1a42b5a32c0f9244a88c8290c71fb116761f0a557607185bf5d70145fc3d"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/manifest.json",
+      "target": "frontend/apps/miniapp/src/manifest.json",
+      "source_sha256": "456bac401b31022afd7681fbdd808e4fecc284711bcbac71a0e2d085551cc882"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/pages/community/edit.vue",
+      "target": "frontend/apps/miniapp/src/pages/community/edit.vue",
+      "source_sha256": "d10ecc29516727b41356aa979af220c8e68ea08dd2bc65ffee098b568f7d8987"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/pages/index/category.vue",
+      "target": "frontend/apps/miniapp/src/pages/index/category.vue",
+      "source_sha256": "ba47ad66ce103817868c5abdc508ac6a35f7fb58f446ac2f719fa361e111df18"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/pages/index/detail.vue",
+      "target": "frontend/apps/miniapp/src/pages/index/detail.vue",
+      "source_sha256": "6257586ad7a86ccf54c995918cbbfc6f6b49136c435a1254650338c74263bb17"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/pages/index/hot.vue",
+      "target": "frontend/apps/miniapp/src/pages/index/hot.vue",
+      "source_sha256": "767e7457ab7ce628060a7f094a6e292e92191c3de7bee94b4e4e5c0c405b5df7"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/pages/index/index.vue",
+      "target": "frontend/apps/miniapp/src/pages/index/index.vue",
+      "source_sha256": "0a86a9016e6320b8017138380b4b46f7e34eadd930047b19b99761b89f3278b1"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/pages/index/publish.vue",
+      "target": "frontend/apps/miniapp/src/pages/index/publish.vue",
+      "source_sha256": "d10ecc29516727b41356aa979af220c8e68ea08dd2bc65ffee098b568f7d8987"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/pages/index/search.vue",
+      "target": "frontend/apps/miniapp/src/pages/index/search.vue",
+      "source_sha256": "3026ddb9be2a14f5d0533217df391900e4b7e685638a946b47d2b32d6589173d"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/pages/plugin/gate.vue",
+      "target": "frontend/apps/miniapp/src/pages/plugin/gate.vue",
+      "source_sha256": "7bc40c291e341c3c2c6ed923fc4af7f93ec2a994192c7e30e8cf0598a16aecea"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/pages/plugin/index.vue",
+      "target": "frontend/apps/miniapp/src/pages/plugin/index.vue",
+      "source_sha256": "9e0ab2c184b4777daab08e8530a5249bb825f09ca00eca284e10cb1286433cc1"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/pages/user/attentions.vue",
+      "target": "frontend/apps/miniapp/src/pages/user/attentions.vue",
+      "source_sha256": "5e2907dc50554c70b5da97fbeac6c9cdb7b4ecf9adf04ec2813419b08f3b7b13"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/pages/user/bind.vue",
+      "target": "frontend/apps/miniapp/src/pages/user/bind.vue",
+      "source_sha256": "7bc40c291e341c3c2c6ed923fc4af7f93ec2a994192c7e30e8cf0598a16aecea"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/pages/user/feedback.vue",
+      "target": "frontend/apps/miniapp/src/pages/user/feedback.vue",
+      "source_sha256": "c495f99e7ec798bfb8cf1f226f634e61480705d4d166cd943bae0e91fd92446c"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/pages/user/index.vue",
+      "target": "frontend/apps/miniapp/src/pages/user/index.vue",
+      "source_sha256": "b5740aecc595e96988e40aec8d08d0947fc845f1f7b41036c3fcc5f4021c14b7"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/pages/user/legal.vue",
+      "target": "frontend/apps/miniapp/src/pages/user/legal.vue",
+      "source_sha256": "5a2dbf48f2b5bdce5d471b440467380a822ede3f5ba0847fde891b0c4a3d3f0a"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/pages/user/login.vue",
+      "target": "frontend/apps/miniapp/src/pages/user/login.vue",
+      "source_sha256": "7bc40c291e341c3c2c6ed923fc4af7f93ec2a994192c7e30e8cf0598a16aecea"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/pages/user/message.vue",
+      "target": "frontend/apps/miniapp/src/pages/user/message.vue",
+      "source_sha256": "8969b9550bf18c94bf931456f8fc27f34565b100f00546eef89cba97d751ad8a"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/pages/user/tag.vue",
+      "target": "frontend/apps/miniapp/src/pages/user/tag.vue",
+      "source_sha256": "922ff081999f88e02a7fe5aea45d0f461bdfcb03202309614bb2e69f384c68eb"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/pages/user/userInfo.vue",
+      "target": "frontend/apps/miniapp/src/pages/user/userInfo.vue",
+      "source_sha256": "49e91ebb434f88ec1b02298b6017ffd51e0e4931479480079cfe36b2a50f75a4"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/pages.json",
+      "target": "frontend/apps/miniapp/src/pages.json",
+      "source_sha256": "2f99a127cb65549bf426b0e2709f46979baaf0a395fa0583172759aa7f912eec"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/shared/PageStatus.vue",
+      "target": "frontend/apps/miniapp/src/shared/PageStatus.vue",
+      "source_sha256": "4b0ce1124f212087301011f2858fb54e5e13ba2b0131f55c5bdd3908d6a89393"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/shared/use-page.ts",
+      "target": "frontend/apps/miniapp/src/shared/use-page.ts",
+      "source_sha256": "7dc9135ece749de924b59380a7b2e9e67d6f35eba8095ad8273407269b1b4fd3"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/src/static/images/avatar.png",
+      "target": "frontend/apps/miniapp/src/static/images/avatar.png",
+      "source_sha256": "65d759279bbf17a53b32fb4946e08098db433bc66a4afaeb0b70e7adcc05e573"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/tests/page-lifecycle.test.ts",
+      "target": "frontend/apps/miniapp/tests/page-lifecycle.test.ts",
+      "source_sha256": "c6325d8f14b437d6c120220589a396c84de2bdcffdee5e86147a0bd2bc5a0e36"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/tests/resource-actions.test.ts",
+      "target": "frontend/apps/miniapp/tests/resource-actions.test.ts",
+      "source_sha256": "1c4459600470912d7e70cf1f54606a44450dcf82c64f139c7929e86f0b6bc8bb"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/tests/session.test.ts",
+      "target": "frontend/apps/miniapp/tests/session.test.ts",
+      "source_sha256": "b384c0e10d3a65f2b0fa757f8b64c87a1b77b233ae7ff22110f15c314fd0efbb"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/tests/transport.test.ts",
+      "target": "frontend/apps/miniapp/tests/transport.test.ts",
+      "source_sha256": "38607fb666ca4d7e1d244492dea56b5389a8762680b79f3a67028c687e7713c1"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/tsconfig.json",
+      "target": "frontend/apps/miniapp/tsconfig.json",
+      "source_sha256": "9750fdcc143e13ed5b37a12ed0f766a9f4c141941cd6b1ab5c04092a95622ad2"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/vite.config.ts",
+      "target": "frontend/apps/miniapp/vite.config.ts",
+      "source_sha256": "b0ef620c32347736ffad4be02029f2c97353205e09839d78362f7fcb28cfc8fe"
+    },
+    {
+      "source": "wekeeper/frontend/apps/miniapp/vitest.config.ts",
+      "target": "frontend/apps/miniapp/vitest.config.ts",
+      "source_sha256": "d4da89ab89cba4dc26ab4cb8d25606b67ff8218e8067f42960a6622abc73fbce"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@linjian/frontend",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.22.0",
+  "scripts": {
+    "dev": "pnpm --filter @linjian/web dev",
+    "dev:miniapp": "pnpm --filter @linjian/miniapp dev",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "node tools/check-boundaries.mjs && pnpm -r lint",
+    "test": "node --test tools/*.test.mjs && pnpm -r test",
+    "build": "pnpm -r build",
+    "build:web": "pnpm --filter @linjian/web build",
+    "build:miniapp": "pnpm --filter @linjian/miniapp build"
+  },
+  "devDependencies": {
+    "prettier": "3.6.2",
+    "typescript": "~5.8.3"
+  }
+}

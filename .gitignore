@@ -1,0 +1,18 @@
+node_modules/
+dist/
+target/
+.devbox/
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+*.log
+*.pyc
+**/__pycache__/
+coverage/
+.pnpm-store/
+.DS_Store
+.idea/
+.vscode/
+# Migration snapshots contain account hashes and media. Store them outside the repo.
+*forum-snapshot*.json

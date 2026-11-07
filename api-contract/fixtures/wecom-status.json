@@ -1,0 +1,12 @@
+{
+  "data": {
+    "type": "wecom-status",
+    "id": "current",
+    "attributes": {
+      "server_configured": false,
+      "client_configured": false,
+      "oauth_available": false,
+      "share_available": false
+    }
+  }
+}

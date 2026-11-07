@@ -1,0 +1,38 @@
+[package]
+name = "linjian-api"
+default-run = "linjian-api"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+publish = false
+
+[dependencies]
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
+url = "2.5"
+qrcode = { version = "0.14.1", default-features = false, features = ["image"] }
+unicode-normalization = "0.1"
+cairnkit-jsonapi = "0.1.0"
+axum = { version = "0.8", features = ["multipart", "ws"] }
+argon2 = "0.5"
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
+sha2 = "0.10"
+ring = "0.17.14"
+aws-lc-rs = { version = "1.18.2", default-features = false }
+chrono = { version = "0.4", features = ["serde"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "query", "rustls"] }
+clap = { version = "4.5", features = ["derive", "env"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sqlx = { version = "0.8", default-features = false, features = ["macros", "migrate", "postgres", "runtime-tokio-rustls", "uuid", "chrono", "json"] }
+tokio = { version = "1.48", features = ["macros", "rt-multi-thread", "signal", "net", "time"] }
+tower-http = { version = "0.6", features = ["request-id", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+[dev-dependencies]
+postgresql_embedded = { version = "0.21", default-features = false, features = ["tokio", "theseus", "tls-rustls-ring"] }
+tower = { version = "0.5", features = ["util"] }
+
+[profile.release]
+strip = true
+lto = "thin"

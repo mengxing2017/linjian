@@ -1,0 +1,11 @@
+{
+  "data": {
+    "type": "systems",
+    "id": "linjian",
+    "attributes": {
+      "application": "linjian",
+      "version": "0.1.0",
+      "stage": "business"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+// Static help URLs contain no business identifiers or credentials.
+export const pageHelp: Record<string, string> = {
+  'source-outbox': 'operator/source-outbox',
+  posts: 'operator/moderation',
+  comments: 'operator/moderation',
+  cases: 'operator/moderation',
+  resources: 'operator/moderation#display-resources',
+  members: 'school-admin/settings-and-members',
+  settings: 'school-admin/settings-and-members',
+  audit: 'platform-admin/audit-and-resources#audit',
+  schools: 'platform-admin/accounts-and-schools',
+  accounts: 'platform-admin/accounts-and-schools',
+  administrators: 'platform-admin/accounts-and-schools',
+  'platform-resources': 'platform-admin/audit-and-resources',
+}
+export const helpHref = (active: string) =>
+  pageHelp[active] ? `/docs/guide/${pageHelp[active]}` : '/docs/guide/'

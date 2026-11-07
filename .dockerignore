@@ -1,0 +1,27 @@
+# Whitelist the new applications. Legacy credentials, binaries and archives
+# must never enter a Docker build context.
+**
+!backend/
+!backend/**
+!frontend/
+!frontend/**
+!api-contract/
+!api-contract/**
+!docs/
+!docs/**
+docs/node_modules/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+docs/.vitepress/caddy/
+backend/target/
+frontend/**/node_modules/
+frontend/**/dist/
+api-contract/node_modules/
+**/.env
+**/.env.*
+**/*.log
+**/.DS_Store
+
+# The miniapp is a separate client artifact, never built in the web image.
+frontend/apps/miniapp/src/
+frontend/apps/miniapp/tests/

@@ -1,0 +1,23 @@
+{
+  "event": {
+    "event_id": "00000000-0000-0000-0000-000000000010",
+    "schema_version": 1,
+    "event_type": "content.upsert",
+    "external_organization_id": "00000000-0000-0000-0000-000000000001",
+    "external_content_id": "00000000-0000-0000-0000-000000000003",
+    "version": "7",
+    "sequence": 7,
+    "occurred_at": "2026-11-08T00:00:00Z",
+    "title": "校园通知",
+    "content": "本周活动安排",
+    "detail_url": "https://forum.example.com/community/00000000-0000-0000-0000-000000000001/posts/00000000-0000-0000-0000-000000000003"
+  },
+  "origin": "https://forum.example.com",
+  "body": "{\"data\":{\"attributes\":{\"content\":\"本周活动安排\",\"detail_url\":\"https://forum.example.com/community/00000000-0000-0000-0000-000000000001/posts/00000000-0000-0000-0000-000000000003\",\"event_id\":\"00000000-0000-0000-0000-000000000010\",\"event_type\":\"content.upsert\",\"external_content_id\":\"00000000-0000-0000-0000-000000000003\",\"external_organization_id\":\"00000000-0000-0000-0000-000000000001\",\"occurred_at\":\"2026-11-08T00:00:00Z\",\"schema_version\":1,\"sequence\":7,\"title\":\"校园通知\",\"version\":\"7\"},\"id\":\"00000000-0000-0000-0000-000000000010\",\"type\":\"source-events\"}}",
+  "key_id": "fixture-key",
+  "secret": "fixture-only-not-a-real-source-secret",
+  "timestamp": "1794096000",
+  "nonce": "fixture-nonce",
+  "canonical": "1\nfixture-key\nPOST\n/api/v1/source-events\n1794096000\nfixture-nonce\n00000000-0000-0000-0000-000000000010\ndae2cdaea6878058c756c3facbb2eba2194558c3105b447a3ee87e54ff80b86c",
+  "signature": "66f208ed19f0efc63714843164c2320d7555bac820fc2e2d5ffe5fccb01a7e16"
+}
