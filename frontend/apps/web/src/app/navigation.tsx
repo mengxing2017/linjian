@@ -125,7 +125,9 @@ export const navigation: NavigationItem[] = [
     scope: 'global',
     capability: 'global.manage',
   },
-{key:'source-outbox',icon:<FileSearchOutlined/>,label:'来源发件记录',description:'查看论坛推送与收件结果，重试失败事件。',domain:'forum',scope:'school',capability:'school.read'}
+{key:'source-outbox',icon:<FileSearchOutlined/>,label:'来源发件记录',description:'查看论坛推送与收件结果，重试失败事件。',domain:'forum',scope:'school',capability:'school.read'},
+{key:'source-connections',label:'WeKeeper 连接',description:'配置来源凭据和协议连接。',domain:'forum',scope:'global',capability:'global.manage',icon:<SettingOutlined/>},
+{key:'source-bindings',label:'学校消息路由',description:'维护本校唯一消息路由，统一使用全局 WeKeeper 配置。',domain:'forum',scope:'school',capability:'global.manage',icon:<SettingOutlined/>},
 ]
 
 export function canNavigate(item: NavigationItem, platformAdmin: boolean, schoolRole?: string): boolean {

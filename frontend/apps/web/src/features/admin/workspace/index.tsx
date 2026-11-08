@@ -1,3 +1,4 @@
+import {SourceConnections, SourceBindings} from '../source-access'
 import { Outbox } from './outbox'
 import { ResourceEditor } from './resource-editor'
 import { navigation, visibleNavigationKeys } from '../../../app/navigation'
@@ -131,6 +132,8 @@ function Admin({ user, logout }: { user: User; logout: () => Promise<void> }) {
       {!tab ? (q.isPending ? <Empty className="empty-state" description="正在加载学校…" /> : <Alert type="info" title="当前账号没有该学校的后台管理权限，请联系平台管理员。" />)
       : !knownPage ? <Alert type="warning" title="页面不存在" description={<Button onClick={() => navigate(allowedKeys[0] ?? 'posts')}>返回可用功能</Button>} />
       : denied ? <Alert type="warning" title="当前账号没有此功能的访问权限" description={<>请核对当前学校与角色，或从导航选择已授权功能。<Button onClick={() => navigate(allowedKeys[0] ?? 'posts')}>返回可用功能</Button></>} />
+      : tab === 'source-connections' && user.platform_admin ? <SourceConnections />
+      : tab === 'source-bindings' && user.platform_admin && school ? <SourceBindings key={school.id} school={school.id} />
       : tab === 'accounts' && user.platform_admin && params.get('subview') === 'directory' ? <Directory />
       : tab === 'schools' && user.platform_admin ? (
         <Schools
