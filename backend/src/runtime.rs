@@ -27,6 +27,8 @@ async fn serve_inner(
     bind_addr: SocketAddr,
     embedded: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    crate::source_access::configuration::ConnectionConfig::from_env()
+        .map_err(|fault| std::io::Error::new(std::io::ErrorKind::InvalidInput, fault.0))?;
     database::migrate(&pool).await?;
     let mut application = bootstrap::build_application(pool.clone());
     let configured_password = std::env::var("LINJIAN_DEV_ADMIN_PASSWORD").ok();
