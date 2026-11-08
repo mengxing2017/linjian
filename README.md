@@ -62,6 +62,6 @@ LINJIAN_POSTGRES_BIN=/path/to/postgresql17/bin python3 tools/test_migrations.py
 
 [迁移操作说明](docs/migration.md)提供快照导出、空库导入、媒体和权限核对、最终切换及回退步骤。快照包含密码哈希和媒体，文件权限为 0600，不能提交到仓库。
 
-Outbox 在帖子事务中生成事件，后台每 5 秒扫描，失败指数退避并持久保留。接收端未就绪时将 `LINJIAN_SOURCE_ENDPOINT`、`LINJIAN_SOURCE_KEY_ID`、`LINJIAN_SOURCE_SECRET` 全部留空，论坛正常运行。接入后在管理后台“来源发件记录”查看收件与发送摘要、重试原事件。来源密钥不等于发送授权。
+Outbox 在帖子事务中生成事件，后台每 5 秒扫描，失败指数退避并持久保留。接收端未就绪时将 `LINJIAN_WEKEEPER_ORIGIN`、`LINJIAN_WEKEEPER_KEY_ID`、`LINJIAN_WEKEEPER_SECRET` 全部留空，论坛正常运行。填写三项并重建 API 后，在“WeKeeper 连接”验证配置、绑定学校路由；secret 只保存在后端部署配置，不入库，不需要本地加密主密钥。详见 [WeKeeper 部署配置](docs/wekeeper-configuration.md)。接入后在管理后台“来源发件记录”查看收件与发送摘要、重试原事件。来源密钥不等于发送授权。
 
 协议、请求头及跨语言签名向量见 [来源推送协议](docs/source-protocol.md)。实现与尚待实际环境验证的事项见 [迁移状态](docs/migration-status.md)。

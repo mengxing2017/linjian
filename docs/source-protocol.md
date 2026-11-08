@@ -1,19 +1,29 @@
-# 论坛来源推送协议 v1
+# 论坛来源推送协议
 
-本项目实现发件端；接收端在论坛迁移完成后由 wekeeper 独立实现。未配置接收端时，论坛正常运行，Outbox 持久积压。发布和审核通过只产生来源事件，不产生群发送任务或授权。
+当前新连接使用 v2；Linjian 只产生来源事件，不创建群发送任务或发送授权。上游故障不影响帖子事务，Outbox 持久保留事件。
 
-`POST /api/v1/source-events` 使用 `application/vnd.api+json`，data.type 为 `source-events`，data.id 与 attributes.event_id 一致。attributes 包含 schema_version=1、event_type、external_organization_id、external_content_id、version、sequence、occurred_at、title、content、detail_url。撤回正文为 null。签名及 JSON 字节向量见 `api-contract/fixtures/source-event-v1.json`，由 Rust 与 TypeScript 两侧测试核对。
+## v2 机器契约
 
-请求头：`X-Source-Version: 1`、`X-Source-Key-Id`、`X-Source-Timestamp`（UTC Unix 秒十进制）、`X-Source-Nonce`（每次请求新 UUID）、`Idempotency-Key`（稳定 event_id）、`X-Source-Signature`（小写十六进制 HMAC-SHA256）。secret 至少 32 字节，仅后端读取。
+WeKeeper 发布 POST `/api/v2/source-authentications`、POST `/api/v2/source-route-checks`、POST `/api/v2/source-events` 和 GET `/api/v2/source-receipts/{receipt_id}`。JSON:API schema、错误目录和发布清单位于 `api-contract/source-v2/`，字节向量位于 `api-contract/fixtures/source-v2.json`。Rust 与 TypeScript 都读取同一发布版本的测试材料。
 
-规范签名字符串是以下 UTF-8 字段以 LF 连接，末尾没有 LF：协议版本、key_id、HTTP 方法大写、规范绝对路径（不含域名或查询）、时间戳、nonce、幂等键、请求体 SHA-256 小写十六进制。GET 收件查询的请求体为空，仍使用原事件 ID 作为幂等键。接口路径不接受查询、片段、重定向或 URL 用户信息。
+事件使用 `route_id`，不再提交 `external_organization_id` 或学校字段；也不能指定通道、群、设备和广告。每个下游对应一条调用方凭据，在后端部署环境配置 LINJIAN_WEKEEPER_ORIGIN、LINJIAN_WEKEEPER_KEY_ID 和 LINJIAN_WEKEEPER_SECRET。key_id 同时标识调用方与其凭据；内部 source_id 由后端从已认证的能力元数据自动取得，不在连接页面填写或展示。上游按当前 key 与路由明确关联鉴权，不授予同平台全部路由。
 
-正文在第一次网络调用之前持久冻结，重试不改变字节、event_id 或幂等键，只更新时间戳、nonce、签名。接收端须在 5 分钟窗口内校验时间戳并持久去重 nonce；以来源和 event_id 去重业务事件，同键不同正文返回 409；来源凭据绑定 namespace 和组织范围。
+签名头为 X-Source-Version: 2、X-Source-Key-Id、X-Source-Timestamp、X-Source-Nonce、Idempotency-Key、X-Source-Signature。签名 secret 是至少 32 随机字节的无填充 base64url 交付文本，双方解码后使用原始字节。
 
-收件响应必须为 JSON:API `source-receipts`，data.id 为收件 UUID，attributes.status 为 received、applied、ignored_stale 或 rejected。客户端只在合法响应后保存收件 ID。响应丢失、网络或鉴权错误均保留事件，以 5 秒起指数退避、上限 1 小时重试；日志和列表仅保存错误代码，不存上游认证响应正文。
+规范字符串依次为版本、key_id、大写方法、完整外部路径、Unix 秒、nonce、幂等键、原文 SHA-256 小写十六进制，以 LF 分隔且无尾 LF。HMAC-SHA256 签名输出小写十六进制。GET 正文为零字节，幂等头为原 event_id；认证和范围检查使用独立请求 UUID。请求时间绝对偏差不超过 300 秒。每次尝试生成新 nonce，重试不改变原文、事件身份或路由。
 
-`GET /api/v1/source-receipts/{id}` 使用同样的来源签名，读取当前收件处理及发送摘要。received/applied 每 30 秒轮询，applied 只表示素材已更新；不显示为微信群已发送。ignored_stale/rejected 保留记录并停止自动查询。运营可在本校来源发件记录中重试原事件；重试仍受接收端幂等语义约束，不能创建新的发送意图。
+平台管理员在只读连接页面点击“验证连接”会验证部署配置中的调用方凭据，保存的提示能力只在 60 秒内用于界面提示；每个真实请求仍由 WeKeeper 按当前凭据及授权校验。HTTPS origin 禁止用户信息、query、fragment，所有请求禁止自动重定向。secret 仅从后端配置读取用于签名，不在数据库保存，也不使用本实例加密主密钥；普通读取接口不回显。部署步骤见 [WeKeeper 配置](wekeeper-configuration.md)。
 
-来源事件以学校和帖子为范围分配严格递增 sequence。新建待审核内容不推送；通过审核且可见时推送完整正文；正文编辑、重新通过及重新展示产生新版本；隐藏、删除、撤销审核通过或停用学校产生撤回。浏览、点赞、收藏和计数更新不产生事件。导入历史不生成事件；导入后的业务变更按新的序号推进。
+每所学校仅有一条当前消息路由；一个 Linjian 实例只对应一个由后端配置指定的 WeKeeper；各校共用此配置，只维护独立 route_id 与启停状态，无需选择连接。保存配置更新原绑定，停用仍保留该唯一记录。业务事务按学校绑定冻结连接版本、公开内容 origin、来源、路由、正文和摘要。正文有意义变更产生新 event_id 与单调 sequence；浏览、点赞和计数不产生事件。停用学校产生内容撤回，上游不维护学校对象。
 
-跨库传输有延迟。撤回只通知素材失效，无法撤回群内消息；接收端仍须单独执行学校授权、预览和人工确认。两边密钥轮换可保留有界重叠期；发件端更新 key_id/secret 后使用原冻结正文重试，不能为轮换改动历史事件。
+同 `(source_id,event_id)` 同文重试返回原 receipt；不同原文冲突。收到合法 JSON:API 回执才记录 receipt_id。received/applied 继续查询摘要，applied 不代表发送成功；ignored_stale/rejected 停止无效重投。429、网络及服务错误退避；鉴权、授权、结构或版本问题保留事件并阻塞等待恢复。重试操作不会清空原 receipt_id 或生成新事件。
+
+来源或 key 停用、删除后新请求均拒绝。移除路由关联禁止该 key 继续提交或读取该路由回执。路由暂停禁止新消息但有效关联仍可查历史。既有任务按上游原任务规则处理，凭据删除不隐式撤回内容。
+
+## v1 历史兼容
+
+v1 DTO、规范签名函数及 `source-event-v1.json` fixture 保留供识别和迁移验证，签名仍使用原有文本 secret 字节。v1 包含 external_organization_id，不能原地加入 v2 route_id。
+
+当前 worker 只投递 v2；已有 v1 行保留原 ID、正文和 receipt，标记 legacy_version_blocked，不默认转投 v2。没有已核实可用的 v1 服务时须保留队列并制定显式迁移安排，不能在重试中改正文或生成新 ID 隐藏冲突。旧全局来源环境变量不自动变成动态 v2 连接。
+
+调用方向：所有认证、路由检查、事件推送和回执查询均由 Linjian 主动请求上游 WeKeeper。WeKeeper 不回调 Linjian，不探测其在线状态，不配置下游可信网址或路径前缀。事件 detail_url 仅为消息内容链接，不作为回调目标。
