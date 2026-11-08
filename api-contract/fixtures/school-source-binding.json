@@ -1,0 +1,14 @@
+{
+  "data": {
+    "type": "source-bindings",
+    "id": "20000000-0000-0000-0000-000000000001",
+    "attributes": {
+      "binding": {
+        "id": "20000000-0000-0000-0000-000000000031",
+        "route_id": "school-route-1",
+        "active": true,
+        "revision": 2
+      }
+    }
+  }
+}

@@ -102,6 +102,8 @@ export function decodeResource(value: unknown): Record<string, unknown> {
 /** Explicit aliases for action routes whose target resource differs from the URL leaf. */
 export function resourceType(path: string): string {
   const parts = path.split("?")[0].split("/").filter(Boolean);
+  if (parts[1] === 'v2' && parts[2] === 'source-connections') return 'source-connections';
+  if (parts[1] === 'v2' && parts[2] === 'schools' && parts[4] === 'source-bindings') return 'source-bindings';
   if (parts[0] !== "api" || parts[1] !== "v1")
     throw new Error("Unknown resource path");
   const kind=parts[2]==='platform'?parts[3]:parts[2]==='schools'?parts[4]:undefined;

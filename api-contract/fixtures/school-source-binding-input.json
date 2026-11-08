@@ -1,0 +1,9 @@
+{
+  "data": {
+    "type": "source-bindings",
+    "attributes": {
+      "route_id": "school-route-1",
+      "active": true
+    }
+  }
+}

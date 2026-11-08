@@ -1,0 +1,12 @@
+{
+  "data": {
+    "type": "source-connections",
+    "id": "list",
+    "attributes": {
+      "configured": true,
+      "origin": "https://keeper.example.com",
+      "key_id": "key-example",
+      "connection": null
+    }
+  }
+}
