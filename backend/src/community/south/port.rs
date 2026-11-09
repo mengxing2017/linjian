@@ -1,4 +1,5 @@
 use crate::business::{Actor, Decision, Page, Result};
+use crate::community::domain::case::{CaseManagementView, ResolveCaseInput};
 use crate::community::domain::{CommentInput, PostInput};
 use serde_json::Value;
 use uuid::Uuid;
@@ -136,6 +137,6 @@ pub trait Store: Clone + Send + Sync + 'static {
         a: &Actor,
         s: Uuid,
         id: Uuid,
-        v: Value,
-    ) -> impl std::future::Future<Output = Result<Value>> + Send;
+        v: ResolveCaseInput,
+    ) -> impl std::future::Future<Output = Result<CaseManagementView>> + Send;
 }

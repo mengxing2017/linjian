@@ -261,7 +261,7 @@ async fn resolve(
     Path((s, id)): Path<(Uuid, Uuid)>,
     input_document: Input,
 ) -> Result<ApiResponse> {
-    let v = input_document.decode::<Value>("cases")?;
+    let v = input_document.decode::<crate::community::domain::case::ResolveCaseInput>("cases")?;
     Ok(resource(
         "cases",
         a.community.resolve(&actor, s, id, v).await?,

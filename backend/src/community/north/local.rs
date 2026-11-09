@@ -3,6 +3,7 @@ use super::super::{
     south::adapter::postgres::Repository,
 };
 use crate::business::{Actor, Decision, Page, Result, require, text};
+use crate::community::domain::case::{CaseManagementView, ResolveCaseInput};
 use crate::community::south::port::Store;
 use serde_json::Value;
 use uuid::Uuid;
@@ -157,13 +158,15 @@ impl<R: Store> Service<R> {
         a.authorize(s, "member")?;
         self.0.cases(a, s, page).await
     }
-    pub async fn resolve(&self, a: &Actor, s: Uuid, id: Uuid, v: Value) -> Result<Value> {
+    pub async fn resolve(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+        mut v: ResolveCaseInput,
+    ) -> Result<CaseManagementView> {
         a.authorize(s, "operator")?;
-        require(
-            ["resolved", "dismissed"].contains(&v["state"].as_str().unwrap_or("")),
-            "处理状态无效",
-        )?;
-        text(v["resolution"].as_str().unwrap_or(""), 1, 2000)?;
+        v.validate()?;
         self.0.resolve(a, s, id, v).await
     }
 }

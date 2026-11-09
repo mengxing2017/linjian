@@ -1,3 +1,5 @@
+use crate::community::domain::case::{CaseManagementView, ResolveCaseInput};
+mod cases;
 mod decisions;
 mod reviews;
 use crate::business::{Actor, Decision, Error, Page, Result, require};
@@ -336,13 +338,6 @@ impl Repository {
         tx.commit().await?;
         Ok(())
     }
-    pub async fn cases(&self, a: &Actor, s: Uuid, page: Page) -> Result<Vec<Value>> {
-        crate::schools::south::adapter::postgres::Repository(self.0.clone())
-            .require_active(s)
-            .await?;
-        let (limit, offset) = page.fetch_bounds()?;
-        Ok(sqlx::query_scalar("SELECT to_jsonb(c) FROM cases c WHERE school_id=$1 AND ($2 OR account_id=$3) ORDER BY created_at DESC,id DESC LIMIT $4 OFFSET $5").bind(s).bind(a.can(s,"operator")).bind(a.id).bind(limit).bind(offset).fetch_all(&self.0).await?)
-    }
     pub async fn case(&self, a: &Actor, s: Uuid, v: Value) -> Result<Value> {
         let mut tx = self.0.begin().await?;
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
@@ -351,23 +346,7 @@ impl Repository {
             sqlx::query("SELECT id FROM posts WHERE school_id=$1 AND id=$2 AND visibility<>'deleted' AND (author_id=$3 OR $4 OR (audit_status='approved' AND visibility='visible'))")
                 .bind(s).bind(id).bind(a.id).bind(a.can(s,"operator")).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
         }
-        let item=sqlx::query_scalar("INSERT INTO cases(id,school_id,account_id,kind,post_id,content,contact,images) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING to_jsonb(cases)").bind(Uuid::now_v7()).bind(s).bind(a.id).bind(v["kind"].as_str()).bind(post).bind(v["content"].as_str()).bind(v["contact"].as_str().unwrap_or("")).bind(v.get("images").cloned().unwrap_or(json!([]))).fetch_one(&mut *tx).await?;
-        tx.commit().await?;
-        Ok(item)
-    }
-    pub async fn resolve(&self, a: &Actor, s: Uuid, id: Uuid, v: Value) -> Result<Value> {
-        let mut tx = self.0.begin().await?;
-        crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
-        let item=sqlx::query_scalar("UPDATE cases SET state=$3,resolution=$4,revision=revision+1 WHERE school_id=$1 AND id=$2 AND revision=$5 RETURNING to_jsonb(cases)").bind(s).bind(id).bind(v["state"].as_str()).bind(v["resolution"].as_str()).bind(v["revision"].as_i64().unwrap_or(0)).fetch_optional(&mut *tx).await?.ok_or(Error::Conflict)?;
-        crate::audit::record(
-            &mut tx,
-            a,
-            s,
-            "case.resolve",
-            id,
-            json!({"state":v["state"]}),
-        )
-        .await?;
+        let item=sqlx::query_scalar("INSERT INTO cases(id,school_id,account_id,kind,post_id,content,contact,images) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING to_jsonb(cases)-'handled_at'-'handled_by'").bind(Uuid::now_v7()).bind(s).bind(a.id).bind(v["kind"].as_str()).bind(post).bind(v["content"].as_str()).bind(v["contact"].as_str().unwrap_or("")).bind(v.get("images").cloned().unwrap_or(json!([]))).fetch_one(&mut *tx).await?;
         tx.commit().await?;
         Ok(item)
     }
@@ -447,7 +426,13 @@ impl crate::community::south::port::Store for Repository {
     async fn case(&self, a: &Actor, s: Uuid, v: Value) -> Result<Value> {
         Repository::case(self, a, s, v).await
     }
-    async fn resolve(&self, a: &Actor, s: Uuid, id: Uuid, v: Value) -> Result<Value> {
+    async fn resolve(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+        v: ResolveCaseInput,
+    ) -> Result<CaseManagementView> {
         Repository::resolve(self, a, s, id, v).await
     }
 }

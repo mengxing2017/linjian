@@ -41,3 +41,5 @@ pub struct CommentInput {
 
 pub mod moderation;
 pub mod review;
+
+pub mod case;
