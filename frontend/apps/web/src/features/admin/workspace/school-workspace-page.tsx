@@ -9,7 +9,9 @@ import { SchoolForm } from './school-profile'
 import { SchoolResources } from './school-resources'
 
 /** Authorized school page dispatch. Access checks and school selection live in WorkspaceShell. */
-export function SchoolWorkspacePage({ view, school, platformAdmin, schoolAdmin, refresh }: {
+export function SchoolWorkspacePage({ view, school, platformAdmin, schoolAdmin, publisher, publisherId, refresh }: {
+  publisherId?: string
+  publisher?: string
   view: string
   school: School
   platformAdmin: boolean
@@ -17,7 +19,7 @@ export function SchoolWorkspacePage({ view, school, platformAdmin, schoolAdmin, 
   refresh: () => Promise<void>
 }) {
   switch (view) {
-    case 'posts': return <ContentModeration school={school} canEditModes={schoolAdmin} refresh={refresh} />
+    case 'posts': return <ContentModeration publisherId={publisherId} publisher={publisher} platformAdmin={platformAdmin} school={school} canEditModes={schoolAdmin} refresh={refresh} />
     case 'cases': return <Cases school={school.id} refresh={refresh} />
     case 'resources': return <SchoolResources school={school} canEdit={schoolAdmin} refresh={refresh} />
     case 'audit': return <AuditLog school={school.id} />

@@ -737,3 +737,10 @@ code {
 .review-title.ant-btn { display: block; width: 100%; height: auto; white-space: nowrap; text-align: start; overflow: hidden; text-overflow: ellipsis; }
 .review-list-preview { display: block; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+.post-management-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.post-search-tools .ant-input-search { width: min(240px, 48vw); }
+.post-filter-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: min(460px, calc(100vw - 64px)); }
+.post-filter-fields label { display: flex; flex-direction: column; gap: 4px; }
+@media (max-width: 480px) {
+  .post-filter-fields { grid-template-columns: minmax(0, 1fr); }
+}

@@ -26,16 +26,18 @@ function contentPreview(content: string) {
 }
 
 
-function ReviewDetail({
+export function ReviewDetail({
   school,
   id,
   close,
   saved,
+  management = false,
 }: {
   school: string
   id: string
   close: () => void
   saved: () => Promise<void>
+  management?: boolean
 }) {
   const [reason, setReason] = useState(''),
     [busy, setBusy] = useState(false),
@@ -173,7 +175,7 @@ function ReviewDetail({
               撤销审核
             </Button>
           </Space>
-          <Space wrap>
+          {!management && <Space wrap>
             <Button disabled={disabled} onClick={() => void visibility('visible')}>
               展示
             </Button>
@@ -189,7 +191,7 @@ function ReviewDetail({
             >
               {post.top_sort ? '取消置顶' : '置顶'}
             </Button>
-          </Space>
+          </Space>}
         </>
       )}
     </Drawer>

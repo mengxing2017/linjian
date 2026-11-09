@@ -93,7 +93,7 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
       </>} />
     }
     return <div className="business-panel" key={`${school.id}-${tab}`}>
-      <SchoolWorkspacePage view={tab} school={school} platformAdmin={user.platform_admin}
+      <SchoolWorkspacePage publisherId={user.id} publisher={user.display_name} view={tab} school={school} platformAdmin={user.platform_admin}
         schoolAdmin={user.platform_admin || role === 'admin'} refresh={refresh} />
     </div>
   }

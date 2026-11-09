@@ -8,13 +8,13 @@ import { Workspace } from './index'
 import { identity, workspace, product } from './api'
 vi.mock('../../school-context/api', async () => ({ schoolsApi: (await import('./api')).workspace }))
 vi.mock('../../identity/api', async () => ({ identity: (await import('./api')).identity, subscribeUnauthorized: () => () => {} }))
-vi.mock('./api', () => ({ product:{resources:{artwork:vi.fn().mockResolvedValue([])}}, identity: { session: vi.fn(), accounts: vi.fn(), create: vi.fn(), update: vi.fn(), reset: vi.fn(), logout: vi.fn() }, workspace: { schools: vi.fn(), cases: vi.fn(), resolveCase: vi.fn(), reviews: vi.fn(), review: vi.fn(), list: vi.fn(), schoolProfiles:{platform:vi.fn(),detail:vi.fn(),create:vi.fn(),update:vi.fn(),artwork:vi.fn(),branding:vi.fn()}, createSchool: vi.fn(), updateSchool: vi.fn(), mutate: vi.fn() } }))
+vi.mock('./api', () => ({ product:{resources:{artwork:vi.fn().mockResolvedValue([])}}, identity: { session: vi.fn(), accounts: vi.fn(), create: vi.fn(), update: vi.fn(), reset: vi.fn(), logout: vi.fn() }, workspace: { postManagement: {list: vi.fn()}, schools: vi.fn(), cases: vi.fn(), resolveCase: vi.fn(), reviews: vi.fn(), review: vi.fn(), list: vi.fn(), schoolProfiles:{platform:vi.fn(),detail:vi.fn(),create:vi.fn(),update:vi.fn(),artwork:vi.fn(),branding:vi.fn()}, createSchool: vi.fn(), updateSchool: vi.fn(), mutate: vi.fn() } }))
 class TestResizeObserver { observe() {} unobserve() {} disconnect() {} }
 vi.stubGlobal('ResizeObserver', TestResizeObserver)
 configure({ asyncUtilTimeout: 5000 })
 afterEach(() => { cleanup(); vi.resetAllMocks() })
 import {beforeEach} from 'vitest'
-beforeEach(()=>{vi.mocked(workspace.cases).mockImplementation((s,q,signal)=>workspace.list(s,'cases',q,signal) as ReturnType<typeof workspace.cases>);vi.mocked(workspace.schoolProfiles.detail).mockImplementation(async id => (await workspace.schools()).find(s => s.id === id)!);vi.mocked(workspace.reviews).mockImplementation((s,q,signal)=>workspace.list(s,'posts',q,signal) as ReturnType<typeof workspace.reviews>);vi.mocked(product.resources.artwork).mockResolvedValue([]);vi.mocked(workspace.schoolProfiles.platform).mockImplementation(async(filters={})=>{const all=await workspace.schools();const filtered=all.filter(s=>!filters.search||s.name.includes(filters.search));const n=filters.page??1;return {items:filtered.slice((n-1)*10,n*10),page:{number:n,size:10,has_more:n*10<filtered.length}}})})
+beforeEach(()=>{vi.mocked(workspace.postManagement.list).mockImplementation(async (s,f={},signal)=>{const result=await workspace.list(s,'posts','?'+new URLSearchParams({'page[number]':String(f.page??1)}),signal); return {...result,items:[],order_revision:1}});vi.mocked(workspace.cases).mockImplementation((s,q,signal)=>workspace.list(s,'cases',q,signal) as ReturnType<typeof workspace.cases>);vi.mocked(workspace.schoolProfiles.detail).mockImplementation(async id => (await workspace.schools()).find(s => s.id === id)!);vi.mocked(workspace.reviews).mockImplementation((s,q,signal)=>workspace.list(s,'posts',q,signal) as ReturnType<typeof workspace.reviews>);vi.mocked(product.resources.artwork).mockResolvedValue([]);vi.mocked(workspace.schoolProfiles.platform).mockImplementation(async(filters={})=>{const all=await workspace.schools();const filtered=all.filter(s=>!filters.search||s.name.includes(filters.search));const n=filters.page??1;return {items:filtered.slice((n-1)*10,n*10),page:{number:n,size:10,has_more:n*10<filtered.length}}})})
 Object.defineProperty(window, 'matchMedia', { writable: true, value: (query: string) => ({ matches: false, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }) })
 it('restores the selected school and business page from its URL', async () => {
   vi.mocked(identity.session).mockResolvedValue({csrf:'csrf',user:{id:'u',username:'admin',display_name:'管理员',platform_admin:true,bound_school_id:null,grants:[],wecom_authenticated:false}})
@@ -23,8 +23,8 @@ it('restores the selected school and business page from its URL', async () => {
   vi.mocked(identity.accounts).mockResolvedValue([])
   const client = new QueryClient({defaultOptions:{queries:{retry:false}}})
   render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/admin?school=school&view=posts']}><Workspace/></MemoryRouter></QueryClientProvider>)
-  const groupsTitle = await screen.findByText('内容审核', { selector: 'h1' })
-  expect(within(groupsTitle.parentElement!).getByRole('heading', { name: '内容审核', level: 1 })).toBe(groupsTitle)
+  const groupsTitle = await screen.findByText('内容管理', { selector: 'h1' })
+  expect(within(groupsTitle.parentElement!).getByRole('heading', { name: '内容管理', level: 1 })).toBe(groupsTitle)
   await waitFor(() => expect(workspace.list).toHaveBeenCalledWith('school','posts',expect.any(String),expect.any(AbortSignal)))
   fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: '学校管理' }))
   const schoolsTitle = await screen.findByText('学校管理', { selector: 'h1' })
@@ -56,15 +56,16 @@ it.each(['comments', 'posts&subview=comments'])('opens comment reviews within co
   showManagement(view, false, 'operator')
   vi.mocked(workspace.list).mockResolvedValue({items:[{id:'comment-1',post_title:'评论所属帖子',content:'评论正文',author_name:'评论用户昵称',audit_status:'pending',revision:1}]})
   expect(await screen.findByRole('tab', { name: '评论审核', selected: true })).toBeTruthy()
-  expect(screen.getByRole('heading', { name: '内容审核', level: 1 })).toBeTruthy()
+  expect(screen.getByRole('heading', { name: '内容管理', level: 1 })).toBeTruthy()
   expect(within(screen.getByRole('menu')).queryByRole('menuitem', { name: '评论审核' })).toBeNull()
   expect(screen.getByTestId('location').textContent).toBe('?school=school&view=posts&subview=comments')
   await waitFor(() => expect(workspace.list).toHaveBeenCalledWith('school', 'comments', expect.stringContaining('status=pending'), expect.any(AbortSignal)))
-  const commentRow = within((await screen.findByText('评论正文')).closest('tr')!)
-  expect(screen.getAllByRole('columnheader').map(header => header.textContent)).toEqual([
+  const commentPanel = within(screen.getByRole('tabpanel', {name:'评论审核'}))
+  const commentRow = within((await commentPanel.findByText('评论正文')).closest('tr')!)
+  expect(commentPanel.getAllByRole('columnheader').map(header => header.textContent)).toEqual([
     '标题 / 名称', '审核状态', '内容', '用户昵称', '创建时间', '操作',
   ])
-  expect(screen.getByRole('columnheader', { name: '用户昵称' })).toBeTruthy()
+  expect(commentPanel.getByRole('columnheader', { name: '用户昵称' })).toBeTruthy()
   expect(commentRow.getByText('评论用户昵称')).toBeTruthy()
   fireEvent.click(commentRow.getByRole('button', { name: /详\s*情/ }))
   const detail = await screen.findByRole('dialog')
@@ -73,7 +74,13 @@ it.each(['comments', 'posts&subview=comments'])('opens comment reviews within co
   expect(within(detail).getByText('评论用户昵称')).toBeTruthy()
   fireEvent.click(within(detail).getByRole('button', { name: 'Close' }))
   await waitFor(() => expect(detail.isConnected).toBe(false))
-  fireEvent.click(screen.getByRole('tab', { name: '帖子审核' }))
+
+})
+
+it('preserves comment and post tab URLs through browser history', async () => {
+  showManagement('posts&subview=comments', false, 'operator')
+  await screen.findByRole('tab', {name: '评论审核', selected: true})
+  fireEvent.click(screen.getByRole('tab', { name: '帖子管理' }))
   expect(screen.getByTestId('location').textContent).toBe('?school=school&view=posts&subview=posts')
   fireEvent.click(screen.getByRole('button', { name: '返回上一页' }))
   expect(await screen.findByRole('tab', { name: '评论审核', selected: true })).toBeTruthy()
