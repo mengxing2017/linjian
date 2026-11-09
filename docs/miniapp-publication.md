@@ -1,6 +1,6 @@
 # 小程序审核内容来源推送
 
-新建小程序帖子固定人工审核。管理后台展示标题、完整内容、学校、用户昵称和创建时间；审核详情独立读取当前全文及附件，通过时提交 `review_digest` 和帖子修订。版本冲突后必须重新加载全文核对，不自动批准新版本。审核页面不展示或依赖来源摘要。通过后，后端针对已锁定全文生成 `plain-v1` 来源摘要（最多 120 个 Unicode 标量，含截断省略号），并将审核快照、帖子状态与 Outbox 准备意图在同一数据库事务提交。审核页面操作说明见 [全文审核](content-review.md)。
+小程序帖子遵循本校 `post_audit_mode`：人工模式待审，自动模式通过基础校验后自动通过。自动通过写入无人工审核人的系统决定及策略版本，与人工通过共用不可变发布快照。管理后台展示标题、完整内容、学校、用户昵称和创建时间；审核详情独立读取当前全文及附件，通过时提交 `review_digest` 和帖子修订。版本冲突后必须重新加载全文核对，不自动批准新版本。审核页面不展示或依赖来源摘要。通过后，后端针对已锁定全文生成 `plain-v1` 来源摘要（最多 120 个 Unicode 标量，含截断省略号），并将审核快照、帖子状态与 Outbox 准备意图在同一数据库事务提交。审核页面操作说明见 [全文审核](content-review.md)。
 
 准备 worker 在事务外调用微信，将正式版 `pages/index/detail?school=<uuid>&id=<uuid>` 生成链接；默认 Short Link，非永久、按官方策略 30 天。可显式配置 URL Link（1–30 天），没有自动降级。微信权限、配额或网络故障保留准备状态，不阻断论坛发帖或撤回。
 
@@ -17,11 +17,11 @@
 - `LINJIAN_MINIAPP_LINK_MIN_REMAINING_SECONDS=86400`：必须正数且小于所选有效期。
 - `LINJIAN_MINIAPP_PREPARATION_CONCURRENCY=2`：每实例 1–16，跨实例通过数据库租约互斥。
 
-新增 forward-only migration `202611090002_miniapp_publication.sql`。存量帖子保留 legacy 全文投影，不批量生成新机会。需协调发布配套后端、Web、contract、小程序，避免旧进程将新帖子写成 legacy。禁止回退到不认识新投影和状态的旧二进制。
+来源发布基线为 `202611090002_miniapp_publication.sql`，双模式新增 forward-only migration `202611090005_moderation_modes.sql`。存量帖子保留 legacy 全文投影，不批量生成新机会。需协调发布配套后端、Web、contract、小程序，避免旧进程将新帖子写成 legacy。禁止回退到不认识新投影和状态的旧二进制。
 
 未配置微信时论坛可启动，准备进入 `miniapp_not_configured`。配置补齐并重启后恢复该状态；已知 AppID 不允许偷偷切换为另一个 AppID。审核时的策略固定在快照；审核时 AppID 空缺则首次有配置时固定。其他永久失败修复后在来源发件记录选择“重试内容准备”，必须填写原因并携带准备修订；冻结后使用“重试同一事件”。两种恢复均保留事件身份。
 
-首次投递前链接若已不足最小剩余时间，事件阻塞为 `link_expired_before_delivery`，不能修改冻结链接或直接重试；重新撤审、人工审核形成新机会。已经尝试投递的事件按原字节继续确认回执，不能重拼可能已被接收的请求。
+首次投递前链接若已不足最小剩余时间，事件阻塞为 `link_expired_before_delivery`，不能修改冻结链接或直接重试；重新撤审、人工通过形成新机会。已经尝试投递的事件按原字节继续确认回执，不能重拼可能已被接收的请求。
 
 准备记录保存受控错误码和尝试次数；来源发件详情显示摘要、链接和有效期。凭据、token、原始微信错误、冻结签名均不向浏览器回显。Outbox 仍是来源推送，不创建发送任务或发送授权。
 
@@ -30,3 +30,9 @@
 ## 本地验证
 
 执行 `make check-web`、`make check-miniapp`、`devbox run -- make check-backend`。显式隔离数据库执行 `make test-integration`；也可使用 `LINJIAN_POSTGRES_BIN=/path/to/postgresql17/bin devbox run -- python3 tools/test_database.py` 自动建临时数据库。测试不调用真实微信或转发平台。
+
+## 双模式升级注意事项
+
+先迁移，再协调发布 API、contract、Web 与小程序，隔离旧 API 写流量。已有学校 `post_audit_mode=auto` 将对小程序帖子真正生效，发布前盘点并交接；不批量改写历史审核状态或生成历史推送。模式切换与投稿沿用学校行锁串行，自动决定保留当时策略版本；之后切回人工不会使旧已批准快照失效。
+
+正文编辑先使旧证据失效，再按当前模式生成新批准证据及来源机会，所有步骤同事务；无内容变化保存不推送。自动批准不改变 created_via/source_projection，也不恢复隐藏内容。出现问题可将学校切回 manual，后续投稿进入人工审核，数据库只作 forward-only 修复，不回退到仅认识人工证据的旧 API。
