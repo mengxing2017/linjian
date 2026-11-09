@@ -64,6 +64,21 @@ async fn post_review_jsonapi_matches_shared_fixture() {
     let doc: serde_json::Value =
         serde_json::from_slice(&to_bytes(response.into_body(), 8192).await.unwrap()).unwrap();
     assert_eq!(doc, fixture);
+    for raw in [
+        include_str!("../../api-contract/fixtures/post-review-human.json"),
+        include_str!("../../api-contract/fixtures/post-review-automatic.json"),
+        include_str!("../../api-contract/fixtures/post-review-legacy.json"),
+    ] {
+        let fixture: serde_json::Value = serde_json::from_str(raw).unwrap();
+        let mut attributes = fixture["data"]["attributes"].clone();
+        attributes["id"] = fixture["data"]["id"].clone();
+        let review: PostReview = serde_json::from_value(attributes).unwrap();
+        let response = linjian_api::http::jsonapi::singleton("post-reviews", review.id, review)
+            .into_response();
+        let document: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 8192).await.unwrap()).unwrap();
+        assert_eq!(document, fixture);
+    }
     let decision: serde_json::Value = serde_json::from_str(include_str!(
         "../../api-contract/fixtures/post-review-decision-input.json"
     ))

@@ -801,7 +801,7 @@ async fn reviewed_miniapp_publication_freezing_and_fencing() {
         .await
         .unwrap();
     sqlx::query(
-        "UPDATE schools SET config=config||'{\"post_audit_mode\":\"auto\"}'::jsonb WHERE id=$1",
+        "UPDATE schools SET config=config||'{\"post_audit_mode\":\"manual\"}'::jsonb WHERE id=$1",
     )
     .bind(school)
     .execute(&pool)
@@ -851,7 +851,7 @@ async fn reviewed_miniapp_publication_freezing_and_fencing() {
     let post: Uuid = pending["id"].as_str().unwrap().parse().unwrap();
     assert_eq!(
         pending["audit_status"], "pending",
-        "school auto mode must not bypass human review"
+        "manual policy must require human review"
     );
     assert_eq!(pending["created_via"], "miniapp");
     let store = Repository(pool.clone());
@@ -1886,6 +1886,642 @@ async fn school_profiles_visibility_artwork_and_transactions() {
     assert_eq!(doc["meta"]["page"]["has_more"], true);
     let response=router.clone().oneshot(Request::builder().method("PUT").uri(format!("/api/v1/schools/{id}")).header("Cookie",format!("linjian_session={token}")).header("Content-Type","application/vnd.api+json").body(Body::from(json!({"data":{"type":"schools","attributes":{"name":"CSRF","revision":restored.revision}}}).to_string())).unwrap()).await.unwrap();
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    pool.close().await;
+    sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
+        .execute(&admin)
+        .await
+        .unwrap();
+    admin.close().await;
+}
+
+#[tokio::test]
+#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
+async fn moderation_modes_preserve_policy_evidence_and_publication_boundaries() {
+    use linjian_api::{business::Page, community::domain::review::digest};
+    let admin = PgPool::connect(
+        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
+    )
+    .await
+    .unwrap();
+    let schema = format!("forum_modes_{}", Uuid::new_v4().simple());
+    let pool = isolated(&admin, &schema).await;
+    database::migrate(&pool).await.unwrap();
+    let app = bootstrap::build_application(pool.clone());
+    let root = app
+        .identity
+        .bootstrap("root", "管理员", "test-password-at-least-12", true)
+        .await
+        .unwrap();
+    let (_, actor) = app
+        .identity
+        .0
+        .session(root, "browser", false)
+        .await
+        .unwrap();
+    let school: Uuid = app.schools.create(&actor, "自动审核校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let other: Uuid = app.schools.create(&actor, "其他学校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    sqlx::query("INSERT INTO miniapp_users(account_id,nickname) VALUES($1,'作者')")
+        .bind(root)
+        .execute(&pool)
+        .await
+        .unwrap();
+    app.schools
+        .grant(&actor, school, root, "member")
+        .await
+        .unwrap();
+    let (_, mini) = app
+        .identity
+        .0
+        .session(root, "miniapp", false)
+        .await
+        .unwrap();
+    let operator_id = app
+        .identity
+        .bootstrap("operator", "运营", "test-password-at-least-12", false)
+        .await
+        .unwrap();
+    app.schools
+        .grant(&actor, school, operator_id, "operator")
+        .await
+        .unwrap();
+    let (_, operator) = app
+        .identity
+        .0
+        .session(operator_id, "browser", false)
+        .await
+        .unwrap();
+    let viewer_id = app
+        .identity
+        .bootstrap("viewer", "普通成员", "test-password-at-least-12", false)
+        .await
+        .unwrap();
+    app.schools
+        .grant(&actor, school, viewer_id, "member")
+        .await
+        .unwrap();
+    let (_, viewer) = app
+        .identity
+        .0
+        .session(viewer_id, "browser", false)
+        .await
+        .unwrap();
+    let profile = app.schools.0.school_detail(&actor, school).await.unwrap();
+    for forbidden in [&operator, &viewer, &mini] {
+        assert!(
+            app.schools
+                .update(
+                    forbidden,
+                    school,
+                    json!({"revision":profile.revision,"config":{"post_audit_mode":"auto"}})
+                )
+                .await
+                .is_err()
+        );
+    }
+    let input = |title: &str, content: &str, revision: Value| {
+        serde_json::from_value(json!({"title":title,"content":content,"revision":revision}))
+            .unwrap()
+    };
+    let pending = app
+        .community
+        .post(
+            &mini,
+            school,
+            None,
+            input("人工待审", "待审正文", Value::Null),
+        )
+        .await
+        .unwrap();
+    assert_eq!(pending["audit_status"], "pending");
+    let profile = app.schools.0.school_detail(&actor, school).await.unwrap();
+    app.schools.update(&actor,school,json!({"revision":profile.revision,"config":{"post_audit_mode":"auto","comment_audit_mode":"manual"}})).await.unwrap();
+    let id: Uuid = pending["id"].as_str().unwrap().parse().unwrap();
+    assert_eq!(
+        app.community
+            .review(&actor, school, id)
+            .await
+            .unwrap()
+            .audit_status,
+        "pending"
+    );
+    let approved = app
+        .community
+        .post(
+            &mini,
+            school,
+            None,
+            input("自动标题", "自动全文", Value::Null),
+        )
+        .await
+        .unwrap();
+    let post: Uuid = approved["id"].as_str().unwrap().parse().unwrap();
+    assert_eq!(approved["audit_status"], "approved");
+    assert_eq!(approved["created_via"], "miniapp");
+    assert_eq!(approved["source_projection"], "miniapp_summary_v1");
+    let evidence: Value =
+        sqlx::query_scalar("SELECT to_jsonb(s) FROM forum_publication_snapshots s WHERE id=$1")
+            .bind(
+                approved["approved_snapshot_id"]
+                    .as_str()
+                    .unwrap()
+                    .parse::<Uuid>()
+                    .unwrap(),
+            )
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(evidence["decision_source"], "automatic");
+    assert!(evidence["moderator_id"].is_null());
+    let review = app.community.review(&actor, school, post).await.unwrap();
+    assert_eq!(json!(review.decision_source), "automatic");
+    assert!(review.decided_at.is_some());
+    assert!(review.moderator_id.is_none());
+    assert!(app.community.review(&actor, other, post).await.is_err());
+    assert!(app.community.review(&mini, school, post).await.is_err());
+    assert!(
+        app.community
+            .reviews(&operator, school, Page::default())
+            .await
+            .is_ok()
+    );
+    assert!(
+        app.community
+            .reviews(&viewer, school, Page::default())
+            .await
+            .is_err()
+    );
+    let before: (i64, i64) = sqlx::query_as(
+        "SELECT (SELECT count(*) FROM moderation_events),(SELECT count(*) FROM forum_outbox)",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let unchanged = app
+        .community
+        .post(
+            &mini,
+            school,
+            Some(post),
+            input("自动标题", "自动全文", approved["revision"].clone()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(unchanged["revision"], approved["revision"]);
+    assert_eq!(
+        sqlx::query_as::<_, (i64, i64)>(
+            "SELECT (SELECT count(*) FROM moderation_events),(SELECT count(*) FROM forum_outbox)"
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        before
+    );
+    let edited = app
+        .community
+        .post(
+            &mini,
+            school,
+            Some(post),
+            input("自动标题", "修改后的全文", approved["revision"].clone()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(edited["audit_status"], "approved");
+    assert_ne!(
+        edited["approved_snapshot_id"],
+        approved["approved_snapshot_id"]
+    );
+    assert_eq!(
+        edited["content_revision"].as_i64().unwrap(),
+        approved["content_revision"].as_i64().unwrap() + 1
+    );
+    assert!(
+        sqlx::query_scalar::<_, bool>(
+            "SELECT delivery_state='superseded' FROM forum_outbox WHERE publication_snapshot_id=$1"
+        )
+        .bind(
+            approved["approved_snapshot_id"]
+                .as_str()
+                .unwrap()
+                .parse::<Uuid>()
+                .unwrap()
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap()
+    );
+    let rejected = app
+        .community
+        .moderate(
+            &actor,
+            school,
+            post,
+            serde_json::from_value(
+                json!({"revision":edited["revision"],"decision":"rejected","reason":"人工拒绝"}),
+            )
+            .unwrap(),
+            false,
+        )
+        .await
+        .unwrap();
+    let same = app
+        .community
+        .post(
+            &mini,
+            school,
+            Some(post),
+            input("自动标题", "修改后的全文", rejected["revision"].clone()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        same["audit_status"], "rejected",
+        "no-op save cannot override human rejection"
+    );
+    let restored = app
+        .community
+        .post(
+            &mini,
+            school,
+            Some(post),
+            input("自动标题", "作者重新修改", rejected["revision"].clone()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(restored["audit_status"], "approved");
+    assert!(app.community.moderate(&actor,school,post,serde_json::from_value(json!({"revision":restored["revision"],"decision":"approved","reason":"旧指纹","review_digest":digest(&edited).unwrap()})).unwrap(),false).await.is_err());
+    // Policy changes never invalidate prior automatic evidence on ordinary reads/interactions.
+    let profile = app.schools.0.school_detail(&actor, school).await.unwrap();
+    app.schools
+        .update(
+            &actor,
+            school,
+            json!({"revision":profile.revision,"config":{"post_audit_mode":"manual"}}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        app.community.detail(&mini, school, post).await.unwrap()["audit_status"],
+        "approved"
+    );
+    let manual_edit = app
+        .community
+        .post(
+            &mini,
+            school,
+            Some(post),
+            input("待审修改", "重新人工审核", restored["revision"].clone()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(manual_edit["audit_status"], "pending");
+    assert!(manual_edit["approved_snapshot_id"].is_null());
+    let human = app.community.moderate(&actor,school,post,serde_json::from_value(json!({"revision":manual_edit["revision"],"decision":"approved","reason":"核对全文","review_digest":digest(&manual_edit).unwrap()})).unwrap(),false).await.unwrap();
+    let review = app.community.review(&actor, school, post).await.unwrap();
+    assert_eq!(json!(review.decision_source), "human");
+    assert_eq!(review.moderator_id, Some(root));
+    // Manual comments stay private and don't notify another user before approval.
+    let c = app
+        .community
+        .comment(
+            &mini,
+            school,
+            post,
+            serde_json::from_value(json!({"content":"人工评论"})).unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(c["audit_status"], "pending");
+    let cid: Uuid = c["id"].as_str().unwrap().parse().unwrap();
+    assert!(
+        !sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM notifications WHERE object_id=$1 AND kind='comment')"
+        )
+        .bind(cid)
+        .fetch_one(&pool)
+        .await
+        .unwrap()
+    );
+    let public_comments = app
+        .community
+        .comments(&viewer, school, Some(post), Page::default())
+        .await
+        .unwrap();
+    assert!(!public_comments.iter().any(|v| v["id"] == c["id"]));
+    let profile = app.schools.0.school_detail(&actor, school).await.unwrap();
+    app.schools
+        .update(
+            &actor,
+            school,
+            json!({"revision":profile.revision,"config":{"comment_audit_mode":"auto"}}),
+        )
+        .await
+        .unwrap();
+    let before: i64 = sqlx::query_scalar("SELECT count(*) FROM forum_outbox")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let automatic_comment = app
+        .community
+        .comment(
+            &mini,
+            school,
+            post,
+            serde_json::from_value(json!({"content":"自动评论"})).unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(automatic_comment["audit_status"], "approved");
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM forum_outbox")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        before
+    );
+    let comments = app
+        .community
+        .comments(&actor, school, None, Page::default())
+        .await
+        .unwrap();
+    assert!(comments.iter().any(|v| v["id"] == automatic_comment["id"]
+        && v["decision_source"] == "automatic"
+        && v["moderator_id"].is_null()));
+    // Author content input cannot forge decision metadata.
+    assert!(
+        serde_json::from_value::<linjian_api::community::domain::CommentInput>(
+            json!({"content":"伪造","audit_status":"approved"})
+        )
+        .is_err()
+    );
+    // Database guards still reject missing snapshots, foreign evidence, and stale policy.
+    assert!(
+        sqlx::query("UPDATE posts SET audit_status='approved' WHERE id=$1")
+            .bind(id)
+            .execute(&pool)
+            .await
+            .is_err()
+    );
+    assert!(
+        sqlx::query("UPDATE posts SET approved_snapshot_id=$2 WHERE id=$1")
+            .bind(post)
+            .bind(evidence["id"].as_str().unwrap().parse::<Uuid>().unwrap())
+            .execute(&pool)
+            .await
+            .is_err()
+    );
+    assert!(sqlx::query("INSERT INTO moderation_events(id,school_id,object_id,object_kind,decision,reason,decision_source,content_revision,policy_revision,policy_mode,review_digest) VALUES($1,$2,$3,'post','approved','','automatic',1,1,'auto','x')").bind(Uuid::now_v7()).bind(school).bind(post).execute(&pool).await.is_err());
+    assert!(sqlx::query("INSERT INTO moderation_events(id,school_id,actor_id,object_id,object_kind,decision,reason,decision_source,content_revision,review_digest) VALUES($1,$2,$3,$4,'post','approved','','human',1,'x')").bind(Uuid::now_v7()).bind(school).bind(viewer_id).bind(post).execute(&pool).await.is_err());
+    // Hidden status survives approval and cannot be used to change audit policy.
+    let hidden = app
+        .community
+        .visibility(
+            &actor,
+            school,
+            post,
+            json!({"revision":human["revision"],"visibility":"hidden","top_sort":0}),
+        )
+        .await
+        .unwrap();
+    let profile = app.schools.0.school_detail(&actor, school).await.unwrap();
+    app.schools
+        .update(
+            &actor,
+            school,
+            json!({"revision":profile.revision,"config":{"post_audit_mode":"auto"}}),
+        )
+        .await
+        .unwrap();
+    let hidden_edit = app
+        .community
+        .post(
+            &mini,
+            school,
+            Some(post),
+            input("隐藏标题", "隐藏编辑", hidden["revision"].clone()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(hidden_edit["audit_status"], "approved");
+    assert_eq!(hidden_edit["visibility"], "hidden");
+    let profile = app.schools.0.school_detail(&actor, school).await.unwrap();
+    app.schools
+        .update(
+            &actor,
+            school,
+            json!({"revision":profile.revision,"status":"hidden"}),
+        )
+        .await
+        .unwrap();
+    let profile = app.schools.0.school_detail(&actor, school).await.unwrap();
+    assert!(
+        app.schools
+            .update(
+                &actor,
+                school,
+                json!({"revision":profile.revision,"config":{"post_audit_mode":"manual"}})
+            )
+            .await
+            .is_err()
+    );
+    assert!(
+        app.community
+            .post(&mini, school, None, input("隐藏校", "正文", Value::Null))
+            .await
+            .is_err()
+    );
+    // The write guard serializes policy selection with an in-flight configuration transaction.
+    sqlx::query("UPDATE schools SET active=true WHERE id=$1")
+        .bind(school)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let mut policy_tx = pool.begin().await.unwrap();
+    sqlx::query("UPDATE schools SET config=config||'{\"post_audit_mode\":\"manual\"}'::jsonb,revision=revision+1 WHERE id=$1").bind(school).execute(&mut *policy_tx).await.unwrap();
+    let service = app.community.clone();
+    let author = mini.clone();
+    let mut waiting = tokio::spawn(async move {
+        service
+            .post(
+                &author,
+                school,
+                None,
+                serde_json::from_value(json!({"title":"并发投稿","content":"以提交后的策略为准"}))
+                    .unwrap(),
+            )
+            .await
+    });
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(100), &mut waiting)
+            .await
+            .is_err()
+    );
+    policy_tx.commit().await.unwrap();
+    assert_eq!(waiting.await.unwrap().unwrap()["audit_status"], "pending");
+    // Both clients obey the four independent post/comment mode combinations.
+    for post_mode in ["manual", "auto"] {
+        for comment_mode in ["manual", "auto"] {
+            let profile = app.schools.0.school_detail(&actor, school).await.unwrap();
+            app.schools.update(&actor,school,json!({"revision":profile.revision,"config":{"post_audit_mode":post_mode,"comment_audit_mode":comment_mode}})).await.unwrap();
+            for author in [&actor, &mini] {
+                let mut row = app
+                    .community
+                    .post(
+                        author,
+                        school,
+                        None,
+                        input("模式组合", "组合正文", Value::Null),
+                    )
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    row["audit_status"],
+                    if post_mode == "auto" {
+                        "approved"
+                    } else {
+                        "pending"
+                    }
+                );
+                let pid: Uuid = row["id"].as_str().unwrap().parse().unwrap();
+                if post_mode == "manual" {
+                    let decision = serde_json::from_value(json!({"revision":row["revision"],"decision":"approved","reason":"组合核对","review_digest":digest(&row).unwrap()})).unwrap();
+                    row = app
+                        .community
+                        .moderate(&actor, school, pid, decision, false)
+                        .await
+                        .unwrap();
+                }
+                assert_eq!(row["audit_status"], "approved");
+                let comment = app
+                    .community
+                    .comment(
+                        author,
+                        school,
+                        pid,
+                        serde_json::from_value(json!({"content":"组合评论"})).unwrap(),
+                    )
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    comment["audit_status"],
+                    if comment_mode == "auto" {
+                        "approved"
+                    } else {
+                        "pending"
+                    }
+                );
+            }
+        }
+    }
+    let isolated_post = app
+        .community
+        .post(
+            &actor,
+            other,
+            None,
+            input("其他校默认", "仍须人工", Value::Null),
+        )
+        .await
+        .unwrap();
+    assert_eq!(isolated_post["audit_status"], "pending");
+    pool.close().await;
+    sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
+        .execute(&admin)
+        .await
+        .unwrap();
+    admin.close().await;
+}
+
+#[tokio::test]
+#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
+async fn moderation_mode_upgrade_preserves_legacy_publication_evidence() {
+    let admin = PgPool::connect(
+        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
+    )
+    .await
+    .unwrap();
+    let schema = format!("forum_mode_upgrade_{}", Uuid::new_v4().simple());
+    let pool = isolated(&admin, &schema).await;
+    let migrations = database::MIGRATOR.iter().collect::<Vec<_>>();
+    for migration in &migrations[..migrations.len() - 1] {
+        sqlx::raw_sql(&migration.sql).execute(&pool).await.unwrap();
+    }
+    let account = Uuid::new_v4();
+    let school = Uuid::new_v4();
+    let post = Uuid::new_v4();
+    let event = Uuid::new_v4();
+    let snapshot = Uuid::new_v4();
+    sqlx::query("INSERT INTO accounts(id,username,display_name,password_hash) VALUES($1,'upgrade','历史管理员','unused')").bind(account).execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO schools(id,name) VALUES($1,'历史学校')")
+        .bind(school)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO posts(id,school_id,author_id,title,content,created_via,source_projection) VALUES($1,$2,$3,'历史标题','历史正文','miniapp','miniapp_summary_v1')").bind(post).bind(school).bind(account).execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO moderation_events(id,school_id,actor_id,object_id,object_kind,decision,reason) VALUES($1,$2,$3,$4,'post','approved','历史人工审核')").bind(event).bind(school).bind(account).bind(post).execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO forum_publication_snapshots(id,school_id,post_id,author_id,content_revision,approved_post_revision,moderation_event_id,moderator_id,title,content,images,tags,content_digest,summary,summary_algorithm,preview_digest,link_policy) VALUES($1,$2,$3,$4,1,2,$5,$4,'历史标题','历史正文','[]','[]','old-digest','历史正文','plain-v1','old-preview','{}')").bind(snapshot).bind(school).bind(post).bind(account).bind(event).execute(&pool).await.unwrap();
+    sqlx::query(
+        "UPDATE posts SET audit_status='approved',approved_snapshot_id=$2,revision=2 WHERE id=$1",
+    )
+    .bind(post)
+    .bind(snapshot)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let before: i64 = sqlx::query_scalar("SELECT count(*) FROM forum_outbox")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    sqlx::raw_sql(&migrations.last().unwrap().sql)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        sqlx::query_scalar::<_, String>(
+            "SELECT decision_source FROM forum_publication_snapshots WHERE id=$1"
+        )
+        .bind(snapshot)
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        "legacy"
+    );
+    sqlx::query("UPDATE posts SET browse=browse+1 WHERE id=$1")
+        .bind(post)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM forum_outbox")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        before
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("SELECT audit_status FROM posts WHERE id=$1")
+            .bind(post)
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        "approved"
+    );
+    assert!(
+        sqlx::query("UPDATE forum_publication_snapshots SET summary='改写' WHERE id=$1")
+            .bind(snapshot)
+            .execute(&pool)
+            .await
+            .is_err()
+    );
+    assert!(sqlx::query("INSERT INTO moderation_events(id,school_id,actor_id,object_id,object_kind,decision,reason,decision_source) VALUES($1,$2,$3,$4,'post','approved','','legacy')").bind(Uuid::new_v4()).bind(school).bind(account).bind(post).execute(&pool).await.is_err());
     pool.close().await;
     sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
         .execute(&admin)
