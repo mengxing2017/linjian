@@ -29,6 +29,16 @@ async fn serve_inner(
 ) -> Result<(), Box<dyn std::error::Error>> {
     crate::source_access::configuration::ConnectionConfig::from_env()
         .map_err(|fault| std::io::Error::new(std::io::ErrorKind::InvalidInput, fault.0))?;
+    crate::content_publication::domain::Policy::from_env()?;
+    let concurrency = std::env::var("LINJIAN_MINIAPP_PREPARATION_CONCURRENCY")
+        .unwrap_or_else(|_| "2".into())
+        .parse::<usize>()?;
+    if !(1..=16).contains(&concurrency) {
+        return Err("miniapp preparation concurrency must be between 1 and 16".into());
+    }
+    std::env::var("LINJIAN_MINIAPP_SOURCE_ENABLED")
+        .unwrap_or_else(|_| "true".into())
+        .parse::<bool>()?;
     database::migrate(&pool).await?;
     crate::source_access::south::adapter::postgres::Repository(pool.clone())
         .publish_environment()
@@ -99,6 +109,28 @@ async fn serve_inner(
             tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
         }
     });
+    let mut publication_tasks = Vec::new();
+    for _ in 0..concurrency {
+        let publication =
+            crate::content_publication::north::local::Worker::new(application.pool.clone())?;
+        let provider = crate::integrations::south::adapter::miniapp_http::Client::from_env(
+            application.pool.clone(),
+        )?;
+        publication_tasks.push(tokio::spawn(async move {
+            loop {
+                match publication.run_with(&provider).await {
+                    Ok(true) => {}
+                    Ok(false) => tokio::time::sleep(std::time::Duration::from_secs(2)).await,
+                    Err(_) => {
+                        tracing::warn!(
+                            "miniapp content preparation failed; inspect durable preparation state"
+                        );
+                        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                    }
+                }
+            }
+        }));
+    }
     let outbox_worker = crate::outbox::north::local::Worker::from_env(application.pool.clone())?;
     let outbox_task = tokio::spawn(async move {
         loop {
@@ -124,6 +156,9 @@ async fn serve_inner(
     let _ = outbox_task.await;
     artwork_worker.abort();
     let _ = artwork_worker.await;
+    for task in publication_tasks {
+        task.abort();
+    }
     worker.abort();
     let _ = worker.await;
     result?;
