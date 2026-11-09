@@ -7,7 +7,9 @@
         "id": "20000000-0000-0000-0000-000000000031",
         "route_id": "school-route-1",
         "active": true,
-        "revision": 2
+        "revision": 2,
+        "checked_at": null,
+        "updated_at": "2026-11-09T00:00:00Z"
       }
     }
   }

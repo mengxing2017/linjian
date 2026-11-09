@@ -1,0 +1,8 @@
+{
+  "data": {
+    "type": "source-outbox-replays",
+    "attributes": {
+      "reason": "原凭据已修复"
+    }
+  }
+}

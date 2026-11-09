@@ -47,7 +47,8 @@ it('reads one school route and saves it without a connection choice',async()=>{
  const result=await sourceAccess.bindings(fixture.data.id)
  expect(result.binding).toEqual(fixture.data.attributes.binding)
  expect(result).not.toHaveProperty('items')
- await sourceAccess.bind(fixture.data.id,{route_id:'replacement-route',active:true})
+ await sourceAccess.bind(fixture.data.id,{route_id:'replacement-route',active:true},2)
+ expect(fetchMock.mock.calls[1][1].headers['If-Match']).toBe('"2"')
  expect(JSON.parse(fetchMock.mock.calls[1][1].body).data.attributes).toEqual({route_id:'replacement-route',active:true})
 })
 
@@ -55,4 +56,13 @@ it('writes the Rust school-route input fixture without connection_id',()=>{
  const fixture=JSON.parse(readFileSync(new URL('../fixtures/school-source-binding-input.json',import.meta.url),'utf8'))
  expect(writeDocument('/api/v2/schools/school-1/source-bindings',fixture.data.attributes)).toEqual(fixture)
  expect(fixture.data.attributes).not.toHaveProperty('connection_id')
+})
+
+it('keeps local outbox states separate from upstream receipts and serializes reasoned recovery',()=>{
+ const fixture=JSON.parse(readFileSync(new URL('../fixtures/source-outbox.json',import.meta.url),'utf8'))
+ expect(fixture.data.attributes.delivery_state).toBe('waiting_binding')
+ expect(fixture.data.attributes.receipt_status).toBeNull()
+ expect(fixture.data.attributes.recoverable).toBe(false)
+ const replay=JSON.parse(readFileSync(new URL('../fixtures/source-outbox-replay-input.json',import.meta.url),'utf8'))
+ expect(writeDocument('/api/v1/schools/school-1/source-outbox/event-1/replays',replay.data.attributes)).toEqual(replay)
 })

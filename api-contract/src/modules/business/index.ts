@@ -1,6 +1,7 @@
 import { requestResource, requestCollection, setCsrf } from '../../http';
 export { ApiError } from '../../http';
 export * from './types'
+import type {SourceOutboxView} from '../source-access'
 import type { Row, Session, School, Post, Resource } from './types'
 const part = (s: string) => encodeURIComponent(s);
 export const scope = (school: string, path: string) => `/api/v1/schools/${part(school)}/${path}`;
@@ -28,6 +29,8 @@ export const workspace = {
     updateSchool: (s: string, body: unknown) => requestResource<School>(`/api/v1/schools/${part(s)}`, 'PUT', body),
     bind: (s: string) => requestResource(scope(s, 'bind'), 'POST'),
     list: <T extends Row = Row>(s: string, resource: Resource, query = '', signal?: AbortSignal) => requestCollection<T>(scope(s, resource) + query, signal),
+    outboxDetail: (s:string,id:string,signal?:AbortSignal) => requestResource<SourceOutboxView>(scope(s,`source-outbox/${part(id)}`),'GET',undefined,signal),
+    replaySource: (s:string,id:string,reason:string) => requestResource(scope(s,`source-outbox/${part(id)}/replays`),'POST',{reason}),
     getPost: (s: string, id: string) => requestResource<Post>(scope(s, `posts/${part(id)}`)),
     comments: (s: string, id: string, page = 1) => requestCollection<Row>(scope(s, `posts/${part(id)}/comments`) + `?page[number]=${page}&page[size]=30`),
     mutate: <T = Row>(s: string, path: string, body?: unknown, method = 'POST') => requestResource<T>(scope(s, path), method, body),
