@@ -4,7 +4,7 @@ export * from './types'
 export * from './post-management'
 import {createSchoolsClient} from '../schools'
 import type {SourceOutboxView} from '../source-access'
-import type { Row, Session, School, Post, PostReview, Resource, CaseManagementView, ResolveCaseInput } from './types'
+import type { Comment, SetCommentVisibility, Row, Session, School, Post, PostReview, Resource, CaseManagementView, ResolveCaseInput } from './types'
 const schoolClient=createSchoolsClient({requestResource,requestCollection,requestBinary})
 const part = (s: string) => encodeURIComponent(s);
 export const scope = (school: string, path: string) => `/api/v1/schools/${part(school)}/${path}`;
@@ -44,6 +44,7 @@ export const workspace = {
     reviewImage: (s:string,id:string,signal?:AbortSignal)=>requestBinary(scope(s,`media/${part(id)}`),signal),
     retryPreparation: (s:string,id:string,reason:string,revision:number)=>requestResource(scope(s,`source-outbox/${part(id)}/preparation-retries`),'POST',{reason,revision}),
     getPost: (s: string, id: string) => requestResource<Post>(scope(s, `posts/${part(id)}`)),
+    setCommentVisibility: (s: string, id: string, input: SetCommentVisibility) => requestResource<Comment>(scope(s, `comments/${part(id)}/visibility`), 'PUT', input),
     comments: (s: string, id: string, page = 1) => requestCollection<Row>(scope(s, `posts/${part(id)}/comments`) + `?page[number]=${page}&page[size]=30`),
     mutate: <T = Row>(s: string, path: string, body?: unknown, method = 'POST') => requestResource<T>(scope(s, path), method, body),
     upload: (s: string, file: Blob) => requestResource<{

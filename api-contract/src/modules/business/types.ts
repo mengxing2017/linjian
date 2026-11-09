@@ -46,6 +46,13 @@ export interface Post extends Row {
     visibility: 'visible' | 'hidden' | 'offline' | 'deleted';
     revision: number;
 }
+export type CommentVisibility = 'visible' | 'hidden';
+export interface SetCommentVisibility { revision: number; visibility: CommentVisibility }
+export interface Comment extends Row {
+    school_id: string; post_id: string; author_id: string; parent_id: string | null;
+    content: string; audit_status: 'pending' | 'approved' | 'rejected';
+    visibility: CommentVisibility; deleted: boolean; revision: number; created_at: string;
+}
 export type Resource = 'source-outbox' | 'posts' | 'comments' | 'cases' | 'resources' | 'audit' | 'members' | 'follows' | 'notifications' | 'reactions';
 
 export interface PostReview extends Row {
