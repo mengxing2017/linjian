@@ -259,6 +259,7 @@ impl<R: DirectoryStore, C: DirectoryClient> Service<R, C> {
 // Do not log Error's Debug/Display: database or validation details may contain sensitive data.
 pub(crate) fn error_code(error: &Error) -> &'static str {
     match error {
+        Error::MiniappBanned => "miniapp_user_banned",
         Error::Unauthorized => "unauthorized",
         Error::Forbidden => "forbidden",
         Error::NotFound => "not_found",

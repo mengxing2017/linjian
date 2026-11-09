@@ -90,6 +90,7 @@ impl<R: Store> Service<R> {
         self.0.logout(&a.session_hash).await
     }
     pub async fn profile(&self, a: &Actor, name: &str) -> Result<Value> {
+        require(a.browser, "小程序请使用独立用户资料接口")?;
         self.0.profile(a.id, &text(name, 1, 100)?).await
     }
 }

@@ -12,7 +12,7 @@ use axum::{
     routing::{get, post},
 };
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::json;
 #[derive(Deserialize)]
 struct Callback {
     code: String,
@@ -139,16 +139,21 @@ async fn status(State(a): State<Application>) -> Response {
     )
         .into_response()
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MiniappLogin {
+    code: String,
+}
 async fn mini(
     State(a): State<Application>,
     h: HeaderMap,
     input_document: Input,
 ) -> Result<Response> {
-    let v = input_document.decode::<Value>("sessions")?;
+    let v = input_document.decode::<MiniappLogin>("sessions")?;
     if h.contains_key(header::ORIGIN) {
         check_origin(&h, &a)?;
     }
-    let code = text(v["code"].as_str().unwrap_or(""), 1, 256)?;
+    let code = text(&v.code, 1, 256)?;
     let id = a.integrations.miniapp(&code).await?;
     let (token, user) = a.identity.0.session(id, "miniapp", false).await?;
     Ok(miniapp_session_response(token, user))
@@ -175,7 +180,7 @@ mod tests {
     use super::*;
     #[tokio::test]
     async fn miniapp_session_matches_client_fixture_without_browser_secrets() {
-        let fixture: Value = serde_json::from_str(include_str!(
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
             "../../../../api-contract/fixtures/miniapp-session.json"
         ))
         .unwrap();
@@ -189,7 +194,7 @@ mod tests {
         let body = axum::body::to_bytes(response.into_body(), 8192)
             .await
             .unwrap();
-        let actual: Value = serde_json::from_slice(&body).unwrap();
+        let actual: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(actual, fixture);
     }
     #[test]

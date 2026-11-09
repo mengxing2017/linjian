@@ -20,6 +20,7 @@ impl Service {
             repository: Repository(pool),
             client: reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(10))
+                .redirect(reqwest::redirect::Policy::none())
                 .build()
                 .expect("TLS client"),
             corp: env("LINJIAN_WECOM_CORP_ID"),
@@ -140,21 +141,35 @@ impl Service {
             !self.wx_app.is_empty() && !self.wx_secret.is_empty(),
             "尚未配置微信小程序",
         )?;
-        let v = self
-            .json(
-                self.client
-                    .get("https://api.weixin.qq.com/sns/jscode2session")
-                    .query(&[
-                        ("appid", self.wx_app.as_str()),
-                        ("secret", self.wx_secret.as_str()),
-                        ("js_code", code),
-                        ("grant_type", "authorization_code"),
-                    ]),
-            )
-            .await?;
-        self.repository
-            .wx_account(v["openid"].as_str().ok_or(Error::Forbidden)?)
+        let mut response = self
+            .client
+            .get("https://api.weixin.qq.com/sns/jscode2session")
+            .query(&[
+                ("appid", self.wx_app.as_str()),
+                ("secret", self.wx_secret.as_str()),
+                ("js_code", code),
+                ("grant_type", "authorization_code"),
+            ])
+            .send()
             .await
+            .map_err(|_| Error::Unavailable)?;
+        if !response.status().is_success() {
+            return Err(Error::Unavailable);
+        }
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response.chunk().await.map_err(|_| Error::Unavailable)? {
+            if bytes.len() + chunk.len() > 16384 {
+                return Err(Error::Unavailable);
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        let v = crate::miniapp_users::domain::wechat_identity(&bytes)?;
+        crate::miniapp_users::north::local::register(
+            &crate::miniapp_users::south::adapter::postgres::Repository(self.repository.0.clone()),
+            &self.wx_app,
+            &v,
+        )
+        .await
     }
 }
 

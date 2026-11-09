@@ -68,6 +68,11 @@ impl IntoResponse for Error {
                 "unauthorized",
                 "请重新登录".into(),
             ),
+            Self::MiniappBanned => (
+                StatusCode::FORBIDDEN,
+                "miniapp_user_banned",
+                "账号已封禁，请联系学校管理员".into(),
+            ),
             Self::Forbidden => (StatusCode::FORBIDDEN, "forbidden", "没有操作权限".into()),
             Self::NotFound => (StatusCode::NOT_FOUND, "not_found", "记录不存在".into()),
             Self::Conflict => (

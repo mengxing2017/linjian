@@ -23,6 +23,18 @@ impl Repository {
     }
     pub async fn session(&self, id: Uuid, kind: &str, wecom: bool) -> Result<(String, Actor)> {
         let mut tx = self.0.begin().await?;
+        sqlx::query("SELECT id FROM accounts WHERE id=$1 AND active FOR UPDATE")
+            .bind(id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or(Error::Unauthorized)?;
+        if kind == "miniapp" {
+            let (_, status, _) =
+                crate::miniapp_users::south::adapter::postgres::lock_user(&mut tx, id).await?;
+            if status != "normal" {
+                return Err(Error::MiniappBanned);
+            }
+        }
         let generation: Option<i64> = if wecom {
             Some(
                 sqlx::query_scalar(
@@ -47,14 +59,14 @@ impl Repository {
     }
     pub async fn authenticate(&self, token: &str, kind: &str) -> Result<Actor> {
         let h = hash(token);
-        let row=sqlx::query("UPDATE sessions s SET last_seen_at=now() FROM accounts a WHERE s.account_id=a.id AND s.token_hash=$1 AND s.kind=$2 AND s.expires_at>now() AND s.last_seen_at>now()-interval '30 minutes' AND a.active AND (NOT s.wecom_authenticated OR (s.wecom_binding_revision=a.wecom_binding_revision AND s.credential_generation=(SELECT credential_generation FROM wecom_directory_state) AND EXISTS(SELECT 1 FROM wecom_members m WHERE m.id=a.wecom_member_id AND m.verification='verified' AND m.status=1))) RETURNING a.id,a.username,a.display_name,a.platform_admin,a.bound_school_id,s.csrf,s.wecom_authenticated,a.wecom_binding_revision").bind(&h).bind(kind).fetch_optional(&self.0).await?.ok_or(Error::Unauthorized)?;
+        let row=sqlx::query("UPDATE sessions s SET last_seen_at=now() FROM accounts a WHERE s.account_id=a.id AND s.token_hash=$1 AND s.kind=$2 AND s.expires_at>now() AND s.last_seen_at>now()-interval '30 minutes' AND a.active AND ($3 OR EXISTS(SELECT 1 FROM miniapp_users u WHERE u.account_id=a.id AND u.status='normal')) AND (NOT s.wecom_authenticated OR (s.wecom_binding_revision=a.wecom_binding_revision AND s.credential_generation=(SELECT credential_generation FROM wecom_directory_state) AND EXISTS(SELECT 1 FROM wecom_members m WHERE m.id=a.wecom_member_id AND m.verification='verified' AND m.status=1))) RETURNING a.id,a.username,CASE WHEN $3 THEN a.display_name ELSE coalesce((SELECT nickname FROM miniapp_users WHERE account_id=a.id),a.display_name) END AS display_name,a.platform_admin,a.bound_school_id,s.csrf,s.wecom_authenticated,a.wecom_binding_revision").bind(&h).bind(kind).bind(kind=="browser").fetch_optional(&self.0).await?.ok_or(Error::Unauthorized)?;
         let id: Uuid = row.get("id");
-        let grants=sqlx::query("SELECT m.school_id,m.role FROM school_memberships m JOIN schools s ON s.id=m.school_id WHERE m.account_id=$1 AND s.active AND m.role<>'revoked'").bind(id).fetch_all(&self.0).await?.into_iter().map(|r|Grant{school_id:r.get("school_id"),role:r.get("role")}).collect();
+        let grants=sqlx::query("SELECT m.school_id,m.role FROM school_memberships m JOIN schools s ON s.id=m.school_id WHERE m.account_id=$1 AND s.active AND m.role<>'revoked'").bind(id).fetch_all(&self.0).await?.into_iter().map(|r|Grant{school_id:r.get("school_id"),role:if kind=="browser"{r.get("role")}else{"member".into()}}).collect();
         Ok(Actor {
             id,
             username: row.get("username"),
             display_name: row.get("display_name"),
-            platform_admin: row.get("platform_admin"),
+            platform_admin: kind == "browser" && row.get("platform_admin"),
             bound_school_id: row.get("bound_school_id"),
             grants,
             csrf: row.get("csrf"),
@@ -84,12 +96,12 @@ impl Repository {
         Ok(id)
     }
     pub async fn list(&self) -> Result<Vec<Value>> {
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',id,'username',username,'display_name',display_name,'active',active,'platform_admin',platform_admin,'bound_school_id',bound_school_id,'wecom_userid',(SELECT userid FROM wecom_members WHERE id=accounts.wecom_member_id),'wecom_member_id',wecom_member_id,'wecom_binding_revision',wecom_binding_revision,'wecom_name',(SELECT name FROM wecom_members WHERE id=accounts.wecom_member_id),'wecom_status',(SELECT status FROM wecom_members WHERE id=accounts.wecom_member_id),'wecom_verification',(SELECT verification FROM wecom_members WHERE id=accounts.wecom_member_id),'wecom_departments',coalesce((SELECT jsonb_agg(d.name ORDER BY d.id) FROM wecom_members m JOIN wecom_departments d ON d.id=ANY(m.department) WHERE m.id=accounts.wecom_member_id),'[]'::jsonb)) FROM accounts ORDER BY created_at DESC,id").fetch_all(&self.0).await?)
+        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',id,'username',username,'display_name',display_name,'active',active,'platform_admin',platform_admin,'bound_school_id',bound_school_id,'wecom_userid',(SELECT userid FROM wecom_members WHERE id=accounts.wecom_member_id),'wecom_member_id',wecom_member_id,'wecom_binding_revision',wecom_binding_revision,'wecom_name',(SELECT name FROM wecom_members WHERE id=accounts.wecom_member_id),'wecom_status',(SELECT status FROM wecom_members WHERE id=accounts.wecom_member_id),'wecom_verification',(SELECT verification FROM wecom_members WHERE id=accounts.wecom_member_id),'wecom_departments',coalesce((SELECT jsonb_agg(d.name ORDER BY d.id) FROM wecom_members m JOIN wecom_departments d ON d.id=ANY(m.department) WHERE m.id=accounts.wecom_member_id),'[]'::jsonb)) FROM accounts WHERE password_hash IS NOT NULL OR platform_admin OR wecom_member_id IS NOT NULL ORDER BY created_at DESC,id").fetch_all(&self.0).await?)
     }
     pub async fn update(&self, actor: Uuid, id: Uuid, name: &str, active: bool) -> Result<()> {
         let mut tx = self.0.begin().await?;
         let n = sqlx::query(
-            "UPDATE accounts SET display_name=$2,active=$3 WHERE id=$1 AND NOT platform_admin",
+            "UPDATE accounts SET display_name=$2,active=$3 WHERE id=$1 AND NOT platform_admin AND (password_hash IS NOT NULL OR wecom_member_id IS NOT NULL)",
         )
         .bind(id)
         .bind(name)
@@ -110,11 +122,14 @@ impl Repository {
     }
     pub async fn reset_password(&self, id: Uuid, password: &str) -> Result<()> {
         let mut tx = self.0.begin().await?;
-        sqlx::query("UPDATE accounts SET password_hash=$2 WHERE id=$1")
+        let changed=sqlx::query("UPDATE accounts SET password_hash=$2 WHERE id=$1 AND (password_hash IS NOT NULL OR platform_admin OR wecom_member_id IS NOT NULL)")
             .bind(id)
             .bind(password)
             .execute(&mut *tx)
-            .await?;
+            .await?.rows_affected();
+        if changed == 0 {
+            return Err(Error::NotFound);
+        }
         sqlx::query("DELETE FROM sessions WHERE account_id=$1")
             .bind(id)
             .execute(&mut *tx)

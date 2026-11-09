@@ -5,6 +5,7 @@ use uuid::Uuid;
 #[derive(Debug)]
 pub enum Error {
     Unauthorized,
+    MiniappBanned,
     Forbidden,
     NotFound,
     Conflict,
@@ -61,13 +62,14 @@ pub struct Actor {
 }
 impl Actor {
     pub fn can(&self, school: Uuid, role: &str) -> bool {
-        self.platform_admin
-            || self.grants.iter().any(|g| {
-                g.school_id == school
-                    && (role == "member"
-                        || g.role == "admin"
-                        || (role == "operator" && g.role == "operator"))
-            })
+        (self.browser || role == "member")
+            && (self.platform_admin
+                || self.grants.iter().any(|g| {
+                    g.school_id == school
+                        && (role == "member"
+                            || g.role == "admin"
+                            || (role == "operator" && g.role == "operator"))
+                }))
     }
     pub fn authorize(&self, school: Uuid, role: &str) -> Result<()> {
         if self.can(school, role) {
@@ -77,7 +79,7 @@ impl Actor {
         }
     }
     pub fn platform(&self) -> Result<()> {
-        if self.platform_admin {
+        if self.browser && self.platform_admin {
             Ok(())
         } else {
             Err(Error::Forbidden)
