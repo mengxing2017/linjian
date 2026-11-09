@@ -2,7 +2,8 @@
 import { shallowRef, ref } from 'vue'
 import { communityApi, type Post, type Comment, type Reaction, type Follow } from './api'
 import { requireSchool, scopeKey } from '../school-context/context'
-import { session } from '../identity/session'
+import { session, restoreSession } from '../identity/session'
+import { saveReturnTarget, validPostTarget, canSharePost } from '../identity/return-target'
 import { usePage, confirm, navigate } from '../../shared/use-page'
 import PrivateImage from '../media/PrivateImage.vue'
 import PageStatus from '../../shared/PageStatus.vue'
@@ -25,7 +26,14 @@ const { busy, error, run } = usePage(() => {
   parent.value = undefined
 })
 async function read() {
-  if (!props.id || !props.school) throw new Error('帖子链接无效')
+  if (typeof uni.hideShareMenu === 'function') uni.hideShareMenu({ hideShareItems: ['shareAppMessage', 'shareTimeline'] })
+  if (!validPostTarget(props.school, props.id)) throw new Error('帖子链接无效')
+  await restoreSession()
+  if (!session.user || (!session.user.bound_school_id && !session.user.grants.length)) {
+    saveReturnTarget(props.school, props.id)
+    uni.navigateTo({ url: session.user ? '/pages/plugin/index' : '/pages/user/login' })
+    return
+  }
   if (!(await requireSchool(props.school))) return
   const key = scopeKey()
   const [p, c, r, f] = await Promise.all([
@@ -36,6 +44,8 @@ async function read() {
   ])
   if (key !== scopeKey()) return
   post.value = p
+  if (canSharePost(p, props.school, props.id) && typeof uni.showShareMenu === 'function')
+    uni.showShareMenu({ menus: ['shareAppMessage'] })
   comments.value = c.items
   page.value = 1
   more.value = !!c.page?.has_more
@@ -108,10 +118,13 @@ function next() {
 }
 defineExpose({
   show: load,
-  share: () => ({
-    title: post.value?.title ?? '校园动态',
-    path: `/pages/index/detail?school=${props.school}&id=${props.id}`,
-  }),
+  share: () =>
+    canSharePost(post.value, props.school, props.id)
+      ? {
+          title: post.value!.title,
+          path: `/pages/index/detail?school=${props.school}&id=${props.id}`,
+        }
+      : { title: 'Linjian', path: '/pages/index/index' },
 })
 </script>
 <template>
