@@ -67,14 +67,15 @@ it('keeps local outbox states separate from upstream receipts and serializes rea
  expect(writeDocument('/api/v1/schools/school-1/source-outbox/event-1/replays',replay.data.attributes)).toEqual(replay)
 })
 
-it('reads trusted review summaries and writes preparation recovery using its own resource type',async()=>{
+it('reads full review content and writes preparation recovery using its own resource type',async()=>{
  const {workspace}=await import('../src/modules/business')
- const fixture=JSON.parse(readFileSync(new URL('../fixtures/source-preview.json',import.meta.url),'utf8'))
+ const fixture=JSON.parse(readFileSync(new URL('../fixtures/post-review.json',import.meta.url),'utf8'))
  const retry=JSON.parse(readFileSync(new URL('../fixtures/source-preparation-retry-input.json',import.meta.url),'utf8'))
  const fetchMock=vi.fn().mockResolvedValueOnce(Response.json(fixture,{headers:{'content-type':'application/vnd.api+json'}})).mockResolvedValueOnce(Response.json({data:null},{headers:{'content-type':'application/vnd.api+json'}}))
  vi.stubGlobal('fetch',fetchMock)
- const preview=await workspace.sourcePreview('school-1',fixture.data.id)
- expect(preview.summary).toBe(fixture.data.attributes.summary)
+ const preview=await workspace.review('school-1',fixture.data.id)
+ expect(preview.content).toBe(fixture.data.attributes.content)
+ expect(preview).not.toHaveProperty('summary')
  await workspace.retryPreparation('school-1','event-1',retry.data.attributes.reason,3)
  expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual(retry)
 })

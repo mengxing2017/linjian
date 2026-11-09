@@ -47,3 +47,10 @@ export interface Post extends Row {
     revision: number;
 }
 export type Resource = 'source-outbox' | 'posts' | 'comments' | 'cases' | 'resources' | 'audit' | 'members' | 'follows' | 'notifications' | 'reactions';
+
+export interface PostReview extends Row {
+  school_id: string; school_name: string; author_id: string; author_nickname: string;
+  title: string; content: string; images: string[]; tags: string[]; created_at: string;
+  audit_status: 'pending' | 'approved' | 'rejected'; visibility: 'visible' | 'hidden' | 'deleted';
+  top_sort: number; revision: number; content_revision: number; review_digest: string;
+}

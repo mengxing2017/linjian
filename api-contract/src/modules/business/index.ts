@@ -2,8 +2,8 @@ import { requestResource, requestCollection, requestBinary, setCsrf } from '../.
 export { ApiError } from '../../http';
 export * from './types'
 import {createSchoolsClient} from '../schools'
-import type {SourceOutboxView,SourcePreview} from '../source-access'
-import type { Row, Session, School, Post, Resource } from './types'
+import type {SourceOutboxView} from '../source-access'
+import type { Row, Session, School, Post, PostReview, Resource } from './types'
 const schoolClient=createSchoolsClient({requestResource,requestCollection,requestBinary})
 const part = (s: string) => encodeURIComponent(s);
 export const scope = (school: string, path: string) => `/api/v1/schools/${part(school)}/${path}`;
@@ -34,7 +34,9 @@ export const workspace = {
     list: <T extends Row = Row>(s: string, resource: Resource, query = '', signal?: AbortSignal) => requestCollection<T>(scope(s, resource) + query, signal),
     outboxDetail: (s:string,id:string,signal?:AbortSignal) => requestResource<SourceOutboxView>(scope(s,`source-outbox/${part(id)}`),'GET',undefined,signal),
     replaySource: (s:string,id:string,reason:string) => requestResource(scope(s,`source-outbox/${part(id)}/replays`),'POST',{reason}),
-    sourcePreview: (s:string,id:string,signal?:AbortSignal)=>requestResource<SourcePreview>(scope(s,`posts/${part(id)}/source-preview`),'GET',undefined,signal),
+    reviews: (s:string,query='',signal?:AbortSignal)=>requestCollection<PostReview>(scope(s,'post-reviews')+query,signal),
+    review: (s:string,id:string,signal?:AbortSignal)=>requestResource<PostReview>(scope(s,`posts/${part(id)}/review`),'GET',undefined,signal),
+    reviewImage: (s:string,id:string,signal?:AbortSignal)=>requestBinary(scope(s,`media/${part(id)}`),signal),
     retryPreparation: (s:string,id:string,reason:string,revision:number)=>requestResource(scope(s,`source-outbox/${part(id)}/preparation-retries`),'POST',{reason,revision}),
     getPost: (s: string, id: string) => requestResource<Post>(scope(s, `posts/${part(id)}`)),
     comments: (s: string, id: string, page = 1) => requestCollection<Row>(scope(s, `posts/${part(id)}/comments`) + `?page[number]=${page}&page[size]=30`),

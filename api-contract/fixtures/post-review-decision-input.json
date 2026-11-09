@@ -1,0 +1,11 @@
+{
+  "data": {
+    "type": "posts",
+    "attributes": {
+      "revision": 2,
+      "decision": "approved",
+      "reason": "已核对完整正文和附件",
+      "review_digest": "review-fixture-digest"
+    }
+  }
+}

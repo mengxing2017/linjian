@@ -28,7 +28,3 @@ export interface SourcePreparationView {
  state:'pending'|'generating'|'retry_wait'|'blocked'|'completed'|'superseded';revision:number;attempts:number
  next_attempt_at:string;error_code:string|null;recoverable:boolean
 }
-export interface SourcePreview {
- id:string;post_revision:number;content_revision:number;summary:string;summary_algorithm:'plain-v1';preview_digest:string
- source_projection:'legacy_full_v2'|'miniapp_summary_v1'
-}

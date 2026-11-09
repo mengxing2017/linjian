@@ -108,6 +108,7 @@ export function resourceType(path: string): string {
     throw new Error("Unknown resource path");
   if(parts[2]==='schools' && parts[4]==='source-outbox' && parts[6]==='preparation-retries')return 'source-preparation-retries';
   if(parts[2]==='schools' && parts[4]==='source-outbox' && parts[6]==='replays')return 'source-outbox-replays';
+  if(parts[2]==='schools' && (parts[4]==='post-reviews' || (parts[4]==='posts' && parts[6]==='review')))return 'post-reviews';
   const kind=parts[2]==='platform'?parts[3]:parts[2]==='schools'?parts[4]:undefined;
   if(kind && ['resource-previews','resource-publications','resource-qrcodes','source-outbox'].includes(kind))return kind;
   if (parts[2] === "schools" && parts[4] === "published-resources") return "resources";
