@@ -51,21 +51,35 @@ async fn routing_has_no_sender_or_shared_session_dependency() {
 }
 
 #[tokio::test]
-async fn publication_preview_jsonapi_matches_shared_fixture() {
+async fn post_review_jsonapi_matches_shared_fixture() {
     use axum::response::IntoResponse;
-    use linjian_api::content_publication::domain::{Preview, Retry};
-    let fixture: serde_json::Value = serde_json::from_str(include_str!(
-        "../../api-contract/fixtures/source-preview.json"
-    ))
-    .unwrap();
+    use linjian_api::{community::domain::review::PostReview, content_publication::domain::Retry};
+    let fixture: serde_json::Value =
+        serde_json::from_str(include_str!("../../api-contract/fixtures/post-review.json")).unwrap();
     let mut attributes = fixture["data"]["attributes"].clone();
     attributes["id"] = fixture["data"]["id"].clone();
-    let preview: Preview = serde_json::from_value(attributes).unwrap();
-    let response = linjian_api::http::jsonapi::singleton("source-previews", preview.id, preview)
-        .into_response();
+    let preview: PostReview = serde_json::from_value(attributes).unwrap();
+    let response =
+        linjian_api::http::jsonapi::singleton("post-reviews", preview.id, preview).into_response();
     let doc: serde_json::Value =
         serde_json::from_slice(&to_bytes(response.into_body(), 8192).await.unwrap()).unwrap();
     assert_eq!(doc, fixture);
+    let decision: serde_json::Value = serde_json::from_str(include_str!(
+        "../../api-contract/fixtures/post-review-decision-input.json"
+    ))
+    .unwrap();
+    let input: linjian_api::business::Decision =
+        serde_json::from_value(decision["data"]["attributes"].clone()).unwrap();
+    assert_eq!(
+        input.review_digest.as_deref(),
+        Some("review-fixture-digest")
+    );
+    assert!(
+        serde_json::from_value::<linjian_api::business::Decision>(
+            serde_json::json!({"revision":2,"decision":"approved","source_preview_digest":"old"})
+        )
+        .is_err()
+    );
     let retry: serde_json::Value = serde_json::from_str(include_str!(
         "../../api-contract/fixtures/source-preparation-retry-input.json"
     ))

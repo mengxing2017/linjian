@@ -26,6 +26,213 @@ async fn isolated(admin: &PgPool, name: &str) -> PgPool {
         .await
         .unwrap()
 }
+
+#[tokio::test]
+#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
+async fn full_text_review_read_only_scope_and_version_fencing() {
+    use linjian_api::{business::Page, community::domain::review::digest};
+    let admin = PgPool::connect(
+        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
+    )
+    .await
+    .unwrap();
+    let schema = format!("forum_review_{}", Uuid::new_v4().simple());
+    let pool = isolated(&admin, &schema).await;
+    database::migrate(&pool).await.unwrap();
+    let app = bootstrap::build_application(pool.clone());
+    let root = app
+        .identity
+        .bootstrap("root", "后台显示名", "test-password-at-least-12", true)
+        .await
+        .unwrap();
+    let (token, actor) = app
+        .identity
+        .0
+        .session(root, "browser", false)
+        .await
+        .unwrap();
+    let school: Uuid = app.schools.create(&actor, "全文审核校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let other: Uuid = app.schools.create(&actor, "其他校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let content = format!("{}\n<script>正文末尾 😀</script>", "全文".repeat(9980));
+    let post = app
+        .community
+        .post(
+            &actor,
+            school,
+            None,
+            serde_json::from_value(
+                json!({"title":"完整审核标题","content":content,"images":[],"tags":["校园"]}),
+            )
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    let id: Uuid = post["id"].as_str().unwrap().parse().unwrap();
+    let before: (i64,i64,i64) = sqlx::query_as("SELECT (SELECT browse FROM posts WHERE id=$1),(SELECT count(*) FROM forum_outbox),(SELECT count(*) FROM forum_publication_snapshots)").bind(id).fetch_one(&pool).await.unwrap();
+    let review = app.community.review(&actor, school, id).await.unwrap();
+    assert_eq!(review.content, content);
+    assert_eq!(review.school_name, "全文审核校");
+    assert_eq!(review.author_nickname, "后台显示名");
+    assert_eq!(review.review_digest, digest(&post).unwrap());
+    sqlx::query("INSERT INTO miniapp_users(account_id,nickname) VALUES($1,'微信注册昵称')")
+        .bind(root)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        app.community
+            .review(&actor, school, id)
+            .await
+            .unwrap()
+            .author_nickname,
+        "微信注册昵称"
+    );
+    let after: (i64,i64,i64) = sqlx::query_as("SELECT (SELECT browse FROM posts WHERE id=$1),(SELECT count(*) FROM forum_outbox),(SELECT count(*) FROM forum_publication_snapshots)").bind(id).fetch_one(&pool).await.unwrap();
+    assert_eq!(
+        before, after,
+        "review reads must have no business side effects"
+    );
+    let mut bearer = actor.clone();
+    bearer.browser = false;
+    assert!(app.community.review(&bearer, school, id).await.is_err());
+    let mut member = actor.clone();
+    member.platform_admin = false;
+    member.grants.clear();
+    assert!(
+        app.community
+            .reviews(&member, school, Page::default())
+            .await
+            .is_err()
+    );
+    assert!(app.community.review(&actor, other, id).await.is_err());
+    let rows = app
+        .community
+        .reviews(
+            &actor,
+            school,
+            Page {
+                search: Some("正文末尾".into()),
+                status: Some("pending".into()),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].content, content);
+    let router = linjian_api::http::app_router(app.clone());
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "/api/v1/schools/{school}/post-reviews?page%5Bsize%5D=1"
+                ))
+                .header("Cookie", format!("linjian_session={token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()["cache-control"], "private, no-store");
+    let doc: Value =
+        serde_json::from_slice(&to_bytes(response.into_body(), 100000).await.unwrap()).unwrap();
+    assert_eq!(doc["data"][0]["type"], "post-reviews");
+    assert_eq!(doc["data"][0]["attributes"]["content"], content);
+    assert!(doc["data"][0]["attributes"].get("summary").is_none());
+    for fingerprint in [None, Some("tampered")] {
+        let decision = serde_json::from_value(
+            json!({"revision":review.revision,"decision":"approved","review_digest":fingerprint}),
+        )
+        .unwrap();
+        assert!(
+            app.community
+                .moderate(&actor, school, id, decision, false)
+                .await
+                .is_err()
+        );
+    }
+    let edited=app.community.post(&actor,school,Some(id),serde_json::from_value(json!({"title":"完整审核标题","content":"变更后的全文","images":[],"tags":[],"revision":review.revision})).unwrap()).await.unwrap();
+    let decision=serde_json::from_value(json!({"revision":edited["revision"],"decision":"approved","review_digest":review.review_digest})).unwrap();
+    assert!(
+        app.community
+            .moderate(&actor, school, id, decision, false)
+            .await
+            .is_err(),
+        "old content fingerprint cannot approve an edited post even with the new revision"
+    );
+    let csrf_response=router.clone().oneshot(Request::builder().method("POST").uri(format!("/api/v1/schools/{school}/posts/{id}/moderation-decisions")).header("Cookie",format!("linjian_session={token}")).header("Content-Type","application/vnd.api+json").body(Body::from(json!({"data":{"type":"posts","attributes":{"revision":edited["revision"],"decision":"approved","review_digest":digest(&edited).unwrap()}}}).to_string())).unwrap()).await.unwrap();
+    assert_eq!(csrf_response.status(), StatusCode::FORBIDDEN);
+    let decision=serde_json::from_value(json!({"revision":edited["revision"],"decision":"approved","reason":"全文核验通过","review_digest":digest(&edited).unwrap()})).unwrap();
+    app.community
+        .moderate(&actor, school, id, decision, false)
+        .await
+        .unwrap();
+    assert_eq!(
+        app.community
+            .review(&actor, school, id)
+            .await
+            .unwrap()
+            .audit_status,
+        "approved"
+    );
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/v1/schools/{school}/post-reviews"))
+                .header("Cookie", format!("linjian_session={token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let doc: Value =
+        serde_json::from_slice(&to_bytes(response.into_body(), 100000).await.unwrap()).unwrap();
+    assert!(
+        doc["data"].as_array().unwrap().is_empty(),
+        "HTTP review list defaults to pending"
+    );
+    let current = app.schools.0.school_detail(&actor, school).await.unwrap();
+    app.schools
+        .update(
+            &actor,
+            school,
+            json!({"status":"hidden","revision":current.revision}),
+        )
+        .await
+        .unwrap();
+    assert!(
+        app.community.review(&actor, school, id).await.is_err(),
+        "even platform administrators cannot review a hidden community"
+    );
+    let response = router
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/v1/schools/{school}/posts/{id}/review"))
+                .header("Cookie", format!("linjian_session={token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    pool.close().await;
+    sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
+        .execute(&admin)
+        .await
+        .unwrap();
+    admin.close().await;
+}
 #[tokio::test]
 #[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL; tools/test_database.py provisions one"]
 async fn forum_migration_auth_and_outbox() {
@@ -550,7 +757,7 @@ async fn dynamic_source_history_leases_and_school_isolation() {
 #[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
 async fn reviewed_miniapp_publication_freezing_and_fencing() {
     use linjian_api::content_publication::{
-        domain::{Failure, Link, Policy, preview},
+        domain::{Failure, Link, Policy},
         south::{adapter::postgres::Repository, port::PreparationStore},
     };
     let admin = PgPool::connect(
@@ -648,8 +855,9 @@ async fn reviewed_miniapp_publication_freezing_and_fencing() {
     );
     assert_eq!(pending["created_via"], "miniapp");
     let store = Repository(pool.clone());
-    assert!(store.preview(&mini, school, post).await.is_err());
-    let stale = json!({"decision":"approved","reason":"人工审核","revision":1,"source_preview_digest":"stale"});
+    assert!(app.community.review(&mini, school, post).await.is_err());
+    let stale =
+        json!({"decision":"approved","reason":"人工审核","revision":1,"review_digest":"stale"});
     assert!(
         app.community
             .moderate(
@@ -670,7 +878,7 @@ async fn reviewed_miniapp_publication_freezing_and_fencing() {
         0
     );
     let decision = |row: &Value| {
-        serde_json::from_value(json!({"decision":"approved","reason":"人工审核","revision":row["revision"],"source_preview_digest":preview(row).unwrap().preview_digest})).unwrap()
+        serde_json::from_value(json!({"decision":"approved","reason":"人工审核","revision":row["revision"],"review_digest":linjian_api::community::domain::review::digest(row).unwrap()})).unwrap()
     };
     assert!(
         app.community
