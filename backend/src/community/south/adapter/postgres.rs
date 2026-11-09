@@ -50,13 +50,13 @@ impl Repository {
         .bind(s)
         .fetch_one(&mut *tx)
         .await?;
-        let status = if mode == "auto" {
+        let status = if a.browser && mode == "auto" {
             "approved"
         } else {
             "pending"
         };
         let id = Uuid::now_v7();
-        let item=sqlx::query_scalar("INSERT INTO posts(id,school_id,author_id,title,content,images,tags,audit_status) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING to_jsonb(posts)").bind(id).bind(s).bind(a.id).bind(v.title.trim()).bind(v.content.trim()).bind(json!(v.images)).bind(json!(v.tags)).bind(status).fetch_one(&mut *tx).await?;
+        let item=sqlx::query_scalar("INSERT INTO posts(id,school_id,author_id,title,content,images,tags,audit_status,created_via,source_projection) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING to_jsonb(posts)").bind(id).bind(s).bind(a.id).bind(v.title.trim()).bind(v.content.trim()).bind(json!(v.images)).bind(json!(v.tags)).bind(status).bind(if a.browser {"web"} else {"miniapp"}).bind(if a.browser {"legacy_full_v2"} else {"miniapp_summary_v1"}).fetch_one(&mut *tx).await?;
         crate::audit::record(
             &mut tx,
             a,
@@ -99,22 +99,39 @@ impl Repository {
         v: Decision,
         comment: bool,
     ) -> Result<Value> {
+        use crate::content_publication::domain::{self, Policy};
         let mut tx = self.0.begin().await?;
-        let sql = if comment {
-            "UPDATE comments SET audit_status=$3,revision=revision+1 WHERE school_id=$1 AND id=$2 AND revision=$4 AND NOT deleted RETURNING to_jsonb(comments)"
+        let current: Value = sqlx::query_scalar(if comment {
+            "SELECT to_jsonb(c) FROM comments c WHERE school_id=$1 AND id=$2 AND NOT deleted FOR UPDATE"
         } else {
-            "UPDATE posts SET audit_status=$3,revision=revision+1,updated_at=now() WHERE school_id=$1 AND id=$2 AND revision=$4 AND visibility<>'deleted' RETURNING to_jsonb(posts)"
-        };
-        let item: Value = sqlx::query_scalar(sql)
+            "SELECT to_jsonb(p) FROM posts p WHERE school_id=$1 AND id=$2 AND visibility<>'deleted' FOR UPDATE"
+        }).bind(s).bind(id).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
+        if current["revision"].as_i64() != Some(v.revision) {
+            return Err(Error::Conflict);
+        }
+        let managed = !comment && current["source_projection"] == "miniapp_summary_v1";
+        if managed && !a.browser {
+            return Err(Error::Forbidden);
+        }
+        sqlx::query("SELECT id FROM schools WHERE id=$1 FOR UPDATE")
             .bind(s)
-            .bind(id)
-            .bind(&v.decision)
-            .bind(v.revision)
-            .fetch_optional(&mut *tx)
-            .await?
-            .ok_or(Error::Conflict)?;
+            .fetch_one(&mut *tx)
+            .await?;
+        let preview = domain::preview(&current);
+        if managed && v.decision == "approved" {
+            let expected = preview.as_ref().map_err(|_| Error::Conflict)?;
+            if v.source_preview_digest.as_deref() != Some(expected.preview_digest.as_str()) {
+                return Err(Error::Conflict);
+            }
+            if current["audit_status"] == "approved" && current["approved_snapshot_id"].is_string()
+            {
+                tx.commit().await?;
+                return Ok(current);
+            }
+        }
+        let review = Uuid::now_v7();
         sqlx::query("INSERT INTO moderation_events VALUES($1,$2,$3,$4,$5,$6,$7,now())")
-            .bind(Uuid::now_v7())
+            .bind(review)
             .bind(s)
             .bind(a.id)
             .bind(id)
@@ -123,6 +140,34 @@ impl Repository {
             .bind(&v.reason)
             .execute(&mut *tx)
             .await?;
+        let mut snapshot = None;
+        if managed && v.decision == "approved" {
+            let preview = preview?;
+            let policy = Policy::from_env()?;
+            let sid = Uuid::now_v7();
+            let content_digest = crate::business::hash(
+                &serde_json::json!([
+                    current["title"],
+                    current["content"],
+                    current["images"],
+                    current["tags"]
+                ])
+                .to_string(),
+            );
+            sqlx::query("INSERT INTO forum_publication_snapshots(id,school_id,post_id,author_id,content_revision,approved_post_revision,moderation_event_id,moderator_id,title,content,images,tags,content_digest,summary,summary_algorithm,preview_digest,link_policy) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)")
+                .bind(sid).bind(s).bind(id).bind(crate::business::uuid(&current,"author_id")?).bind(preview.content_revision).bind(v.revision+1).bind(review).bind(a.id)
+                .bind(current["title"].as_str().unwrap_or("")).bind(current["content"].as_str().unwrap_or("")).bind(&current["images"]).bind(&current["tags"])
+                .bind(content_digest).bind(preview.summary).bind(domain::ALGORITHM).bind(preview.preview_digest).bind(serde_json::to_value(policy).map_err(|_|Error::Unavailable)?)
+                .execute(&mut *tx).await?;
+            snapshot = Some(sid);
+        }
+        let item: Value = if comment {
+            sqlx::query_scalar("UPDATE comments SET audit_status=$3,revision=revision+1 WHERE school_id=$1 AND id=$2 AND revision=$4 AND NOT deleted RETURNING to_jsonb(comments)")
+                .bind(s).bind(id).bind(&v.decision).bind(v.revision).fetch_one(&mut *tx).await?
+        } else {
+            sqlx::query_scalar("UPDATE posts SET audit_status=$3,approved_snapshot_id=$5,revision=revision+1,updated_at=now() WHERE school_id=$1 AND id=$2 AND revision=$4 AND visibility<>'deleted' RETURNING to_jsonb(posts)")
+                .bind(s).bind(id).bind(&v.decision).bind(v.revision).bind(snapshot).fetch_one(&mut *tx).await?
+        };
         let author = crate::business::uuid(&item, "author_id")?;
         sqlx::query("INSERT INTO notifications(id,school_id,account_id,kind,object_id) VALUES($1,$2,$3,'moderation',$4)").bind(Uuid::now_v7()).bind(s).bind(author).bind(id).execute(&mut *tx).await?;
         crate::audit::record(
@@ -186,7 +231,7 @@ impl Repository {
         } else {
             "pending"
         };
-        let item=sqlx::query_scalar("INSERT INTO comments(id,school_id,post_id,author_id,parent_id,content,audit_status) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING to_jsonb(comments)").bind(cid).bind(s).bind(id).bind(a.id).bind(v.parent_id).bind(v.content.trim()).bind(status).fetch_one(&mut *tx).await?;
+        let item=sqlx::query_scalar("INSERT INTO comments(id,school_id,post_id,author_id,parent_id,content,audit_status) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING to_jsonb(comments)").bind(cid).bind(s).bind(id).bind(a.id).bind(v.parent_id).bind(v.content.trim()).bind(status).bind(if a.browser {"web"} else {"miniapp"}).bind(if a.browser {"legacy_full_v2"} else {"miniapp_summary_v1"}).fetch_one(&mut *tx).await?;
         sqlx::query("INSERT INTO notifications(id,school_id,account_id,kind,object_id) VALUES($1,$2,$3,'comment',$4)").bind(Uuid::now_v7()).bind(s).bind(post.get::<Uuid,_>("author_id")).bind(cid).execute(&mut *tx).await?;
         tx.commit().await?;
         Ok(item)

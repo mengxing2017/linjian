@@ -2,6 +2,7 @@ use crate::business::{Result, require, text};
 use serde::Deserialize;
 use uuid::Uuid;
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PostInput {
     pub title: String,
     pub content: String,

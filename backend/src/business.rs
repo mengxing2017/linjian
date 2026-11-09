@@ -116,11 +116,14 @@ pub struct Revision {
     pub revision: i64,
 }
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Decision {
     pub revision: i64,
     pub decision: String,
     #[serde(default)]
     pub reason: String,
+    #[serde(default)]
+    pub source_preview_digest: Option<String>,
 }
 #[derive(Deserialize)]
 pub struct Named {
