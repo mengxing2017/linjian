@@ -8,13 +8,13 @@ import { Workspace } from './index'
 import { identity, workspace, product } from './api'
 vi.mock('../../school-context/api', async () => ({ schoolsApi: (await import('./api')).workspace }))
 vi.mock('../../identity/api', async () => ({ identity: (await import('./api')).identity, subscribeUnauthorized: () => () => {} }))
-vi.mock('./api', () => ({ product:{resources:{artwork:vi.fn().mockResolvedValue([])}}, identity: { session: vi.fn(), accounts: vi.fn(), create: vi.fn(), update: vi.fn(), reset: vi.fn(), logout: vi.fn() }, workspace: { schools: vi.fn(), reviews: vi.fn(), review: vi.fn(), list: vi.fn(), schoolProfiles:{platform:vi.fn(),detail:vi.fn(),create:vi.fn(),update:vi.fn(),artwork:vi.fn(),branding:vi.fn()}, createSchool: vi.fn(), updateSchool: vi.fn(), mutate: vi.fn() } }))
+vi.mock('./api', () => ({ product:{resources:{artwork:vi.fn().mockResolvedValue([])}}, identity: { session: vi.fn(), accounts: vi.fn(), create: vi.fn(), update: vi.fn(), reset: vi.fn(), logout: vi.fn() }, workspace: { schools: vi.fn(), cases: vi.fn(), resolveCase: vi.fn(), reviews: vi.fn(), review: vi.fn(), list: vi.fn(), schoolProfiles:{platform:vi.fn(),detail:vi.fn(),create:vi.fn(),update:vi.fn(),artwork:vi.fn(),branding:vi.fn()}, createSchool: vi.fn(), updateSchool: vi.fn(), mutate: vi.fn() } }))
 class TestResizeObserver { observe() {} unobserve() {} disconnect() {} }
 vi.stubGlobal('ResizeObserver', TestResizeObserver)
 configure({ asyncUtilTimeout: 5000 })
 afterEach(() => { cleanup(); vi.resetAllMocks() })
 import {beforeEach} from 'vitest'
-beforeEach(()=>{vi.mocked(workspace.schoolProfiles.detail).mockImplementation(async id => (await workspace.schools()).find(s => s.id === id)!);vi.mocked(workspace.reviews).mockImplementation((s,q,signal)=>workspace.list(s,'posts',q,signal) as ReturnType<typeof workspace.reviews>);vi.mocked(product.resources.artwork).mockResolvedValue([]);vi.mocked(workspace.schoolProfiles.platform).mockImplementation(async(filters={})=>{const all=await workspace.schools();const filtered=all.filter(s=>!filters.search||s.name.includes(filters.search));const n=filters.page??1;return {items:filtered.slice((n-1)*10,n*10),page:{number:n,size:10,has_more:n*10<filtered.length}}})})
+beforeEach(()=>{vi.mocked(workspace.cases).mockImplementation((s,q,signal)=>workspace.list(s,'cases',q,signal) as ReturnType<typeof workspace.cases>);vi.mocked(workspace.schoolProfiles.detail).mockImplementation(async id => (await workspace.schools()).find(s => s.id === id)!);vi.mocked(workspace.reviews).mockImplementation((s,q,signal)=>workspace.list(s,'posts',q,signal) as ReturnType<typeof workspace.reviews>);vi.mocked(product.resources.artwork).mockResolvedValue([]);vi.mocked(workspace.schoolProfiles.platform).mockImplementation(async(filters={})=>{const all=await workspace.schools();const filtered=all.filter(s=>!filters.search||s.name.includes(filters.search));const n=filters.page??1;return {items:filtered.slice((n-1)*10,n*10),page:{number:n,size:10,has_more:n*10<filtered.length}}})})
 Object.defineProperty(window, 'matchMedia', { writable: true, value: (query: string) => ({ matches: false, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }) })
 it('restores the selected school and business page from its URL', async () => {
   vi.mocked(identity.session).mockResolvedValue({csrf:'csrf',user:{id:'u',username:'admin',display_name:'管理员',platform_admin:true,bound_school_id:null,grants:[],wecom_authenticated:false}})
@@ -221,16 +221,16 @@ it('explains missing school management permission for an ordinary member at the 
 
 it('resolves a school report with its current revision', async () => {
   showManagement('cases', false, 'operator')
-  vi.mocked(workspace.list).mockResolvedValue({ items: [{ id: 'case-1', content: '待处理举报', state: 'open', revision: 4 }] })
+  vi.mocked(workspace.list).mockResolvedValue({ items: [{ id: 'case-1', title: '帖子标题', reporter_name: '举报者', school_name: '甲学校', kind: 'report', content: '待处理举报', images: [], state: 'open', revision: 4, handled_at: null }] })
   const row = within((await screen.findByText('待处理举报')).closest('tr')!)
   fireEvent.click(row.getByRole('button', { name: /详\s*情/ }))
   const detail = within(await screen.findByRole('dialog'))
   fireEvent.change(detail.getByLabelText('处理说明'), { target: { value: '已核查处理' } })
   await selectOption(detail.getByLabelText('处理结果'), '已处理')
   fireEvent.click(detail.getByRole('button', { name: /^保\s*存$/ }))
-  await waitFor(() => expect(workspace.mutate).toHaveBeenCalledWith('school', 'cases/case-1', {
+  await waitFor(() => expect(workspace.resolveCase).toHaveBeenCalledWith('school', 'case-1', {
     resolution: '已核查处理', state: 'resolved', revision: 4,
-  }, 'PUT'))
+  }))
 })
 
 it('keeps platform default resources read-only while allowing edits to school-owned resources', async () => {
