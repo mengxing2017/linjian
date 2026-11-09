@@ -70,6 +70,11 @@ async fn forum_migration_auth_and_outbox() {
         .grant(&actor, school, user, "member")
         .await
         .unwrap();
+    sqlx::query("INSERT INTO miniapp_users(account_id,nickname) VALUES($1,'测试小程序成员')")
+        .bind(user)
+        .execute(&source)
+        .await
+        .unwrap();
     let (_, member) = app
         .identity
         .0
@@ -568,16 +573,25 @@ async fn reviewed_miniapp_publication_freezing_and_fencing() {
         .session(root, "browser", false)
         .await
         .unwrap();
+    let school: Uuid = app.schools.create(&actor, "发布测试校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    sqlx::query("INSERT INTO miniapp_users(account_id,nickname) VALUES($1,'测试小程序成员')")
+        .bind(root)
+        .execute(&pool)
+        .await
+        .unwrap();
+    app.schools
+        .grant(&actor, school, root, "member")
+        .await
+        .unwrap();
     let (_, mini) = app
         .identity
         .0
         .session(root, "miniapp", false)
         .await
-        .unwrap();
-    let school: Uuid = app.schools.create(&actor, "发布测试校").await.unwrap()["id"]
-        .as_str()
-        .unwrap()
-        .parse()
         .unwrap();
     sqlx::query(
         "UPDATE schools SET config=config||'{\"post_audit_mode\":\"auto\"}'::jsonb WHERE id=$1",
@@ -891,6 +905,442 @@ async fn reviewed_miniapp_publication_freezing_and_fencing() {
         .await
         .unwrap();
     assert!(!sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM forum_source_route_states WHERE school_id=$1 AND last_event_type='content.upsert')").bind(school).fetch_one(&pool).await.unwrap());
+    pool.close().await;
+    sqlx::query(&format!("DROP SCHEMA {name} CASCADE"))
+        .execute(&admin)
+        .await
+        .unwrap();
+    admin.close().await;
+}
+
+#[tokio::test]
+#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
+async fn miniapp_users_registration_school_scope_and_ban() {
+    use linjian_api::miniapp_users::{
+        domain::*,
+        north::local::register,
+        south::{adapter::postgres::Repository, port::ProfileStore},
+    };
+    let admin = PgPool::connect(
+        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
+    )
+    .await
+    .unwrap();
+    let name = format!("miniapp_users_{}", Uuid::new_v4().simple());
+    let pool = isolated(&admin, &name).await;
+    database::migrate(&pool).await.unwrap();
+    let app = bootstrap::build_application(pool.clone());
+    let root = app
+        .identity
+        .bootstrap("root", "管理员", "test-password-at-least-12", true)
+        .await
+        .unwrap();
+    let (_, actor) = app
+        .identity
+        .0
+        .session(root, "browser", false)
+        .await
+        .unwrap();
+    let school: Uuid = app.schools.create(&actor, "甲校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let other: Uuid = app.schools.create(&actor, "乙校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let repo = Repository(pool.clone());
+    let (one, two) = tokio::join!(
+        register(&repo, "app-a", "openid-a"),
+        register(&repo, "app-a", "openid-a")
+    );
+    let id = one.unwrap();
+    assert_eq!(id, two.unwrap());
+    let different = register(&repo, "app-b", "openid-a").await.unwrap();
+    assert_ne!(id, different);
+    assert_eq!(
+        repo.list(&actor, None, &Query::default())
+            .await
+            .unwrap()
+            .len(),
+        2,
+        "backend accounts are not miniapp users"
+    );
+    assert_eq!(
+        app.identity.list(&actor).await.unwrap().len(),
+        1,
+        "pure miniapp users are not backend login accounts"
+    );
+    assert!(
+        app.identity
+            .reset(&actor, id, "test-reset-password-long")
+            .await
+            .is_err(),
+        "cannot provision a backend password for a pure miniapp user"
+    );
+    let (token, mini) = app.identity.0.session(id, "miniapp", false).await.unwrap();
+    assert!(!mini.platform_admin);
+    assert!(mini.platform().is_err());
+    app.schools.bind(&mini, school).await.unwrap();
+    let mini = app.identity.authenticate(&token, "miniapp").await.unwrap();
+    let own = repo.own(id).await.unwrap();
+    assert_eq!(own.school_id, Some(school));
+    assert_eq!(own.status, "normal");
+    assert_eq!(own.post_count, 0);
+    assert!(repo.detail(&actor, Some(other), id).await.is_err());
+    assert!(
+        repo.list(&mini, Some(school), &Query::default())
+            .await
+            .is_err()
+    );
+    let profile = repo
+        .profile(
+            &mini,
+            ProfileInput {
+                nickname: "小程序昵称".into(),
+                avatar_asset_id: None,
+                revision: own.revision,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("SELECT display_name FROM accounts WHERE id=$1")
+            .bind(id)
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        "微信用户",
+        "miniapp nickname is independent"
+    );
+    let profile = repo
+        .mobile(
+            &mini,
+            id,
+            MobileInput {
+                mobile: "13800138000".into(),
+                revision: profile.revision,
+                reason: None,
+            },
+            false,
+        )
+        .await
+        .unwrap();
+    assert!(
+        repo.mobile(
+            &mini,
+            id,
+            MobileInput {
+                mobile: "13800138001".into(),
+                revision: profile.revision,
+                reason: None
+            },
+            false
+        )
+        .await
+        .is_err()
+    );
+    let again = repo
+        .mobile(
+            &mini,
+            id,
+            MobileInput {
+                mobile: "13800138000".into(),
+                revision: profile.revision - 1,
+                reason: None,
+            },
+            false,
+        )
+        .await
+        .unwrap();
+    assert_eq!(again.revision, profile.revision);
+    let mut image = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::new_rgb8(2, 2)
+        .write_to(&mut image, image::ImageFormat::Png)
+        .unwrap();
+    let png = image.into_inner();
+    let asset = repo.upload(&mini, png.clone()).await.unwrap();
+    let profile = repo
+        .profile(
+            &mini,
+            ProfileInput {
+                nickname: "小程序昵称".into(),
+                avatar_asset_id: Some(asset),
+                revision: profile.revision,
+            },
+        )
+        .await
+        .unwrap();
+    let (_, outsider) = app
+        .identity
+        .0
+        .session(different, "miniapp", false)
+        .await
+        .unwrap();
+    assert!(repo.avatar(&outsider, asset).await.is_err());
+    assert!(
+        repo.profile(
+            &outsider,
+            ProfileInput {
+                nickname: "偷头像".into(),
+                avatar_asset_id: Some(asset),
+                revision: 1
+            }
+        )
+        .await
+        .is_err()
+    );
+    assert!(repo.avatar(&actor, asset).await.is_ok());
+    for (title, status, visibility) in [
+        ("待审", "pending", "visible"),
+        ("通过", "approved", "visible"),
+        ("拒绝", "rejected", "hidden"),
+        ("删除", "approved", "deleted"),
+    ] {
+        sqlx::query("INSERT INTO posts(id,school_id,author_id,title,content,audit_status,visibility) VALUES($1,$2,$3,$4,'统计正文',$5,$6)").bind(Uuid::new_v4()).bind(school).bind(id).bind(title).bind(status).bind(visibility).execute(&pool).await.unwrap();
+    }
+    let count = repo.own(id).await.unwrap();
+    assert_eq!(count.post_count, 3);
+    let manager_id = app
+        .identity
+        .bootstrap(
+            "school-admin",
+            "学校管理员",
+            "test-password-at-least-12",
+            false,
+        )
+        .await
+        .unwrap();
+    app.schools
+        .grant(&actor, school, manager_id, "admin")
+        .await
+        .unwrap();
+    let (_, manager) = app
+        .identity
+        .0
+        .session(manager_id, "browser", false)
+        .await
+        .unwrap();
+    let sorted = repo
+        .list(
+            &manager,
+            Some(school),
+            &Query {
+                sort: Some("-post_count".into()),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(sorted[0].post_count, 3);
+    let visible:Uuid=sqlx::query_scalar("SELECT id FROM posts WHERE author_id=$1 AND audit_status='approved' AND visibility='visible' LIMIT 1").bind(id).fetch_one(&pool).await.unwrap();
+    let comment = app
+        .community
+        .comment(
+            &mini,
+            school,
+            visible,
+            serde_json::from_value(json!({"content":"论坛评论回归","parent_id":null})).unwrap(),
+        )
+        .await
+        .unwrap();
+    app.community
+        .delete_comment(
+            &mini,
+            school,
+            comment["id"].as_str().unwrap().parse().unwrap(),
+            1,
+        )
+        .await
+        .unwrap();
+    app.community
+        .follow(&mini, school, manager_id, true)
+        .await
+        .unwrap();
+    app.community
+        .follow(&mini, school, manager_id, false)
+        .await
+        .unwrap();
+    app.community
+        .case(
+            &mini,
+            school,
+            json!({"kind":"report","post_id":visible,"content":"举报回归"}),
+        )
+        .await
+        .unwrap();
+    let before: i64 = sqlx::query_scalar("SELECT count(*) FROM forum_outbox")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    repo.status(
+        &manager,
+        Some(school),
+        id,
+        StatusInput {
+            status: "banned".into(),
+            reason: "违反学校规则".into(),
+            revision: profile.revision,
+        },
+    )
+    .await
+    .unwrap();
+    assert!(app.identity.authenticate(&token, "miniapp").await.is_err());
+    assert!(matches!(
+        app.identity.0.session(id, "miniapp", false).await,
+        Err(linjian_api::business::Error::MiniappBanned)
+    ));
+    assert_eq!(
+        register(&repo, "app-a", "openid-a").await.unwrap(),
+        id,
+        "banned registration cannot create a replacement user"
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM forum_outbox")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        before,
+        "user state does not push content"
+    );
+    assert!(
+        matches!(
+            app.community.follow(&mini, school, manager_id, true).await,
+            Err(linjian_api::business::Error::MiniappBanned)
+        ),
+        "a previously authenticated actor cannot write after a ban"
+    );
+    let banned = repo.own(id).await.unwrap();
+    repo.school(
+        &actor,
+        id,
+        SchoolInput {
+            school_id: other,
+            reason: "纠正归属".into(),
+            revision: banned.revision,
+        },
+    )
+    .await
+    .unwrap();
+    assert!(repo.detail(&manager, Some(school), id).await.is_err());
+    let moved = repo.own(id).await.unwrap();
+    assert_eq!(moved.status, "banned");
+    assert_eq!(moved.post_count, 0);
+    repo.status(
+        &actor,
+        None,
+        id,
+        StatusInput {
+            status: "normal".into(),
+            reason: "验证旧会话".into(),
+            revision: moved.revision,
+        },
+    )
+    .await
+    .unwrap();
+    assert!(
+        matches!(
+            repo.upload(&mini, png.clone()).await,
+            Err(linjian_api::business::Error::Unauthorized)
+        ),
+        "a revoked actor cannot upload after unban"
+    );
+    let moved = repo.own(id).await.unwrap();
+
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM posts WHERE author_id=$1 AND school_id=$2"
+        )
+        .bind(id)
+        .bind(school)
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        4,
+        "moving user must not move historical posts"
+    );
+    repo.status(
+        &actor,
+        None,
+        id,
+        StatusInput {
+            status: "normal".into(),
+            reason: "复核解封".into(),
+            revision: moved.revision,
+        },
+    )
+    .await
+    .unwrap();
+    assert!(app.identity.authenticate(&token, "miniapp").await.is_err());
+    let (fresh, _) = app.identity.0.session(id, "miniapp", false).await.unwrap();
+    assert!(app.identity.authenticate(&fresh, "miniapp").await.is_ok());
+    // A dual identity retains browser privileges while miniapp never inherits them.
+    sqlx::query("INSERT INTO miniapp_users(account_id,nickname) VALUES($1,'管理员的小程序身份')")
+        .bind(root)
+        .execute(&pool)
+        .await
+        .unwrap();
+    app.schools
+        .grant(&actor, other, root, "admin")
+        .await
+        .unwrap();
+    let (root_token, root_mini) = app
+        .identity
+        .0
+        .session(root, "miniapp", false)
+        .await
+        .unwrap();
+    assert!(!root_mini.can(other, "admin"));
+    assert!(app.identity.list(&root_mini).await.is_err());
+    let (browser_token, root_browser) = app
+        .identity
+        .0
+        .session(root, "browser", false)
+        .await
+        .unwrap();
+    let race = repo.own(root).await.unwrap();
+    let issue = app.identity.0.session(root, "miniapp", false);
+    let ban = repo.status(
+        &actor,
+        None,
+        root,
+        StatusInput {
+            status: "banned".into(),
+            reason: "并发封禁".into(),
+            revision: race.revision,
+        },
+    );
+    let (issued, result) = tokio::join!(issue, ban);
+    result.unwrap();
+    if let Ok((raced, _)) = issued {
+        assert!(app.identity.authenticate(&raced, "miniapp").await.is_err())
+    }
+    assert!(
+        app.identity
+            .authenticate(&root_token, "miniapp")
+            .await
+            .is_err()
+    );
+    assert!(
+        app.identity
+            .authenticate(&browser_token, "browser")
+            .await
+            .is_ok(),
+        "miniapp ban preserves browser sessions"
+    );
+    assert!(root_browser.platform().is_ok());
+    let audits: Vec<Value> =
+        sqlx::query_scalar("SELECT detail FROM audit_events WHERE action='miniapp_user.mobile'")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+    assert!(
+        !serde_json::to_string(&audits)
+            .unwrap()
+            .contains("13800138000")
+    );
     pool.close().await;
     sqlx::query(&format!("DROP SCHEMA {name} CASCADE"))
         .execute(&admin)

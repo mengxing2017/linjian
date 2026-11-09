@@ -74,3 +74,42 @@ async fn publication_preview_jsonapi_matches_shared_fixture() {
     assert_eq!(input.revision, 3);
     assert!(!input.reason.is_empty());
 }
+
+#[tokio::test]
+async fn miniapp_user_contract_is_separate_from_backend_accounts() {
+    use axum::response::IntoResponse;
+    use linjian_api::miniapp_users::domain::{
+        MobileInput, ProfileInput, SchoolInput, StatusInput, UserView,
+    };
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../api-contract/fixtures/miniapp-user.json"
+    ))
+    .unwrap();
+    let mut attrs = fixture["data"]["attributes"].clone();
+    attrs["id"] = fixture["data"]["id"].clone();
+    let user: UserView = serde_json::from_value(attrs).unwrap();
+    let response = linjian_api::http::jsonapi::resource("miniapp-users", user).into_response();
+    let actual: serde_json::Value =
+        serde_json::from_slice(&to_bytes(response.into_body(), 8192).await.unwrap()).unwrap();
+    assert_eq!(actual, fixture);
+    let status: serde_json::Value = serde_json::from_str(include_str!(
+        "../../api-contract/fixtures/miniapp-user-status-input.json"
+    ))
+    .unwrap();
+    assert!(serde_json::from_value::<StatusInput>(status["data"]["attributes"].clone()).is_ok());
+    let profile: serde_json::Value = serde_json::from_str(include_str!(
+        "../../api-contract/fixtures/miniapp-user-profile-input.json"
+    ))
+    .unwrap();
+    assert!(serde_json::from_value::<ProfileInput>(profile["data"]["attributes"].clone()).is_ok());
+    let mobile: serde_json::Value = serde_json::from_str(include_str!(
+        "../../api-contract/fixtures/miniapp-user-mobile-input.json"
+    ))
+    .unwrap();
+    assert!(serde_json::from_value::<MobileInput>(mobile["data"]["attributes"].clone()).is_ok());
+    let school: serde_json::Value = serde_json::from_str(include_str!(
+        "../../api-contract/fixtures/miniapp-user-school-input.json"
+    ))
+    .unwrap();
+    assert!(serde_json::from_value::<SchoolInput>(school["data"]["attributes"].clone()).is_ok());
+}
