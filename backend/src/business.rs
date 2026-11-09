@@ -126,7 +126,7 @@ pub struct Decision {
     #[serde(default)]
     pub reason: String,
     #[serde(default)]
-    pub source_preview_digest: Option<String>,
+    pub review_digest: Option<String>,
 }
 #[derive(Deserialize)]
 pub struct Named {

@@ -1,3 +1,4 @@
+mod reviews;
 use crate::business::{Actor, Decision, Error, Page, Result, require};
 use crate::community::domain::{CommentInput, PostInput};
 use serde_json::{Value, json};
@@ -111,6 +112,17 @@ impl Repository {
         use crate::content_publication::domain::{self, Policy};
         let mut tx = self.0.begin().await?;
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
+        if !a.browser {
+            return Err(Error::Forbidden);
+        }
+        let allowed: bool = sqlx::query_scalar(reviews::AUTHORIZATION)
+            .bind(a.id)
+            .bind(s)
+            .fetch_one(&mut *tx)
+            .await?;
+        if !allowed {
+            return Err(Error::Forbidden);
+        }
         let current: Value = sqlx::query_scalar(if comment {
             "SELECT to_jsonb(c) FROM comments c WHERE school_id=$1 AND id=$2 AND NOT deleted FOR UPDATE"
         } else {
@@ -127,13 +139,15 @@ impl Repository {
             .bind(s)
             .fetch_one(&mut *tx)
             .await?;
-        let preview = domain::preview(&current);
-        if managed && v.decision == "approved" {
-            let expected = preview.as_ref().map_err(|_| Error::Conflict)?;
-            if v.source_preview_digest.as_deref() != Some(expected.preview_digest.as_str()) {
+        let review_digest = crate::community::domain::review::digest(&current);
+        if !comment && v.decision == "approved" {
+            let expected = review_digest.as_ref().map_err(|_| Error::Conflict)?;
+            if v.review_digest.as_deref() != Some(expected.as_str()) {
                 return Err(Error::Conflict);
             }
-            if current["audit_status"] == "approved" && current["approved_snapshot_id"].is_string()
+            if managed
+                && current["audit_status"] == "approved"
+                && current["approved_snapshot_id"].is_string()
             {
                 tx.commit().await?;
                 return Ok(current);
@@ -152,7 +166,7 @@ impl Repository {
             .await?;
         let mut snapshot = None;
         if managed && v.decision == "approved" {
-            let preview = preview?;
+            let preview = domain::preview(&current)?;
             let policy = Policy::from_env()?;
             let sid = Uuid::now_v7();
             let content_digest = crate::business::hash(
@@ -186,7 +200,7 @@ impl Repository {
             s,
             "moderation.decide",
             id,
-            json!({"decision":v.decision,"reason":v.reason}),
+            json!({"decision":v.decision,"reason":v.reason,"review_digest":v.review_digest,"content_revision":current["content_revision"]}),
         )
         .await?;
         tx.commit().await?;
@@ -350,6 +364,15 @@ impl Repository {
 }
 
 impl crate::community::south::port::Store for Repository {
+    async fn reviews(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        page: Page,
+        id: Option<Uuid>,
+    ) -> Result<Vec<crate::community::domain::review::PostReview>> {
+        Repository::reviews(self, a, s, page, id).await
+    }
     async fn validate_media(&self, s: Uuid, images: &[String]) -> Result<()> {
         Repository::validate_media(self, s, images).await
     }

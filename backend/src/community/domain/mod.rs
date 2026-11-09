@@ -37,3 +37,5 @@ pub struct CommentInput {
     pub content: String,
     pub parent_id: Option<Uuid>,
 }
+
+pub mod review;

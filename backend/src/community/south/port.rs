@@ -3,6 +3,14 @@ use crate::community::domain::{CommentInput, PostInput};
 use serde_json::Value;
 use uuid::Uuid;
 pub trait Store: Clone + Send + Sync + 'static {
+    fn reviews(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        page: Page,
+        id: Option<Uuid>,
+    ) -> impl std::future::Future<Output = Result<Vec<crate::community::domain::review::PostReview>>>
+    + Send;
     fn validate_media(
         &self,
         s: Uuid,
