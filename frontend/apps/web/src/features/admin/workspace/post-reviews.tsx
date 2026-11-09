@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { ReviewImage } from './review-image'
+import { useCallback, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Alert,
@@ -24,72 +25,6 @@ function contentPreview(content: string) {
   return chars.length > 120 ? chars.slice(0, 119).join('') + '…' : chars.join('')
 }
 
-function ReviewImage({
-  school,
-  source,
-  index,
-  report,
-}: {
-  school: string
-  source: string
-  index: number
-  report?: (index: number, ready: boolean) => void
-}) {
-  const [url, setUrl] = useState(''),
-    [failed, setFailed] = useState(false),
-    [attempt, setAttempt] = useState(0)
-  const q = useQuery({
-    queryKey: ['linjian', 'review-image', school, source, attempt],
-    queryFn: ({ signal }) => {
-      const prefix = `/api/v1/schools/${school}/media/`
-      const id = source.startsWith(prefix) ? source.slice(prefix.length) : ''
-      if (!/^[\da-f-]{36}$/i.test(id)) throw new Error('附件地址不属于当前学校')
-      return workspace.reviewImage(school, id, signal)
-    },
-    retry: false,
-    refetchOnWindowFocus: false,
-  })
-  useEffect(() => {
-    report?.(index, false)
-    setFailed(false)
-    if (!q.data) {
-      setUrl('')
-      return
-    }
-    const object = URL.createObjectURL(new Blob([q.data]))
-    setUrl(object)
-    return () => URL.revokeObjectURL(object)
-  }, [q.data, index, report])
-  return (
-    <div>
-      {(q.error || failed) && (
-        <Alert type="error" title={`附件 ${index + 1} 读取失败，请重试后再通过审核`} />
-      )}
-      {url && (
-        <Image
-          src={url}
-          alt={`帖子附件 ${index + 1}`}
-          width={140}
-          onLoad={() => report?.(index, true)}
-          onError={() => {
-            setFailed(true)
-            report?.(index, false)
-          }}
-        />
-      )}
-      {(q.error || failed) && (
-        <Button
-          onClick={() => {
-            report?.(index, false)
-            setAttempt((value) => value + 1)
-          }}
-        >
-          重试附件 {index + 1}
-        </Button>
-      )}
-    </div>
-  )
-}
 
 function ReviewDetail({
   school,

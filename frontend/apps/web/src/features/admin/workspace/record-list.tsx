@@ -12,31 +12,34 @@ import { label } from '../../../shared/label'
 import { stateLabel } from './state-label'
 
 type ListResource = 'comments' | 'cases' | 'resources' | 'audit'
-export interface RecordDetailProps {
-  record: Row
+export interface RecordDetailProps<T extends Row = Row> {
+  record: T
   close: () => void
   reload: () => Promise<boolean>
 }
 
 /** Shared list mechanics; columns, filters and detail actions belong to each business page. */
-interface RecordListProps {
+interface RecordListProps<T extends Row = Row> {
   school: string
   resource: ListResource
-  columns: (open: (id: string) => void) => TableColumnsType<Row>
-  detail: (props: RecordDetailProps) => ReactNode
+  columns: (open: (id: string) => void) => TableColumnsType<T>
+  detail: (props: RecordDetailProps<T>) => ReactNode
   status?: string
   onStatusChange?: (value: string) => void
   filters?: (changeStatus: (value: string) => void) => ReactNode
   actions?: ReactNode
-  rowActions?: (record: Row, close: () => void) => ReactNode
+  rowActions?: (record: T, close: () => void) => ReactNode
   paginated?: boolean
+  loader?: (school: string, query: string, signal?: AbortSignal) => ReturnType<typeof workspace.list<T>>
+  showCreatedAt?: boolean
+  searchPlaceholder?: string
   scrollWidth?: number
 }
 
-export function RecordList({
+export function RecordList<T extends Row = Row>({
   school, resource, columns, detail, status, onStatusChange, filters, actions,
-  rowActions, paginated = true, scrollWidth = 880,
-}: RecordListProps) {
+  rowActions, paginated = true, scrollWidth = 880, loader, showCreatedAt = true, searchPlaceholder = '搜索标题或正文',
+}: RecordListProps<T>) {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string>()
@@ -46,7 +49,7 @@ export function RecordList({
   })}`
   const q = useQuery({
     queryKey: ['business', school, resource, query],
-    queryFn: ({ signal }) => workspace.list(school, resource, query, signal),
+    queryFn: ({ signal }) => loader ? loader(school, query, signal) : workspace.list<T>(school, resource, query, signal),
   })
   const close = () => setSelectedId(undefined)
   const selected = q.data?.items.find(record => record.id === selectedId)
@@ -55,14 +58,14 @@ export function RecordList({
       {q.error && <Alert type="error" title={q.error.message} />}
       <ListPanel
         filters={<Space wrap>
-          <Input.Search aria-label="搜索内容" placeholder="搜索标题或正文" onSearch={value => { setSearch(value); setPage(1) }} />
+          <Input.Search aria-label="搜索内容" placeholder={searchPlaceholder} onSearch={value => { setSearch(value); setPage(1); close() }} />
           {filters?.(value => { onStatusChange?.(value); setPage(1); close() })}
           <Button onClick={() => void q.refetch()} loading={q.isFetching}>刷新</Button>
         </Space>}
         actions={actions}
         footer={paginated && <PaginationControls page={page} more={q.data?.page?.has_more} busy={q.isFetching} change={setPage} />}
       >
-        <Table<Row>
+        <Table<T>
           rowKey="id"
           loading={q.isFetching}
           dataSource={q.data?.items ?? []}
@@ -70,7 +73,7 @@ export function RecordList({
           scroll={{ x: scrollWidth }}
           columns={[
             ...columns(setSelectedId),
-            { title: '创建时间', key: 'created', width: 180, render: (_, row) => formatDate(row.created_at) },
+            ...(showCreatedAt ? [{ title: '创建时间', key: 'created', width: 180, render: (_: unknown, row: T) => formatDate(row.created_at) }] : []),
             { title: '操作', key: 'actions', width: 150, fixed: 'right', render: (_, row) => <Space size={0}>
               <Button type="link" onClick={() => setSelectedId(row.id)}>详情</Button>
               {rowActions?.(row, close)}
