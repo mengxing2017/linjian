@@ -1348,3 +1348,340 @@ async fn miniapp_users_registration_school_scope_and_ban() {
         .unwrap();
     admin.close().await;
 }
+
+#[tokio::test]
+#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
+async fn school_profiles_visibility_artwork_and_transactions() {
+    use linjian_api::{
+        business::{Error, Page},
+        schools::{domain::profile::SchoolQuery, south::adapter::postgres::Repository},
+    };
+    let admin = PgPool::connect(
+        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
+    )
+    .await
+    .unwrap();
+    let schema = format!("school_profiles_{}", Uuid::new_v4().simple());
+    let pool = isolated(&admin, &schema).await;
+    database::migrate(&pool).await.unwrap();
+    let app = bootstrap::build_application(pool.clone());
+    let root = app
+        .identity
+        .bootstrap("root", "管理员", "test-password-at-least-12", true)
+        .await
+        .unwrap();
+    let (token, actor) = app
+        .identity
+        .0
+        .session(root, "browser", false)
+        .await
+        .unwrap();
+    let resource_operations =
+        linjian_api::schools::north::resources::Service(Repository(pool.clone()));
+    let repo = Repository(pool.clone());
+    let school=repo.save_school(&actor,None,json!({"name":"示例大学","short_name":"示大","province":"广东省","city":"广州市","area":"天河区","latitude":0,"longitude":0,"theme_primary":"#abc"})).await.unwrap();
+    let id = school.id;
+    assert_eq!(school.theme_primary, "#AABBCC");
+    assert_eq!(school.status, "normal");
+    assert_eq!(school.latitude, Some(0.0));
+    let other = repo
+        .save_school(&actor, None, json!({"name":"另一学校"}))
+        .await
+        .unwrap();
+    for invalid in [
+        json!({"name":"校","latitude":1}),
+        json!({"name":"校","longitude":180.1,"latitude":0}),
+        json!({"name":"校","active":true}),
+        json!({"name":"校","theme_primary":"var(--color)"}),
+    ] {
+        assert!(repo.save_school(&actor, None, invalid).await.is_err());
+    }
+    let manager_id = app
+        .identity
+        .bootstrap("manager", "校管", "test-password-at-least-12", false)
+        .await
+        .unwrap();
+    app.schools
+        .grant(&actor, id, manager_id, "admin")
+        .await
+        .unwrap();
+    let (_, manager) = app
+        .identity
+        .0
+        .session(manager_id, "browser", false)
+        .await
+        .unwrap();
+    let operator_id = app
+        .identity
+        .bootstrap("operator", "操作员", "test-password-at-least-12", false)
+        .await
+        .unwrap();
+    app.schools
+        .grant(&actor, id, operator_id, "operator")
+        .await
+        .unwrap();
+    let (_, operator) = app
+        .identity
+        .0
+        .session(operator_id, "browser", false)
+        .await
+        .unwrap();
+    assert!(
+        repo.save_school(&operator, Some(id), json!({"name":"越权","revision":1}))
+            .await
+            .is_err()
+    );
+    assert!(
+        repo.save_school(&manager, Some(id), json!({"status":"hidden","revision":1}))
+            .await
+            .is_err()
+    );
+    assert!(
+        repo.save_school(
+            &manager,
+            Some(other.id),
+            json!({"name":"跨校","revision":1})
+        )
+        .await
+        .is_err()
+    );
+    let mini_id = linjian_api::miniapp_users::north::local::register(
+        &linjian_api::miniapp_users::south::adapter::postgres::Repository(pool.clone()),
+        "school-app",
+        "school-openid",
+    )
+    .await
+    .unwrap();
+    let (mini_token, mini) = app
+        .identity
+        .0
+        .session(mini_id, "miniapp", false)
+        .await
+        .unwrap();
+    let directory = repo
+        .search_schools(
+            &mini,
+            &SchoolQuery {
+                search: Some("示大".into()),
+                ..Default::default()
+            },
+            false,
+        )
+        .await
+        .unwrap();
+    assert_eq!(directory.len(), 1);
+    assert!(directory[0].get("config").is_none());
+    assert!(directory[0].get("logo_asset_id").is_none());
+    let mut image = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::new_rgb8(2, 2)
+        .write_to(&mut image, image::ImageFormat::Png)
+        .unwrap();
+    let bytes = image.into_inner();
+    let image = resource_operations
+        .upload(&actor, Some(id), bytes.clone())
+        .await
+        .unwrap();
+    let asset: Uuid = image["id"].as_str().unwrap().parse().unwrap();
+    assert!(
+        repo.save_school(
+            &actor,
+            Some(other.id),
+            json!({"logo_asset_id":asset,"revision":1})
+        )
+        .await
+        .is_err()
+    );
+    let school=repo.save_school(&manager,Some(id),json!({"logo_asset_id":asset,"header_bg_asset_id":asset,"revision":1,"config":{"post_audit_mode":"manual"}})).await.unwrap();
+    assert_eq!(school.short_name, "示大");
+    assert_eq!(school.revision, 2);
+    assert_eq!(repo.branding(id, "logo").await.unwrap().1, bytes);
+    assert!(matches!(
+        repo.save_school(&manager, Some(id), json!({"name":"旧修订","revision":1}))
+            .await,
+        Err(Error::Conflict)
+    ));
+    sqlx::query("UPDATE operational_media SET created_at=now()-interval '8 days' WHERE id=$1")
+        .bind(asset)
+        .execute(&pool)
+        .await
+        .unwrap();
+    repo.cleanup_artwork().await.unwrap();
+    assert!(repo.branding(id, "header").await.is_ok());
+    app.schools.bind(&mini, id).await.unwrap();
+    let mini = app
+        .identity
+        .authenticate(&mini_token, "miniapp")
+        .await
+        .unwrap();
+    // Establish a real source route and already published content, without contacting an upstream.
+    let c = Uuid::new_v4();
+    let cv = Uuid::new_v4();
+    let source = Uuid::new_v4();
+    sqlx::query("INSERT INTO source_connections(id,name,source_id,origin,key_id,checked_at) VALUES($1,'test',$2,'https://keeper.example.com','test-key',now())").bind(c).bind(source).execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO source_connection_versions(id,connection_id,revision,source_id,origin,public_origin) VALUES($1,$2,1,$3,'https://keeper.example.com','https://forum.example.com')").bind(cv).bind(c).bind(source).execute(&pool).await.unwrap();
+    sqlx::query("UPDATE source_active_configuration SET connection_id=$1")
+        .bind(c)
+        .execute(&pool)
+        .await
+        .unwrap();
+    linjian_api::source_access::south::adapter::postgres::Repository(pool.clone())
+        .bind(
+            &actor,
+            id,
+            c,
+            linjian_api::source_access::north::local::BindingInput {
+                route_id: "school-route".into(),
+                active: true,
+            },
+            0,
+            1,
+        )
+        .await
+        .unwrap();
+    let post = Uuid::new_v4();
+    sqlx::query("INSERT INTO posts(id,school_id,author_id,title,content,audit_status) VALUES($1,$2,$3,'标题','正文','approved')").bind(post).bind(id).bind(root).execute(&pool).await.unwrap();
+    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM forum_outbox")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let school = repo
+        .save_school(
+            &manager,
+            Some(id),
+            json!({"name":"学校新名称","theme_secondary":"#123456","revision":2}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(school.logo_asset_id, Some(asset));
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM forum_outbox")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        count
+    );
+    // Serialize school hiding against a content write; neither path may deadlock or publish after hiding.
+    let hidden = repo.save_school(
+        &actor,
+        Some(id),
+        json!({"status":"hidden","revision":school.revision}),
+    );
+    let edit = app.community.post(
+        &actor,
+        id,
+        Some(post),
+        serde_json::from_value(
+            json!({"title":"编辑标题","content":"编辑正文","images":[],"tags":[],"revision":1}),
+        )
+        .unwrap(),
+    );
+    let (hidden, edit) = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        tokio::join!(hidden, edit)
+    })
+    .await
+    .unwrap();
+    let hidden = hidden.unwrap();
+    assert_eq!(hidden.status, "hidden");
+    let _ = edit;
+    assert!(
+        app.identity
+            .authenticate(&mini_token, "miniapp")
+            .await
+            .is_ok(),
+        "hidden school preserves user login"
+    );
+    assert!(
+        app.community
+            .posts(&mini, id, Page::default())
+            .await
+            .is_err()
+    );
+    assert!(
+        app.community
+            .posts(&actor, id, Page::default())
+            .await
+            .is_err()
+    );
+    assert!(repo.branding(id, "logo").await.is_err());
+    assert!(
+        repo.search_schools(
+            &mini,
+            &SchoolQuery {
+                search: Some("示大".into()),
+                ..Default::default()
+            },
+            false
+        )
+        .await
+        .unwrap()
+        .is_empty()
+    );
+    assert!(app.schools.bind(&mini, id).await.is_err());
+    assert!(repo.school_detail(&manager, id).await.is_err());
+    assert!(repo.school_detail(&actor, id).await.is_ok());
+    assert_eq!(
+        sqlx::query_scalar::<_, Uuid>("SELECT bound_school_id FROM accounts WHERE id=$1")
+            .bind(mini_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        id
+    );
+    sqlx::query("SELECT forum_reconcile_school($1,50)")
+        .bind(id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert!(sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM forum_outbox WHERE school_id=$1 AND payload->>'event_type'='content.withdrawn')").bind(id).fetch_one(&pool).await.unwrap());
+    // Platform can maintain hidden branding and restore the school, even without active school grants.
+    resource_operations
+        .upload(&actor, Some(id), bytes)
+        .await
+        .unwrap();
+    let before: i64 = sqlx::query_scalar("SELECT count(*) FROM forum_outbox")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let restored = repo
+        .save_school(
+            &actor,
+            Some(id),
+            json!({"status":"normal","revision":hidden.revision}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(restored.status, "normal");
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM forum_outbox")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        before
+    );
+    // Real HTTP routing, JSON:API pagination and browser CSRF remain enforced.
+    let router = linjian_api::http::app_router(app.clone());
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/school-directory?page%5Bsize%5D=1")
+                .header("Authorization", format!("Bearer {mini_token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let doc: Value =
+        serde_json::from_slice(&to_bytes(response.into_body(), 16384).await.unwrap()).unwrap();
+    assert_eq!(doc["data"].as_array().unwrap().len(), 1);
+    assert_eq!(doc["meta"]["page"]["has_more"], true);
+    let response=router.clone().oneshot(Request::builder().method("PUT").uri(format!("/api/v1/schools/{id}")).header("Cookie",format!("linjian_session={token}")).header("Content-Type","application/vnd.api+json").body(Body::from(json!({"data":{"type":"schools","attributes":{"name":"CSRF","revision":restored.revision}}}).to_string())).unwrap()).await.unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    pool.close().await;
+    sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
+        .execute(&admin)
+        .await
+        .unwrap();
+    admin.close().await;
+}

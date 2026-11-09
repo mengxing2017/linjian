@@ -113,3 +113,29 @@ async fn miniapp_user_contract_is_separate_from_backend_accounts() {
     .unwrap();
     assert!(serde_json::from_value::<SchoolInput>(school["data"]["attributes"].clone()).is_ok());
 }
+
+#[tokio::test]
+async fn school_profile_fixture_matches_rust_and_excludes_active() {
+    use axum::response::IntoResponse;
+    use linjian_api::schools::domain::profile::{SchoolInput, SchoolView};
+    let expected: serde_json::Value = serde_json::from_str(include_str!(
+        "../../api-contract/fixtures/school-profile.json"
+    ))
+    .unwrap();
+    let mut attributes = expected["data"]["attributes"].clone();
+    attributes["id"] = expected["data"]["id"].clone();
+    let school: SchoolView = serde_json::from_value(attributes).unwrap();
+    assert!(school.directory().get("config").is_none());
+    let response = linjian_api::http::jsonapi::resource("schools", school).into_response();
+    let actual: serde_json::Value =
+        serde_json::from_slice(&to_bytes(response.into_body(), 16384).await.unwrap()).unwrap();
+    assert_eq!(actual, expected);
+    let input: serde_json::Value = serde_json::from_str(include_str!(
+        "../../api-contract/fixtures/school-profile-input.json"
+    ))
+    .unwrap();
+    SchoolInput::parse(input["data"]["attributes"].clone())
+        .unwrap()
+        .validate()
+        .unwrap();
+}
