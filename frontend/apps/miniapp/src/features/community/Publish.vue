@@ -132,7 +132,7 @@ function submit() {
     )
     uni.removeStorageSync(draft)
     if (key !== scopeKey()) return
-    message.value = result.audit_status === 'approved' ? '发布成功，已通过审核' : '已提交，等待审核'
+    message.value = result.audit_status === 'approved' ? '发布成功' : '已提交，等待审核'
     title.value = ''
     content.value = ''
     tags.value = ''
@@ -189,7 +189,7 @@ defineExpose({ show: load, hide: saveDraft })
         <button size="mini" :disabled="busy" @tap="saveDraft">保存本地草稿</button>
         <button size="mini" :disabled="busy" @tap="discard">丢弃草稿</button>
       </view>
-      <button class="primary" :disabled="busy" :loading="busy" @tap="submit">提交审核</button>
+      <button class="primary" :disabled="busy" :loading="busy" @tap="submit">发布</button>
       <text class="muted">网络中断时请先在“我的发布”核对结果，再决定是否重新提交。</text>
     </view>
   </view>

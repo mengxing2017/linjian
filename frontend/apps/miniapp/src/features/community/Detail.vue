@@ -76,7 +76,8 @@ function follow() {
 function comment() {
   void run(async (current) => {
     if (!content.value.trim()) throw new Error('请填写评论内容')
-    await communityApi.comment(props.school, props.id, content.value, parent.value)
+    const result = await communityApi.comment(props.school, props.id, content.value, parent.value)
+    if (current()) uni.showToast({ title: result.audit_status === 'approved' ? '评论发布成功' : '已提交，等待审核', icon: 'none' })
     content.value = ''
     parent.value = undefined
     if (current()) await read()
@@ -192,8 +193,9 @@ defineExpose({
         <text class="title">评论</text>
         <view v-for="item in comments" :key="item.id" class="comment">
           <text>{{ item.author_name }}：{{ item.content }}</text>
+          <text v-if="item.audit_status !== 'approved'" class="muted">{{ item.audit_status === 'pending' ? '待审核' : '未通过审核' }}</text>
           <view class="row">
-            <button size="mini" @tap="parent = item.id">回复</button>
+            <button v-if="item.audit_status === 'approved'" size="mini" @tap="parent = item.id">回复</button>
             <button
               v-if="item.author_id === session.user?.id"
               size="mini"
