@@ -1,7 +1,7 @@
 use crate::business::{Result, require, text};
 use serde::Deserialize;
 use uuid::Uuid;
-#[derive(Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PostInput {
     pub title: String,
@@ -10,6 +10,7 @@ pub struct PostInput {
     pub images: Vec<String>,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub revision: Option<i64>,
 }
 impl PostInput {
@@ -43,3 +44,6 @@ pub mod moderation;
 pub mod review;
 
 pub mod case;
+
+pub mod post_import;
+pub mod post_management;

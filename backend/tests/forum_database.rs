@@ -886,7 +886,7 @@ async fn reviewed_miniapp_publication_freezing_and_fencing() {
             .await
             .is_err()
     );
-    let approved = app
+    let mut approved = app
         .community
         .moderate(&actor, school, post, decision(&pending), false)
         .await
@@ -1038,6 +1038,53 @@ async fn reviewed_miniapp_publication_freezing_and_fencing() {
         before,
         "interactions do not push"
     );
+    let pinned = app
+        .community
+        .management_pin(
+            &actor,
+            school,
+            post,
+            linjian_api::community::domain::post_management::PinPostInput {
+                revision: approved["revision"].as_i64().unwrap(),
+                is_top: true,
+            },
+        )
+        .await
+        .unwrap();
+    let unpinned = app
+        .community
+        .management_pin(
+            &actor,
+            school,
+            post,
+            linjian_api::community::domain::post_management::PinPostInput {
+                revision: pinned.post.revision,
+                is_top: false,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(unpinned.post.audit_status, "approved");
+    assert_eq!(
+        unpinned.post.content_revision,
+        approved["content_revision"].as_i64().unwrap()
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM forum_outbox")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        before,
+        "pinning reviewed, published content must not push"
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM forum_publication_snapshots")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        1
+    );
+    approved["revision"] = json!(unpinned.post.revision);
     let edited = app
         .community
         .post(
@@ -2878,4 +2925,691 @@ async fn case_management_projection_handling_and_upgrade() {
         .await
         .unwrap();
     admin.close().await;
+}
+
+#[tokio::test]
+#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
+async fn post_management_order_status_import_and_live_permissions() {
+    use linjian_api::{
+        business::{Error, Grant},
+        community::domain::{PostInput, post_import::*, post_management::*},
+    };
+    fn content(title: &str, revision: Option<i64>) -> PostInput {
+        PostInput {
+            title: title.into(),
+            content: format!("{title}的正文"),
+            images: vec![],
+            tags: vec!["校园".into()],
+            revision,
+        }
+    }
+    let admin = PgPool::connect(
+        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
+    )
+    .await
+    .unwrap();
+    let schema = format!("forum_management_{}", Uuid::new_v4().simple());
+    let pool = isolated(&admin, &schema).await;
+    database::migrate(&pool).await.unwrap();
+    let app = bootstrap::build_application(pool.clone());
+    let root = app
+        .identity
+        .bootstrap("root", "管理昵称", "test-password-at-least-12", true)
+        .await
+        .unwrap();
+    let (token, actor) = app
+        .identity
+        .0
+        .session(root, "browser", false)
+        .await
+        .unwrap();
+    let school: Uuid = app.schools.create(&actor, "管理甲校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let other: Uuid = app.schools.create(&actor, "管理乙校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let mut ids = Vec::new();
+    for i in 0..4 {
+        ids.push(
+            app.community
+                .management_write(&actor, school, None, content(&format!("帖子{i}"), None))
+                .await
+                .unwrap()
+                .post
+                .id,
+        );
+    }
+    let list = app
+        .community
+        .management_list(
+            &actor,
+            school,
+            PostManagementFilters {
+                page_size: Some(2),
+                is_top: Some(false),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    // Repository returns one lookahead row; HTTP truncates it for pagination.
+    assert_eq!(list.items.len(), 3);
+    assert_eq!(list.items[0].post.id, ids[3]);
+    assert_eq!(list.items[0].post.author_nickname, "管理昵称");
+    assert!(list.items[0].cover_image.is_none());
+    assert!(!list.items[0].is_top);
+    let before: (i64,i64,i64) = sqlx::query_as("SELECT (SELECT browse FROM posts WHERE id=$1),(SELECT count(*) FROM forum_outbox),(SELECT count(*) FROM forum_publication_snapshots)").bind(ids[3]).fetch_one(&pool).await.unwrap();
+    let read = app
+        .community
+        .management_detail(&actor, school, ids[3])
+        .await
+        .unwrap();
+    assert_eq!(read.post.audit_status, "pending");
+    let noop = app
+        .community
+        .management_write(
+            &actor,
+            school,
+            Some(ids[3]),
+            content("帖子3", Some(read.post.revision)),
+        )
+        .await
+        .unwrap();
+    assert_eq!(noop.post.revision, read.post.revision);
+    let after: (i64,i64,i64) = sqlx::query_as("SELECT (SELECT browse FROM posts WHERE id=$1),(SELECT count(*) FROM forum_outbox),(SELECT count(*) FROM forum_publication_snapshots)").bind(ids[3]).fetch_one(&pool).await.unwrap();
+    assert_eq!(before, after);
+    let original = list
+        .items
+        .iter()
+        .take(2)
+        .map(|r| ReorderPostRow {
+            id: r.post.id,
+            revision: r.post.revision,
+        })
+        .collect();
+    let reorder = ReorderPostsInput {
+        order_revision: list.order_revision,
+        is_top: false,
+        page: 1,
+        page_size: 2,
+        original,
+        ordered_ids: vec![ids[2], ids[3]],
+    };
+    let order_revision = app
+        .community
+        .management_reorder(&actor, school, reorder)
+        .await
+        .unwrap();
+    assert!(order_revision > list.order_revision);
+    let ordered = app
+        .community
+        .management_list(
+            &actor,
+            school,
+            PostManagementFilters {
+                is_top: Some(false),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        ordered.items.iter().map(|r| r.post.id).collect::<Vec<_>>(),
+        vec![ids[2], ids[3], ids[1], ids[0]]
+    );
+    assert_eq!(
+        ordered.items[0].post.content_revision,
+        list.items[1].post.content_revision
+    );
+    let stale = ReorderPostsInput {
+        order_revision: list.order_revision,
+        is_top: false,
+        page: 1,
+        page_size: 2,
+        original: vec![
+            ReorderPostRow {
+                id: ids[3],
+                revision: read.post.revision,
+            },
+            ReorderPostRow {
+                id: ids[2],
+                revision: 1,
+            },
+        ],
+        ordered_ids: vec![ids[3], ids[2]],
+    };
+    assert!(matches!(
+        app.community
+            .management_reorder(&actor, school, stale)
+            .await,
+        Err(Error::Conflict)
+    ));
+    let post = &ordered.items[0].post;
+    let pin = app
+        .community
+        .management_pin(
+            &actor,
+            school,
+            post.id,
+            PinPostInput {
+                revision: post.revision,
+                is_top: true,
+            },
+        )
+        .await
+        .unwrap();
+    assert!(pin.is_top);
+    assert_eq!(pin.post.content_revision, post.content_revision);
+    assert_eq!(pin.post.audit_status, post.audit_status);
+    let same_pin = app
+        .community
+        .management_pin(
+            &actor,
+            school,
+            post.id,
+            PinPostInput {
+                revision: pin.post.revision,
+                is_top: true,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(same_pin.post.revision, pin.post.revision);
+    let untouched: i64 = sqlx::query_scalar("SELECT count(*) FROM forum_outbox")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(untouched, before.1);
+    assert!(
+        app.community
+            .management_status(
+                &actor,
+                school,
+                post.id,
+                SetPostStatusInput {
+                    revision: pin.post.revision,
+                    visibility: PostVisibility::Offline,
+                    reason: String::new()
+                }
+            )
+            .await
+            .is_err()
+    );
+    let offline = app
+        .community
+        .management_status(
+            &actor,
+            school,
+            post.id,
+            SetPostStatusInput {
+                revision: pin.post.revision,
+                visibility: PostVisibility::Offline,
+                reason: "违规内容".into(),
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(offline.post.visibility, "offline");
+    assert!(offline.is_top);
+    let filtered = app
+        .community
+        .management_list(
+            &actor,
+            school,
+            PostManagementFilters {
+                visibility: Some("offline".into()),
+                audit_status: Some("pending".into()),
+                is_top: Some(true),
+                tag: Some("校园".into()),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(filtered.items.len(), 1);
+    assert!(
+        app.community
+            .management_detail(&actor, other, post.id)
+            .await
+            .is_err()
+    );
+    let approved=app.community.moderate(&actor,school,post.id,serde_json::from_value(json!({"revision":offline.post.revision,"decision":"approved","review_digest":offline.post.review_digest})).unwrap(),false).await.unwrap();
+    assert_eq!(approved["visibility"], "offline");
+    let legacy = app
+        .community
+        .visibility(
+            &actor,
+            school,
+            post.id,
+            json!({"revision":approved["revision"],"visibility":"hidden"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(legacy["is_top"], true);
+    for bad in [json!(-1), json!(1.5), json!(2147483648_i64), json!("10")] {
+        assert!(
+            app.community
+                .visibility(
+                    &actor,
+                    school,
+                    post.id,
+                    json!({"revision":legacy["revision"],"visibility":"visible","top_sort":bad})
+                )
+                .await
+                .is_err()
+        );
+    }
+    app.community
+        .management_delete(
+            &actor,
+            school,
+            post.id,
+            legacy["revision"].as_i64().unwrap(),
+        )
+        .await
+        .unwrap();
+    assert!(
+        app.community
+            .management_detail(&actor, school, post.id)
+            .await
+            .is_err()
+    );
+    assert!(app.community.visibility(&actor,school,post.id,json!({"revision":legacy["revision"].as_i64().unwrap()+1,"visibility":"visible","top_sort":0})).await.is_err());
+    let deleted_pin: bool = sqlx::query_scalar("SELECT is_top FROM posts WHERE id=$1")
+        .bind(post.id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert!(!deleted_pin);
+    // Failed commit must roll back the first row, audit, order version and Outbox.
+    let preview = app
+        .community
+        .preview_post_import(
+            &actor,
+            school,
+            "posts.csv".into(),
+            "标题,正文\n导入一,内容一\n导入二,内容二\n"
+                .as_bytes()
+                .to_vec(),
+        )
+        .await
+        .unwrap();
+    assert!(preview.errors.is_empty());
+    sqlx::query("INSERT INTO school_resources(id,school_id,kind,title,active) VALUES($1,$2,'blocked_word','内容二',true)").bind(Uuid::new_v4()).bind(school).execute(&pool).await.unwrap();
+    let counters_before:(i64,i64,i64,i64)=sqlx::query_as("SELECT (SELECT count(*) FROM posts),(SELECT count(*) FROM forum_outbox),(SELECT count(*) FROM audit_events),(SELECT revision FROM post_order_versions WHERE school_id=$1)").bind(school).fetch_one(&pool).await.unwrap();
+    let key = Uuid::new_v4();
+    let commit = || CommitPostImport {
+        revision: preview.revision,
+        digest: preview.digest.clone(),
+        idempotency_key: key,
+    };
+    assert!(
+        app.community
+            .commit_post_import(&actor, school, preview.id, commit())
+            .await
+            .is_err()
+    );
+    let counters_after:(i64,i64,i64,i64)=sqlx::query_as("SELECT (SELECT count(*) FROM posts),(SELECT count(*) FROM forum_outbox),(SELECT count(*) FROM audit_events),(SELECT revision FROM post_order_versions WHERE school_id=$1)").bind(school).fetch_one(&pool).await.unwrap();
+    assert_eq!(counters_before, counters_after);
+    sqlx::query("DELETE FROM school_resources WHERE school_id=$1 AND kind='blocked_word'")
+        .bind(school)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let committed = app
+        .community
+        .commit_post_import(&actor, school, preview.id, commit())
+        .await
+        .unwrap();
+    assert_eq!(committed.result.len(), 2);
+    assert!(committed.rows.is_empty());
+    let retried = app
+        .community
+        .commit_post_import(&actor, school, preview.id, commit())
+        .await
+        .unwrap();
+    assert_eq!(committed.result, retried.result);
+    assert!(
+        app.community
+            .commit_post_import(&actor, other, preview.id, commit())
+            .await
+            .is_err()
+    );
+    let errors = app
+        .community
+        .preview_post_import(
+            &actor,
+            school,
+            "posts.csv".into(),
+            "标题,正文\n,错误\n".as_bytes().to_vec(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(errors.errors[0].row, 2);
+    assert!(
+        app.community
+            .commit_post_import(
+                &actor,
+                school,
+                errors.id,
+                CommitPostImport {
+                    revision: errors.revision,
+                    digest: errors.digest,
+                    idempotency_key: Uuid::new_v4()
+                }
+            )
+            .await
+            .is_err()
+    );
+    let expiry = app
+        .community
+        .preview_post_import(
+            &actor,
+            school,
+            "posts.csv".into(),
+            "标题,正文\n过期,内容\n".as_bytes().to_vec(),
+        )
+        .await
+        .unwrap();
+    sqlx::query("UPDATE post_import_jobs SET expires_at=now()-interval '1 second' WHERE id=$1")
+        .bind(expiry.id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let expired = app
+        .community
+        .post_import_detail(&actor, school, expiry.id)
+        .await
+        .unwrap();
+    assert_eq!(expired.state, "expired");
+    assert!(expired.rows.is_empty());
+    let operator_id = app
+        .identity
+        .bootstrap("operator", "操作昵称", "test-password-at-least-12", false)
+        .await
+        .unwrap();
+    sqlx::query(
+        "INSERT INTO school_memberships(account_id,school_id,role) VALUES($1,$2,'operator')",
+    )
+    .bind(operator_id)
+    .bind(school)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let (_, mut operator) = app
+        .identity
+        .0
+        .session(operator_id, "browser", false)
+        .await
+        .unwrap();
+    operator.grants = vec![Grant {
+        school_id: school,
+        role: "operator".into(),
+    }];
+    assert!(
+        app.community
+            .management_write(&operator, school, None, content("禁止新增", None))
+            .await
+            .is_err()
+    );
+    assert!(
+        app.community
+            .preview_post_import(&operator, school, "p.csv".into(), b"a,b".to_vec())
+            .await
+            .is_err()
+    );
+    assert!(
+        app.community
+            .management_list(&operator, school, Default::default())
+            .await
+            .is_ok()
+    );
+    let existing = app
+        .community
+        .management_detail(&operator, school, ids[0])
+        .await
+        .unwrap();
+    assert!(
+        app.community
+            .management_write(
+                &operator,
+                school,
+                Some(ids[0]),
+                content("由操作员编辑", Some(existing.post.revision))
+            )
+            .await
+            .is_ok()
+    );
+    sqlx::query("DELETE FROM school_memberships WHERE account_id=$1")
+        .bind(operator_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert!(
+        app.community
+            .management_list(&operator, school, Default::default())
+            .await
+            .is_err()
+    );
+    assert!(
+        app.community
+            .management_detail(&operator, school, ids[0])
+            .await
+            .is_err()
+    );
+    let mut bearer = actor.clone();
+    bearer.browser = false;
+    assert!(
+        app.community
+            .management_list(&bearer, school, Default::default())
+            .await
+            .is_err()
+    );
+    // HTTP response metadata and strict DELETE preconditions / CSRF remain enforced.
+    let router = linjian_api::http::app_router(app.clone());
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "/api/v1/schools/{school}/post-management?page%5Bsize%5D=2"
+                ))
+                .header("Cookie", format!("linjian_session={token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()["cache-control"], "private, no-store");
+    let doc: Value =
+        serde_json::from_slice(&to_bytes(response.into_body(), 100000).await.unwrap()).unwrap();
+    assert_eq!(doc["data"].as_array().unwrap().len(), 2);
+    assert!(doc["meta"]["order_revision"].as_i64().unwrap() > 0);
+    assert_eq!(doc["data"][0]["type"], "post-management");
+    assert!(doc["data"][0]["attributes"].get("sort_order").is_none());
+    let boundary = "linjian-import-test";
+    let multipart = format!(
+        "--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"posts.csv\"\r\nContent-Type: text/csv\r\n\r\n标题,正文\r\nHTTP导入,HTTP正文\r\n--{boundary}--\r\n"
+    );
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/v1/schools/{school}/post-imports"))
+                .header("Cookie", format!("linjian_session={token}"))
+                .header("Origin", "http://localhost:5173")
+                .header("X-CSRF-Token", &actor.csrf)
+                .header(
+                    "Content-Type",
+                    format!("multipart/form-data; boundary={boundary}"),
+                )
+                .body(Body::from(multipart))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()["cache-control"], "private, no-store");
+    let doc: Value =
+        serde_json::from_slice(&to_bytes(response.into_body(), 100000).await.unwrap()).unwrap();
+    assert_eq!(doc["data"]["type"], "post-imports");
+    assert_eq!(
+        doc["data"]["attributes"]["rows"][0]["post"]["title"],
+        "HTTP导入"
+    );
+    for with_csrf in [false, true] {
+        let mut request = Request::builder()
+            .method("DELETE")
+            .uri(format!(
+                "/api/v1/schools/{school}/post-management/{}",
+                ids[0]
+            ))
+            .header("Cookie", format!("linjian_session={token}"))
+            .header("Origin", "http://localhost:5173");
+        if with_csrf {
+            request = request.header("X-CSRF-Token", &actor.csrf);
+        }
+        let response = router
+            .clone()
+            .oneshot(request.body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            if with_csrf {
+                StatusCode::BAD_REQUEST
+            } else {
+                StatusCode::FORBIDDEN
+            }
+        );
+    }
+    pool.close().await;
+    sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
+        .execute(&admin)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
+async fn post_management_upgrade_and_concurrent_reorders() {
+    use linjian_api::{business::Error, community::domain::post_management::*};
+    let admin = PgPool::connect(
+        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
+    )
+    .await
+    .unwrap();
+    let schema = format!("forum_order_upgrade_{}", Uuid::new_v4().simple());
+    let pool = isolated(&admin, &schema).await;
+    let migrations = database::MIGRATOR.iter().collect::<Vec<_>>();
+    let target = migrations
+        .iter()
+        .position(|m| m.version == 202611100002)
+        .unwrap();
+    for migration in &migrations[..target] {
+        sqlx::raw_sql(&migration.sql).execute(&pool).await.unwrap();
+    }
+    let account = Uuid::new_v4();
+    let school = Uuid::new_v4();
+    sqlx::query("INSERT INTO accounts(id,username,display_name,password_hash,platform_admin) VALUES($1,'order-root','排序管理员','unused',true)").bind(account).execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO schools(id,name) VALUES($1,'升级排序学校')")
+        .bind(school)
+        .execute(&pool)
+        .await
+        .unwrap();
+    for (top, status) in [
+        (100, "visible"),
+        (50, "hidden"),
+        (0, "visible"),
+        (0, "visible"),
+        (0, "deleted"),
+    ] {
+        sqlx::query("INSERT INTO posts(id,school_id,author_id,title,content,top_sort,visibility,created_at) VALUES($1,$2,$3,'历史标题','历史正文',$4,$5,'2026-11-01T00:00:00Z')").bind(Uuid::new_v4()).bind(school).bind(account).bind(top).bind(status).execute(&pool).await.unwrap();
+    }
+    let previous:Vec<Uuid>=sqlx::query_scalar("SELECT id FROM posts WHERE visibility<>'deleted' ORDER BY top_sort DESC,created_at DESC,id").fetch_all(&pool).await.unwrap();
+    let counters: (i64, i64) = sqlx::query_as(
+        "SELECT (SELECT sum(revision)::bigint FROM posts),(SELECT count(*) FROM forum_outbox)",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    sqlx::raw_sql(&migrations[target].sql)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let current:Vec<Uuid>=sqlx::query_scalar("SELECT id FROM posts WHERE visibility<>'deleted' ORDER BY is_top DESC,sort_order DESC,created_at DESC,id").fetch_all(&pool).await.unwrap();
+    assert_eq!(previous, current);
+    let after: (i64, i64) = sqlx::query_as(
+        "SELECT (SELECT sum(revision)::bigint FROM posts),(SELECT count(*) FROM forum_outbox)",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(counters, after);
+    let app = bootstrap::build_application(pool.clone());
+    let (_, actor) = app
+        .identity
+        .0
+        .session(account, "browser", false)
+        .await
+        .unwrap();
+    let list = app
+        .community
+        .management_list(
+            &actor,
+            school,
+            PostManagementFilters {
+                is_top: Some(false),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(list.items.len(), 2);
+    let request = || ReorderPostsInput {
+        order_revision: list.order_revision,
+        is_top: false,
+        page: 1,
+        page_size: 30,
+        original: list
+            .items
+            .iter()
+            .map(|r| ReorderPostRow {
+                id: r.post.id,
+                revision: r.post.revision,
+            })
+            .collect(),
+        ordered_ids: list.items.iter().rev().map(|r| r.post.id).collect(),
+    };
+    let (one, two) = tokio::join!(
+        app.community.management_reorder(&actor, school, request()),
+        app.community.management_reorder(&actor, school, request())
+    );
+    assert!(matches!(
+        (&one, &two),
+        (Ok(_), Err(Error::Conflict)) | (Err(Error::Conflict), Ok(_))
+    ));
+    let outbox: i64 = sqlx::query_scalar("SELECT count(*) FROM forum_outbox")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(outbox, counters.1);
+    let config_version: i64 = sqlx::query_scalar("SELECT revision FROM schools WHERE id=$1")
+        .bind(school)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(config_version, 1);
+    pool.close().await;
+    sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
+        .execute(&admin)
+        .await
+        .unwrap();
 }

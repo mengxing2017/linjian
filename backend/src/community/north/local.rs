@@ -1,3 +1,5 @@
+mod post_import;
+mod post_management;
 use super::super::{
     domain::{CommentInput, PostInput},
     south::adapter::postgres::Repository,
@@ -55,7 +57,8 @@ impl<R: Store> Service<R> {
     pub async fn visibility(&self, a: &Actor, s: Uuid, id: Uuid, v: Value) -> Result<Value> {
         a.authorize(s, "member")?;
         require(
-            ["visible", "hidden", "deleted"].contains(&v["visibility"].as_str().unwrap_or("")),
+            ["visible", "hidden", "offline", "deleted"]
+                .contains(&v["visibility"].as_str().unwrap_or("")),
             "可见状态无效",
         )?;
         self.0.visibility(a, s, id, v).await

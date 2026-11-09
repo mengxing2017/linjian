@@ -214,3 +214,68 @@ async fn case_jsonapi_matches_shared_fixtures_and_rejects_spoofed_handling() {
         );
     }
 }
+
+#[tokio::test]
+async fn post_management_and_import_shared_fixtures() {
+    use axum::response::IntoResponse;
+    use linjian_api::community::domain::{
+        post_import::PostImportPreview,
+        post_management::{PostManagementView, ReorderPostsInput},
+        review::PostReview,
+    };
+    for raw in [
+        include_str!("../../api-contract/fixtures/post-management.json"),
+        include_str!("../../api-contract/fixtures/post-management-hidden.json"),
+        include_str!("../../api-contract/fixtures/post-management-offline.json"),
+    ] {
+        let fixture: serde_json::Value = serde_json::from_str(raw).unwrap();
+        let mut attrs = fixture["data"]["attributes"].clone();
+        let is_top = attrs
+            .as_object_mut()
+            .unwrap()
+            .remove("is_top")
+            .unwrap()
+            .as_bool()
+            .unwrap();
+        let cover = attrs
+            .as_object_mut()
+            .unwrap()
+            .remove("cover_image")
+            .unwrap();
+        let cover_image = cover.as_str().map(str::to_owned);
+        attrs["id"] = fixture["data"]["id"].clone();
+        let post: PostReview = serde_json::from_value(attrs).unwrap();
+        let response = linjian_api::http::jsonapi::resource(
+            "post-management",
+            PostManagementView {
+                post,
+                is_top,
+                cover_image,
+            },
+        )
+        .into_response();
+        let doc: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 8192).await.unwrap()).unwrap();
+        assert_eq!(doc, fixture);
+    }
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../api-contract/fixtures/post-order-input.json"
+    ))
+    .unwrap();
+    let input: ReorderPostsInput =
+        serde_json::from_value(fixture["data"]["attributes"].clone()).unwrap();
+    input.validate().unwrap();
+    for raw in [
+        include_str!("../../api-contract/fixtures/post-import-preview.json"),
+        include_str!("../../api-contract/fixtures/post-import-result.json"),
+    ] {
+        let fixture: serde_json::Value = serde_json::from_str(raw).unwrap();
+        let mut attrs = fixture["data"]["attributes"].clone();
+        attrs["id"] = fixture["data"]["id"].clone();
+        let job: PostImportPreview = serde_json::from_value(attrs).unwrap();
+        let response = linjian_api::http::jsonapi::resource("post-imports", job).into_response();
+        let doc: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 8192).await.unwrap()).unwrap();
+        assert_eq!(doc, fixture);
+    }
+}

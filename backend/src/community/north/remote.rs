@@ -1,3 +1,4 @@
+mod post_management;
 use crate::{
     bootstrap::Application,
     business::{Actor, Decision, Page, Result, Revision},
@@ -269,6 +270,7 @@ async fn resolve(
 }
 pub fn router() -> Router<Application> {
     Router::new()
+        .merge(post_management::router())
         .route("/api/v1/schools/{school}/post-reviews", get(reviews))
         .route("/api/v1/schools/{school}/posts/{id}/review", get(review))
         .route("/api/v1/schools/{school}/posts", get(posts).post(create))

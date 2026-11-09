@@ -103,8 +103,13 @@ async fn serve_inner(
     let artwork = crate::schools::south::adapter::postgres::Repository(application.pool.clone());
     let avatar_cleanup =
         crate::miniapp_users::south::adapter::postgres::Repository(application.pool.clone());
+    let import_cleanup =
+        crate::community::south::adapter::postgres::Repository(application.pool.clone());
     let artwork_worker = tokio::spawn(async move {
         loop {
+            if import_cleanup.cleanup_post_imports().await.is_err() {
+                tracing::warn!("expired post import preview cleanup failed");
+            }
             if avatar_cleanup.cleanup().await.is_err() {
                 tracing::warn!("unused miniapp avatar cleanup failed");
             }

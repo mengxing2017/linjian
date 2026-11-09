@@ -1,9 +1,92 @@
 use crate::business::{Actor, Decision, Page, Result};
 use crate::community::domain::case::{CaseManagementView, ResolveCaseInput};
 use crate::community::domain::{CommentInput, PostInput};
+use crate::community::domain::{post_import::*, post_management::*};
 use serde_json::Value;
 use uuid::Uuid;
 pub trait Store: Clone + Send + Sync + 'static {
+    fn management_list(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        f: PostManagementFilters,
+    ) -> impl std::future::Future<Output = Result<PostManagementPage>> + Send;
+
+    fn management_detail(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+    ) -> impl std::future::Future<Output = Result<PostManagementView>> + Send;
+
+    fn management_write(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Option<Uuid>,
+        v: PostInput,
+    ) -> impl std::future::Future<Output = Result<PostManagementView>> + Send;
+
+    fn management_pin(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+        v: PinPostInput,
+    ) -> impl std::future::Future<Output = Result<PostManagementView>> + Send;
+
+    fn management_status(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+        v: SetPostStatusInput,
+    ) -> impl std::future::Future<Output = Result<PostManagementView>> + Send;
+
+    fn management_delete(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+        revision: i64,
+    ) -> impl std::future::Future<Output = Result<()>> + Send;
+
+    fn management_reorder(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        v: ReorderPostsInput,
+    ) -> impl std::future::Future<Output = Result<i64>> + Send;
+
+    fn check_post_import_access(
+        &self,
+        a: &Actor,
+        s: Uuid,
+    ) -> impl std::future::Future<Output = Result<()>> + Send;
+    fn import_preview(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        file_digest: String,
+        rows: Vec<ImportRow>,
+        errors: Vec<ImportRowError>,
+    ) -> impl std::future::Future<Output = Result<PostImportPreview>> + Send;
+
+    fn import_detail(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+    ) -> impl std::future::Future<Output = Result<PostImportPreview>> + Send;
+
+    fn import_commit(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+        v: CommitPostImport,
+    ) -> impl std::future::Future<Output = Result<PostImportPreview>> + Send;
+
     fn reviews(
         &self,
         a: &Actor,

@@ -1,6 +1,11 @@
 use crate::community::domain::case::{CaseManagementView, ResolveCaseInput};
+use crate::community::domain::{post_import::*, post_management::*};
 mod cases;
 mod decisions;
+mod post_content;
+mod post_import;
+mod post_management;
+mod post_order;
 mod reviews;
 use crate::business::{Actor, Decision, Error, Page, Result, require};
 use crate::community::domain::{CommentInput, PostInput};
@@ -43,69 +48,39 @@ impl Repository {
             .await?;
         let (l, o) = p.fetch_bounds()?;
         let search = format!("%{}%", p.search.unwrap_or_default());
-        Ok(sqlx::query_scalar("SELECT to_jsonb(p)||jsonb_build_object('author_name',coalesce((SELECT nickname FROM miniapp_users WHERE account_id=a.id),a.display_name),'like_count',(SELECT count(*) FROM post_reactions WHERE post_id=p.id AND kind='like'),'collect_count',(SELECT count(*) FROM post_reactions WHERE post_id=p.id AND kind='collect'),'comment_count',(SELECT count(*) FROM comments WHERE post_id=p.id AND audit_status='approved' AND NOT deleted)) FROM posts p JOIN accounts a ON a.id=p.author_id WHERE p.school_id=$1 AND ($2 OR (p.audit_status='approved' AND p.visibility='visible') OR p.author_id=$3) AND ($4::text IS NULL OR p.audit_status=$4) AND (NOT $5 OR p.author_id=$3) AND (p.title ILIKE $6 OR p.content ILIKE $6) AND ($9::text IS NULL OR ($9='collect' AND EXISTS(SELECT 1 FROM post_reactions r WHERE r.post_id=p.id AND r.account_id=$3 AND r.kind='collect')) OR ($9='following' AND EXISTS(SELECT 1 FROM follows f WHERE f.school_id=p.school_id AND f.follower_id=$3 AND f.target_id=p.author_id))) ORDER BY p.top_sort DESC,p.created_at DESC,p.id LIMIT $7 OFFSET $8").bind(s).bind(a.can(s,"operator")).bind(a.id).bind(p.status).bind(p.mine.unwrap_or(false)).bind(search).bind(l).bind(o).bind(p.kind).fetch_all(&self.0).await?)
+        Ok(sqlx::query_scalar("SELECT (to_jsonb(p)-'is_top'-'sort_order')||jsonb_build_object('author_name',coalesce((SELECT nickname FROM miniapp_users WHERE account_id=a.id),a.display_name),'like_count',(SELECT count(*) FROM post_reactions WHERE post_id=p.id AND kind='like'),'collect_count',(SELECT count(*) FROM post_reactions WHERE post_id=p.id AND kind='collect'),'comment_count',(SELECT count(*) FROM comments WHERE post_id=p.id AND audit_status='approved' AND NOT deleted)) FROM posts p JOIN accounts a ON a.id=p.author_id WHERE p.school_id=$1 AND p.visibility<>'deleted' AND ($2 OR (p.audit_status='approved' AND p.visibility='visible') OR p.author_id=$3) AND ($4::text IS NULL OR p.audit_status=$4) AND (NOT $5 OR p.author_id=$3) AND (p.title ILIKE $6 OR p.content ILIKE $6) AND ($9::text IS NULL OR ($9='collect' AND EXISTS(SELECT 1 FROM post_reactions r WHERE r.post_id=p.id AND r.account_id=$3 AND r.kind='collect')) OR ($9='following' AND EXISTS(SELECT 1 FROM follows f WHERE f.school_id=p.school_id AND f.follower_id=$3 AND f.target_id=p.author_id))) ORDER BY p.is_top DESC,p.sort_order DESC,p.created_at DESC,p.id LIMIT $7 OFFSET $8").bind(s).bind(a.can(s,"operator")).bind(a.id).bind(p.status).bind(p.mine.unwrap_or(false)).bind(search).bind(l).bind(o).bind(p.kind).fetch_all(&self.0).await?)
     }
     pub async fn detail(&self, a: &Actor, s: Uuid, id: Uuid) -> Result<Value> {
         crate::schools::south::adapter::postgres::Repository(self.0.clone())
             .require_active(s)
             .await?;
-        let v:Value=sqlx::query_scalar("UPDATE posts SET browse=browse+1 WHERE school_id=$1 AND id=$2 AND ($3 OR author_id=$4 OR (audit_status='approved' AND visibility='visible')) RETURNING to_jsonb(posts)||jsonb_build_object('author_name',(SELECT coalesce((SELECT nickname FROM miniapp_users WHERE account_id=accounts.id),display_name) FROM accounts WHERE id=posts.author_id),'like_count',(SELECT count(*) FROM post_reactions WHERE post_id=posts.id AND kind='like'),'comment_count',(SELECT count(*) FROM comments WHERE post_id=posts.id AND audit_status='approved' AND NOT deleted))").bind(s).bind(id).bind(a.can(s,"operator")).bind(a.id).fetch_optional(&self.0).await?.ok_or(Error::NotFound)?;
+        let v:Value=sqlx::query_scalar("UPDATE posts SET browse=browse+1 WHERE school_id=$1 AND id=$2 AND visibility<>'deleted' AND ($3 OR author_id=$4 OR (audit_status='approved' AND visibility='visible')) RETURNING (to_jsonb(posts)-'is_top'-'sort_order')||jsonb_build_object('author_name',(SELECT coalesce((SELECT nickname FROM miniapp_users WHERE account_id=accounts.id),display_name) FROM accounts WHERE id=posts.author_id),'like_count',(SELECT count(*) FROM post_reactions WHERE post_id=posts.id AND kind='like'),'comment_count',(SELECT count(*) FROM comments WHERE post_id=posts.id AND audit_status='approved' AND NOT deleted))").bind(s).bind(id).bind(a.can(s,"operator")).bind(a.id).fetch_optional(&self.0).await?.ok_or(Error::NotFound)?;
         Ok(v)
     }
     pub async fn create(&self, a: &Actor, s: Uuid, v: PostInput) -> Result<Value> {
         let mut tx = self.0.begin().await?;
-        crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
-        let policy = decisions::policy(&mut tx, s, false).await?;
-        let id = Uuid::now_v7();
-        let item=sqlx::query_scalar("INSERT INTO posts(id,school_id,author_id,title,content,images,tags,audit_status,created_via,source_projection) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING to_jsonb(posts)").bind(id).bind(s).bind(a.id).bind(v.title.trim()).bind(v.content.trim()).bind(json!(v.images)).bind(json!(v.tags)).bind("pending").bind(if a.browser {"web"} else {"miniapp"}).bind(if a.browser {"legacy_full_v2"} else {"miniapp_summary_v1"}).fetch_one(&mut *tx).await?;
-        let item = decisions::automatically_approve(&mut tx, item, policy).await?;
-        crate::audit::record(
-            &mut tx,
-            a,
-            s,
-            "post.create",
-            id,
-            json!({"audit_status":item["audit_status"]}),
-        )
-        .await?;
+        if a.can(s, "operator") {
+            post_management::guard(&mut tx, a, s, false).await?;
+        } else {
+            crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
+        }
+        let item = post_content::create(&mut tx, a, s, v).await?;
         tx.commit().await?;
         Ok(item)
     }
     pub async fn update(&self, a: &Actor, s: Uuid, id: Uuid, v: PostInput) -> Result<Value> {
         let mut tx = self.0.begin().await?;
-        crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
-        let current: Value = sqlx::query_scalar("SELECT to_jsonb(p) FROM posts p WHERE school_id=$1 AND id=$2 AND revision=$3 AND visibility<>'deleted' AND (author_id=$4 OR $5) FOR UPDATE")
-            .bind(s).bind(id).bind(v.revision.unwrap_or(0)).bind(a.id).bind(a.can(s,"operator")).fetch_optional(&mut *tx).await?.ok_or(Error::Conflict)?;
-        if current["title"] == v.title.trim()
-            && current["content"] == v.content.trim()
-            && current["images"] == json!(v.images)
-            && current["tags"] == json!(v.tags)
-        {
-            tx.commit().await?;
-            return Ok(current);
+        if a.can(s, "operator") {
+            post_management::guard(&mut tx, a, s, false).await?;
+        } else {
+            crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
         }
-        let policy = decisions::policy(&mut tx, s, false).await?;
-        let item=sqlx::query_scalar("UPDATE posts SET title=$3,content=$4,images=$5,tags=$6,audit_status='pending',revision=revision+1,updated_at=now() WHERE school_id=$1 AND id=$2 AND revision=$7 AND visibility<>'deleted' AND (author_id=$8 OR $9) RETURNING to_jsonb(posts)").bind(s).bind(id).bind(v.title.trim()).bind(v.content.trim()).bind(json!(v.images)).bind(json!(v.tags)).bind(v.revision.unwrap_or(0)).bind(a.id).bind(a.can(s,"operator")).fetch_optional(&mut *tx).await?.ok_or(Error::Conflict)?;
-        let item = decisions::automatically_approve(&mut tx, item, policy).await?;
-        crate::audit::record(&mut tx, a, s, "post.edit", id, json!({})).await?;
+        let item = post_content::update(&mut tx, a, s, id, v).await?;
         tx.commit().await?;
         Ok(item)
     }
     pub async fn visibility(&self, a: &Actor, s: Uuid, id: Uuid, v: Value) -> Result<Value> {
-        let mut tx = self.0.begin().await?;
-        crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
-        let item=sqlx::query_scalar("UPDATE posts SET visibility=$3,top_sort=$4,revision=revision+1,updated_at=now() WHERE school_id=$1 AND id=$2 AND revision=$5 AND ($6 OR (author_id=$7 AND $3='deleted' AND $4=0)) RETURNING to_jsonb(posts)").bind(s).bind(id).bind(v["visibility"].as_str()).bind(v["top_sort"].as_i64().unwrap_or(0) as i32).bind(v["revision"].as_i64().unwrap_or(0)).bind(a.can(s,"operator")).bind(a.id).fetch_optional(&mut *tx).await?.ok_or(Error::Conflict)?;
-        crate::audit::record(
-            &mut tx,
-            a,
-            s,
-            "post.visibility",
-            id,
-            json!({"visibility":v["visibility"]}),
-        )
-        .await?;
-        tx.commit().await?;
-        Ok(item)
+        post_management::legacy_visibility(self, a, s, id, v).await
     }
     pub async fn moderate(
         &self,
@@ -353,6 +328,85 @@ impl Repository {
 }
 
 impl crate::community::south::port::Store for Repository {
+    async fn management_list(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        f: PostManagementFilters,
+    ) -> Result<PostManagementPage> {
+        Repository::management_list(self, a, s, f).await
+    }
+
+    async fn management_detail(&self, a: &Actor, s: Uuid, id: Uuid) -> Result<PostManagementView> {
+        Repository::management_detail(self, a, s, id).await
+    }
+
+    async fn management_write(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Option<Uuid>,
+        v: PostInput,
+    ) -> Result<PostManagementView> {
+        Repository::management_write(self, a, s, id, v).await
+    }
+
+    async fn management_pin(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+        v: PinPostInput,
+    ) -> Result<PostManagementView> {
+        Repository::management_pin(self, a, s, id, v).await
+    }
+
+    async fn management_status(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+        v: SetPostStatusInput,
+    ) -> Result<PostManagementView> {
+        Repository::management_status(self, a, s, id, v).await
+    }
+
+    async fn management_delete(&self, a: &Actor, s: Uuid, id: Uuid, revision: i64) -> Result<()> {
+        Repository::management_delete(self, a, s, id, revision).await
+    }
+
+    async fn management_reorder(&self, a: &Actor, s: Uuid, v: ReorderPostsInput) -> Result<i64> {
+        Repository::management_reorder(self, a, s, v).await
+    }
+
+    async fn check_post_import_access(&self, a: &Actor, s: Uuid) -> Result<()> {
+        Repository::check_post_import_access(self, a, s).await
+    }
+    async fn import_preview(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        file_digest: String,
+        rows: Vec<ImportRow>,
+        errors: Vec<ImportRowError>,
+    ) -> Result<PostImportPreview> {
+        Repository::import_preview(self, a, s, file_digest, rows, errors).await
+    }
+
+    async fn import_detail(&self, a: &Actor, s: Uuid, id: Uuid) -> Result<PostImportPreview> {
+        Repository::import_detail(self, a, s, id).await
+    }
+
+    async fn import_commit(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+        v: CommitPostImport,
+    ) -> Result<PostImportPreview> {
+        Repository::import_commit(self, a, s, id, v).await
+    }
+
     async fn reviews(
         &self,
         a: &Actor,
