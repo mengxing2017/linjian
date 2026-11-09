@@ -1,7 +1,7 @@
 use crate::{
     business::{Actor, Error, Result, text},
     content_publication::{
-        domain::{Failure, Link, Policy, Preparation, Preview, Retry, preview},
+        domain::{Failure, Link, Policy, Preparation, Retry},
         south::port::PreparationStore,
     },
 };
@@ -11,13 +11,6 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct Repository(pub PgPool);
 impl Repository {
-    pub async fn preview(&self, a: &Actor, school: Uuid, id: Uuid) -> Result<Preview> {
-        if !a.browser || !a.can(school, "operator") {
-            return Err(Error::NotFound);
-        }
-        let post:Value=sqlx::query_scalar("SELECT to_jsonb(p) FROM posts p WHERE school_id=$1 AND id=$2 AND visibility<>'deleted'").bind(school).bind(id).fetch_optional(&self.0).await?.ok_or(Error::NotFound)?;
-        preview(&post)
-    }
     pub async fn retry(&self, a: &Actor, school: Uuid, id: Uuid, input: Retry) -> Result<()> {
         if !a.browser || !a.can(school, "operator") {
             return Err(Error::NotFound);

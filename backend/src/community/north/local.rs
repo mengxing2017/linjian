@@ -9,6 +9,35 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct Service<R: Store = Repository>(pub R);
 impl<R: Store> Service<R> {
+    pub async fn reviews(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        page: Page,
+    ) -> Result<Vec<crate::community::domain::review::PostReview>> {
+        if !a.browser {
+            return Err(crate::business::Error::Forbidden);
+        }
+        a.authorize(s, "operator")?;
+        self.0.reviews(a, s, page, None).await
+    }
+    pub async fn review(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+    ) -> Result<crate::community::domain::review::PostReview> {
+        if !a.browser {
+            return Err(crate::business::Error::Forbidden);
+        }
+        a.authorize(s, "operator")?;
+        self.0
+            .reviews(a, s, Page::default(), Some(id))
+            .await?
+            .into_iter()
+            .next()
+            .ok_or(crate::business::Error::NotFound)
+    }
     pub async fn post(&self, a: &Actor, s: Uuid, id: Option<Uuid>, v: PostInput) -> Result<Value> {
         a.authorize(s, "member")?;
         v.validate(s)?;

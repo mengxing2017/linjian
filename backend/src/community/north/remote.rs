@@ -11,6 +11,43 @@ use axum::{
 };
 use serde_json::Value;
 use uuid::Uuid;
+async fn reviews(
+    State(a): State<Application>,
+    actor: Actor,
+    Path(s): Path<Uuid>,
+    Query(mut p): Query<Page>,
+) -> Result<axum::response::Response> {
+    use axum::response::IntoResponse;
+    if p.status.is_none() {
+        p.status = Some("pending".into());
+    }
+    let rows = a.community.reviews(&actor, s, p.clone()).await?;
+    let rows = rows
+        .into_iter()
+        .map(serde_json::to_value)
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(|_| crate::business::Error::Unavailable)?;
+    let mut response = collection("post-reviews", rows, &p).into_response();
+    response.headers_mut().insert(
+        axum::http::header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("private, no-store"),
+    );
+    Ok(response)
+}
+async fn review(
+    State(a): State<Application>,
+    actor: Actor,
+    Path((s, id)): Path<(Uuid, Uuid)>,
+) -> Result<axum::response::Response> {
+    use axum::response::IntoResponse;
+    let mut response =
+        resource("post-reviews", a.community.review(&actor, s, id).await?).into_response();
+    response.headers_mut().insert(
+        axum::http::header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("private, no-store"),
+    );
+    Ok(response)
+}
 async fn posts(
     State(a): State<Application>,
     actor: Actor,
@@ -232,6 +269,8 @@ async fn resolve(
 }
 pub fn router() -> Router<Application> {
     Router::new()
+        .route("/api/v1/schools/{school}/post-reviews", get(reviews))
+        .route("/api/v1/schools/{school}/posts/{id}/review", get(review))
         .route("/api/v1/schools/{school}/posts", get(posts).post(create))
         .route(
             "/api/v1/schools/{school}/posts/{id}",

@@ -2,25 +2,14 @@ use crate::{
     bootstrap::Application,
     business::{Actor, Result},
     content_publication::{domain::Retry, south::adapter::postgres::Repository},
-    http::jsonapi::{ApiResponse, Input, completed, singleton},
+    http::jsonapi::{ApiResponse, Input, completed},
 };
 use axum::{
     Router,
     extract::{Path, State},
-    routing::{get, post},
+    routing::post,
 };
 use uuid::Uuid;
-async fn preview(
-    State(a): State<Application>,
-    actor: Actor,
-    Path((school, id)): Path<(Uuid, Uuid)>,
-) -> Result<ApiResponse> {
-    Ok(singleton(
-        "source-previews",
-        id,
-        Repository(a.pool).preview(&actor, school, id).await?,
-    ))
-}
 async fn retry(
     State(a): State<Application>,
     actor: Actor,
@@ -38,13 +27,8 @@ async fn retry(
     Ok(completed())
 }
 pub fn router() -> Router<Application> {
-    Router::new()
-        .route(
-            "/api/v1/schools/{school}/posts/{id}/source-preview",
-            get(preview),
-        )
-        .route(
-            "/api/v1/schools/{school}/source-outbox/{id}/preparation-retries",
-            post(retry),
-        )
+    Router::new().route(
+        "/api/v1/schools/{school}/source-outbox/{id}/preparation-retries",
+        post(retry),
+    )
 }
