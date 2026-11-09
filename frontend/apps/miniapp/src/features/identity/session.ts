@@ -1,4 +1,5 @@
 import { reactive } from 'vue'
+import { clearReturnTarget } from './return-target'
 import { credentials } from '../../app/credentials'
 import { identityApi, type User } from './api'
 export const session = reactive({ user: null as User | null, ready: false, busy: false, error: '' })
@@ -63,6 +64,7 @@ export async function refreshUser() {
   if (revision === credentials.revision) session.user = value.user
 }
 export async function logout() {
+  clearReturnTarget()
   try {
     await identityApi.logout()
   } finally {

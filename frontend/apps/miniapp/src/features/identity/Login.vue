@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { resumeReturnTarget } from './resume-target'
+import { clearReturnTarget } from './return-target'
 import { login, session } from './session'
 import { loadSchools } from '../school-context/context'
 const accepted = ref(false)
@@ -7,11 +9,16 @@ async function submit() {
   if (!accepted.value) return
   try {
     await login()
-    if (await loadSchools()) uni.reLaunch({ url: '/pages/index/index' })
-    else uni.redirectTo({ url: '/pages/plugin/index' })
+    if (await loadSchools()) {
+      if (!(await resumeReturnTarget())) uni.reLaunch({ url: '/pages/index/index' })
+    } else uni.redirectTo({ url: '/pages/plugin/index' })
   } catch (error) {
     session.error = error instanceof Error ? error.message : '登录或学校加载失败'
   }
+}
+function cancel() {
+  clearReturnTarget()
+  uni.reLaunch({ url: '/pages/index/index' })
 }
 </script>
 <template>
@@ -34,6 +41,7 @@ async function submit() {
       >
         微信登录
       </button>
+      <button @tap="cancel">暂不登录</button>
       <text v-if="session.error" class="error">{{ session.error }}</text>
     </view>
   </view>

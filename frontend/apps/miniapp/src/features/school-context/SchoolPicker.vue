@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { shallowRef, ref, computed } from 'vue'
+import { resumeReturnTarget } from '../identity/resume-target'
 import { bindSchool, loadSchools, schoolContext, selectSchool } from './context'
 import { schoolsApi } from './api'
 import { session, restoreSession } from '../identity/session'
@@ -34,7 +35,7 @@ function choose(id: string, name: string) {
       if (!(await confirm(`确认绑定 ${name}？绑定后不能自行换校。`))) return
       await bindSchool(id)
     }
-    uni.reLaunch({ url: '/pages/index/index' })
+    if (!(await resumeReturnTarget())) uni.reLaunch({ url: '/pages/index/index' })
   })
 }
 defineExpose({ show: load })
