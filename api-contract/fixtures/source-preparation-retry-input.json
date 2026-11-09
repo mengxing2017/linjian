@@ -1,0 +1,9 @@
+{
+  "data": {
+    "type": "source-preparation-retries",
+    "attributes": {
+      "reason": "微信接口权限已开通",
+      "revision": 3
+    }
+  }
+}

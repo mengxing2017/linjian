@@ -106,6 +106,7 @@ export function resourceType(path: string): string {
   if (parts[1] === 'v2' && parts[2] === 'schools' && parts[4] === 'source-bindings') return 'source-bindings';
   if (parts[0] !== "api" || parts[1] !== "v1")
     throw new Error("Unknown resource path");
+  if(parts[2]==='schools' && parts[4]==='source-outbox' && parts[6]==='preparation-retries')return 'source-preparation-retries';
   if(parts[2]==='schools' && parts[4]==='source-outbox' && parts[6]==='replays')return 'source-outbox-replays';
   const kind=parts[2]==='platform'?parts[3]:parts[2]==='schools'?parts[4]:undefined;
   if(kind && ['resource-previews','resource-publications','resource-qrcodes','source-outbox'].includes(kind))return kind;

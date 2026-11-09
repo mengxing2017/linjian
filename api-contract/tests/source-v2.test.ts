@@ -66,3 +66,22 @@ it('keeps local outbox states separate from upstream receipts and serializes rea
  const replay=JSON.parse(readFileSync(new URL('../fixtures/source-outbox-replay-input.json',import.meta.url),'utf8'))
  expect(writeDocument('/api/v1/schools/school-1/source-outbox/event-1/replays',replay.data.attributes)).toEqual(replay)
 })
+
+it('reads trusted review summaries and writes preparation recovery using its own resource type',async()=>{
+ const {workspace}=await import('../src/modules/business')
+ const fixture=JSON.parse(readFileSync(new URL('../fixtures/source-preview.json',import.meta.url),'utf8'))
+ const retry=JSON.parse(readFileSync(new URL('../fixtures/source-preparation-retry-input.json',import.meta.url),'utf8'))
+ const fetchMock=vi.fn().mockResolvedValueOnce(Response.json(fixture,{headers:{'content-type':'application/vnd.api+json'}})).mockResolvedValueOnce(Response.json({data:null},{headers:{'content-type':'application/vnd.api+json'}}))
+ vi.stubGlobal('fetch',fetchMock)
+ const preview=await workspace.sourcePreview('school-1',fixture.data.id)
+ expect(preview.summary).toBe(fixture.data.attributes.summary)
+ await workspace.retryPreparation('school-1','event-1',retry.data.attributes.reason,3)
+ expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual(retry)
+})
+
+it('exposes independent preparation recovery without delivery recovery',()=>{
+ const fixture=JSON.parse(readFileSync(new URL('../fixtures/source-outbox-preparation.json',import.meta.url),'utf8'))
+ expect(fixture.data.attributes.delivery_state).toBe('preparing_content')
+ expect(fixture.data.attributes.recoverable).toBe(false)
+ expect(fixture.data.attributes.preparation).toMatchObject({state:'blocked',revision:3,recoverable:true})
+})
