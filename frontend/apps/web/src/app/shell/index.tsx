@@ -38,7 +38,7 @@ export function AppShell({
   const toggle = useRef<HTMLButtonElement>(null)
   const sidebar = useRef<HTMLElement>(null)
   const current = navigation.find((item) => item.key === active) ?? {
-    domain: 'support',
+    domain: 'school',
     label: '学校工作区',
     description: '选择学校后使用已授权的管理功能。',
   }
