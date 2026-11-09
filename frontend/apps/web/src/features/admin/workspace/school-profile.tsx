@@ -1,3 +1,4 @@
+import { AuditModeFields } from './audit-modes'
 import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -281,25 +282,7 @@ export function SchoolForm({
       </div>
       {school && (
         <>
-          <Form.Item
-            name={['config', 'post_audit_mode']}
-            label="帖子审核模式（小程序帖子始终人工审核）"
-          >
-            <Select
-              options={[
-                { value: 'manual', label: '人工审核' },
-                { value: 'auto', label: '自动通过' },
-              ]}
-            />
-          </Form.Item>
-          <Form.Item name={['config', 'comment_audit_mode']} label="评论审核模式">
-            <Select
-              options={[
-                { value: 'manual', label: '人工审核' },
-                { value: 'auto', label: '自动通过' },
-              ]}
-            />
-          </Form.Item>
+          <AuditModeFields disabled={school.status !== 'normal'} />
         </>
       )}
       <Button type="primary" htmlType="submit" loading={busy} disabled={conflict}>
