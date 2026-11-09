@@ -54,11 +54,25 @@ function showManagement(view: string, platformAdmin = true, role: 'member' | 'op
 
 it.each(['comments', 'posts&subview=comments'])('opens comment reviews within content moderation from %s', async view => {
   showManagement(view, false, 'operator')
+  vi.mocked(workspace.list).mockResolvedValue({items:[{id:'comment-1',post_title:'评论所属帖子',content:'评论正文',author_name:'评论用户昵称',audit_status:'pending',revision:1}]})
   expect(await screen.findByRole('tab', { name: '评论审核', selected: true })).toBeTruthy()
   expect(screen.getByRole('heading', { name: '内容审核', level: 1 })).toBeTruthy()
   expect(within(screen.getByRole('menu')).queryByRole('menuitem', { name: '评论审核' })).toBeNull()
   expect(screen.getByTestId('location').textContent).toBe('?school=school&view=posts&subview=comments')
   await waitFor(() => expect(workspace.list).toHaveBeenCalledWith('school', 'comments', expect.stringContaining('status=pending'), expect.any(AbortSignal)))
+  const commentRow = within((await screen.findByText('评论正文')).closest('tr')!)
+  expect(screen.getAllByRole('columnheader').map(header => header.textContent)).toEqual([
+    '标题 / 名称', '审核状态', '内容', '用户昵称', '创建时间', '操作',
+  ])
+  expect(screen.getByRole('columnheader', { name: '用户昵称' })).toBeTruthy()
+  expect(commentRow.getByText('评论用户昵称')).toBeTruthy()
+  fireEvent.click(commentRow.getByRole('button', { name: /详\s*情/ }))
+  const detail = await screen.findByRole('dialog')
+  expect(within(detail).getByText('审核状态')).toBeTruthy()
+  expect(within(detail).getByText('用户昵称')).toBeTruthy()
+  expect(within(detail).getByText('评论用户昵称')).toBeTruthy()
+  fireEvent.click(within(detail).getByRole('button', { name: 'Close' }))
+  await waitFor(() => expect(detail.isConnected).toBe(false))
   fireEvent.click(screen.getByRole('tab', { name: '帖子审核' }))
   expect(screen.getByTestId('location').textContent).toBe('?school=school&view=posts&subview=posts')
   fireEvent.click(screen.getByRole('button', { name: '返回上一页' }))

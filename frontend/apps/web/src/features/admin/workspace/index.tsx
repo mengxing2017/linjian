@@ -1,5 +1,5 @@
 import { AuditModes } from './audit-modes'
-import { Tabs } from 'antd'
+import { Tabs, type TableColumnType } from 'antd'
 import {SchoolForm} from './school-profile'
 import { MiniappUsers } from '../miniapp-users'
 import {SourceConnections, SourceBindings} from '../source-access'
@@ -258,6 +258,29 @@ function Panel({
     queryKey: ['business', s, resource, query],
     queryFn: ({ signal }) => workspace.list(s, resource, query, signal),
   })
+  const statusColumn: TableColumnType<Row> = {
+    title: resource === 'comments' ? '审核状态' : '状态',
+    key: 'status',
+    width: 140,
+    render: (_, r) => (
+      <Tag
+        color={
+          r.audit_status === 'approved' || r.active === true
+            ? 'success'
+            : r.audit_status === 'rejected' || r.active === false
+              ? 'error'
+              : 'processing'
+        }
+      >
+        {stateLabel(
+          r.audit_status ??
+            r.state ??
+            r.role ??
+            (r.active === true ? '启用' : r.active === false ? '停用' : r.kind),
+        )}
+      </Tag>
+    ),
+  }
   const dialogs = useDialogs()
   async function act(path: string, body: unknown, method = 'POST') {
     setBusy(true)
@@ -382,7 +405,7 @@ function Panel({
           loading={q.isFetching}
           dataSource={q.data?.items ?? []}
           pagination={false}
-          scroll={{ x: 880 }}
+          scroll={{ x: resource === 'comments' ? 1040 : 880 }}
           columns={[
             {
               title: '标题 / 名称',
@@ -394,6 +417,7 @@ function Panel({
                 </Button>
               ),
             },
+            ...(resource === 'comments' ? [statusColumn] : []),
             {
               title: resource === 'comments' ? '内容' : '详情',
               key: 'summary',
@@ -403,29 +427,15 @@ function Panel({
                   ? <p className="review-full-text">{label(r.content ?? r.body) || '—'}</p>
                   : label(r.content ?? r.body ?? r.detail ?? r.contact ?? r.chat_id) || '—',
             },
-            {
-              title: '状态',
-              key: 'status',
-              width: 140,
-              render: (_, r) => (
-                <Tag
-                  color={
-                    r.audit_status === 'approved' || r.active === true
-                      ? 'success'
-                      : r.audit_status === 'rejected' || r.active === false
-                        ? 'error'
-                        : 'processing'
-                  }
-                >
-                  {stateLabel(
-                    r.audit_status ??
-                      r.state ??
-                      r.role ??
-                      (r.active === true ? '启用' : r.active === false ? '停用' : r.kind),
-                  )}
-                </Tag>
-              ),
-            },
+            ...(resource === 'comments' ? [{
+              title: '用户昵称',
+              key: 'author',
+              dataIndex: 'author_name',
+              width: 160,
+              ellipsis: true,
+              render: (value: Json | undefined) => label(value) || '—',
+            }] : []),
+            ...(resource === 'comments' ? [] : [statusColumn]),
             {
               title: '创建时间',
               key: 'created',
@@ -469,9 +479,10 @@ function Panel({
               bordered
               items={[
                 { key: 'id', label: '记录 ID', children: r.id },
+                ...(resource === 'comments' ? [{ key: 'author', label: '用户昵称', children: label(r.author_name) || '—' }] : []),
                 {
                   key: 'status',
-                  label: '状态',
+                  label: resource === 'comments' ? '审核状态' : '状态',
                   children: <Tag>{stateLabel(r.audit_status ?? r.state ?? r.kind)}</Tag>,
                 },
                 { key: 'created', label: '创建时间', children: formatDate(r.created_at) },
