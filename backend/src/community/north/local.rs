@@ -117,6 +117,9 @@ impl<R: Store> Service<R> {
         id: Option<Uuid>,
         p: crate::business::Page,
     ) -> Result<Vec<Value>> {
+        if id.is_none() && !a.browser {
+            return Err(crate::business::Error::Forbidden);
+        }
         a.authorize(s, if id.is_some() { "member" } else { "operator" })?;
         self.0.comments(a, s, id, p).await
     }
