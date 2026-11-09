@@ -8,6 +8,8 @@
 
 小程序注册、学校用户管理、封禁与权限隔离见 [小程序用户管理与登录](docs/miniapp-users.md)。
 
+学校资料、正常/隐藏状态、品牌图片和小程序三色主题见 [学校信息与主题配置](docs/school-profiles.md)。
+
 小程序人工审核后的摘要与短链接准备、投递和恢复配置见 [小程序内容来源推送](docs/miniapp-publication.md)。
 
 ## 目录
