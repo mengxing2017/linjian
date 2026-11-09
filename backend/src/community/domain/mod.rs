@@ -39,4 +39,5 @@ pub struct CommentInput {
     pub parent_id: Option<Uuid>,
 }
 
+pub mod moderation;
 pub mod review;

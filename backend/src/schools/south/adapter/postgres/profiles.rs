@@ -99,6 +99,7 @@ impl Repository {
         if a.platform_admin {
             super::preview::platform(&mut tx, a).await?;
         }
+        let mut previous_config = None;
         let mut input = if let Some(id) = id {
             if !a.platform_admin {
                 a.authorize(id, "admin")?;
@@ -111,6 +112,15 @@ impl Repository {
             .await?
             .ok_or(Error::NotFound)?;
             let old = decode(v)?;
+            if old.status != "normal"
+                && raw.get("config").is_some_and(|c| {
+                    ["post_audit_mode", "comment_audit_mode"]
+                        .iter()
+                        .any(|k| c.get(k).is_some_and(|v| Some(v) != old.config.get(k)))
+                })
+            {
+                return Err(Error::SchoolUnavailable);
+            }
             if !a.platform_admin {
                 require(old.status == "normal", "学校暂不可用")?;
                 let authorized:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM school_memberships WHERE school_id=$1 AND account_id=$2 AND role='admin')").bind(id).bind(a.id).fetch_one(&mut *tx).await?;
@@ -121,6 +131,7 @@ impl Repository {
             if supplied.revision != old.revision {
                 return Err(Error::Conflict);
             }
+            previous_config = Some(old.config.clone());
             let mut merged = serde_json::to_value(old.input()).map_err(|_| Error::Unavailable)?;
             for (k, v) in raw
                 .as_object()
@@ -156,6 +167,12 @@ impl Repository {
         let mut values = serde_json::to_value(&input).map_err(|_| Error::Unavailable)?;
         values["active"] = json!(input.status.as_deref().unwrap_or("normal") == "normal");
         values["config"] = input.config.clone().unwrap_or(json!({}));
+        for key in ["post_audit_mode", "comment_audit_mode"] {
+            if values["config"].get(key).is_none() {
+                values["config"][key] = json!("manual");
+            }
+        }
+        let config = values["config"].clone();
         let columns = "name,short_name,province,city,area,latitude,longitude,active,logo_asset_id,header_bg_asset_id,theme_primary,theme_secondary,theme_text_color,config";
         if input.revision == 0 {
             sqlx::query(&format!("INSERT INTO schools(id,{columns}) SELECT $1,{columns} FROM jsonb_populate_record(NULL::schools,$2)" )).bind(id).bind(values).execute(&mut *tx).await?;
@@ -163,6 +180,15 @@ impl Repository {
             sqlx::query(&format!("UPDATE schools SET ({columns})=(SELECT {columns} FROM jsonb_populate_record(NULL::schools,$2)),revision=revision+1,updated_at=now() WHERE id=$1")).bind(id).bind(values).execute(&mut *tx).await?;
         }
         crate::audit::record(&mut tx,a,id,if input.revision==0{"school.create"}else{"school.update"},id,json!({"status":input.status,"fields":raw.as_object().map(|v|v.keys().collect::<Vec<_>>())})).await?;
+        if ["post_audit_mode", "comment_audit_mode"].iter().any(|key| {
+            previous_config
+                .as_ref()
+                .and_then(|c| c.get(key))
+                .unwrap_or(&Value::Null)
+                != &config[key]
+        }) {
+            crate::audit::record(&mut tx,a,id,"moderation.policy.update",id,json!({"previous":previous_config.map(|c|json!({"post_audit_mode":c["post_audit_mode"],"comment_audit_mode":c["comment_audit_mode"]})),"current":{"post_audit_mode":config["post_audit_mode"],"comment_audit_mode":config["comment_audit_mode"]},"revision":input.revision+1})).await?;
+        }
         let v = sqlx::query_scalar(&format!("SELECT to_jsonb(v) FROM ({VIEW} WHERE s.id=$1) v"))
             .bind(id)
             .fetch_one(&mut *tx)

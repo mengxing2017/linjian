@@ -22,6 +22,9 @@ pub struct PostReview {
     pub revision: i64,
     pub content_revision: i64,
     pub review_digest: String,
+    pub decision_source: Option<super::moderation::DecisionSource>,
+    pub decided_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub moderator_id: Option<Uuid>,
 }
 
 /// A versioned fingerprint of the complete review object, independent of publication summaries.
