@@ -16,7 +16,7 @@ WeKeeper 发布 POST `/api/v2/source-authentications`、POST `/api/v2/source-rou
 
 每所学校仅有一条当前消息路由；一个 Linjian 实例只对应一个由后端配置指定的 WeKeeper；各校共用此配置，只维护独立 route_id 与启停状态，无需选择连接。保存配置更新原绑定，停用仍保留该唯一记录。业务事务按学校绑定冻结连接版本、公开内容 origin、来源、路由、正文和摘要。正文有意义变更产生新 event_id 与单调 sequence；浏览、点赞和计数不产生事件。停用学校产生内容撤回，上游不维护学校对象。
 
-同 `(source_id,event_id)` 同文重试返回原 receipt；不同原文冲突。收到合法 JSON:API 回执才记录 receipt_id。received/applied 继续查询摘要，applied 不代表发送成功；ignored_stale/rejected 停止无效重投。429、网络及服务错误退避；鉴权、授权、结构或版本问题保留事件并阻塞等待恢复。重试操作不会清空原 receipt_id 或生成新事件。
+同 `(source_id,event_id)` 同文重试返回原 receipt；不同原文冲突。收到合法 JSON:API 回执才记录 receipt_id。received 继续查询；applied 不代表发送成功，无发送摘要能力时停止轮询，有待处理摘要时最多低频同步一天；ignored_stale/rejected 停止无效重投。429、网络及服务错误退避；鉴权、授权、结构或版本问题保留事件并阻塞等待恢复。重试操作不会清空原 receipt_id 或生成新事件。
 
 来源或 key 停用、删除后新请求均拒绝。移除路由关联禁止该 key 继续提交或读取该路由回执。路由暂停禁止新消息但有效关联仍可查历史。既有任务按上游原任务规则处理，凭据删除不隐式撤回内容。
 

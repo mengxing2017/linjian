@@ -36,3 +36,5 @@ cargo run --locked --manifest-path backend/Cargo.toml --bin forum-snapshot -- im
 5. 论坛迁移完成后，才单独推进 wekeeper 来源接入、来源切换及旧实现清理。此仓库不执行这些改造。
 
 切换前可撤回新入口。新论坛产生写入后，停止写入并核对全部新增变更后才能考虑回退，否则优先前向修复。不得恢复旧快照覆盖发送事实，不得重放历史成功任务，不执行 down migration。原项目的其他现有工作不得覆盖或回退。
+
+导入成功后记录 source_import_batches 与 source_imported_posts，delivery_intent 固定为 false。导入历史不建立来源路由投影，不因学校重新启用或配置路由自动补投；真实正文编辑后才开始该内容的实时来源版本。
