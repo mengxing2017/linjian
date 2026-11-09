@@ -19,6 +19,8 @@ pnpm --dir frontend dev:miniapp
 
 Web 默认 `http://localhost:5173`，通过 Vite 代理请求 `LINJIAN_API_ORIGIN`（默认 `http://127.0.0.1:8080`）。根 `frontend dev` 继续转发参数给 Web，例如 `pnpm --dir frontend dev --host 127.0.0.1 --port 5174`。
 
+开发和构建通过 Vite 的精确入口别名读取仓库 `api-contract/` 源码，避免 pnpm `file:` 安装副本在接口更新后保留旧导出。修改契约源码可直接触发开发服务更新；新增 package exports 或修改 Vite 配置后重启开发服务。
+
 ## 微信小程序配置
 
 1. 将 `apps/miniapp/.env.example` 复制为同目录 `.env.local`，配置 `VITE_API_BASE_URL` 为实际 API 的 HTTPS origin，不带路径，不带凭据。这里使用与 Web 相同的 Rust API，不接 PHP 或 uniCloud。
