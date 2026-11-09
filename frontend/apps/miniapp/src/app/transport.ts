@@ -64,7 +64,16 @@ export function createUniTransport(base: string): Transport {
               }
             }
           }
-          if (response.statusCode === 401 && credentials.token) {
+          const banned =
+            !!body &&
+            typeof body === 'object' &&
+            'errors' in body &&
+            Array.isArray(body.errors) &&
+            body.errors.some(
+              (e: unknown) =>
+                !!e && typeof e === 'object' && 'code' in e && e.code === 'miniapp_user_banned',
+            )
+          if ((response.statusCode === 401 || banned) && credentials.token) {
             cleanup()
             credentials.set('')
           }

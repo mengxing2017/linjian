@@ -116,3 +116,10 @@ it('decodes structured errors returned by binary media requests', async () => {
   expect(result.body).toEqual({ errors: [{ code: 'forbidden', detail: '学校权限已撤销' }] })
   expect(credentials.token).toBe('valid')
 })
+it('clears a banned miniapp session and preserves the controlled ban reason',async()=>{
+ credentials.set('banned-token')
+ uniMock.request.mockImplementation(options=>{queueMicrotask(()=>{options.success({statusCode:403,header:{},data:'{"errors":[{"code":"miniapp_user_banned","detail":"账号已封禁，请联系学校管理员"}]}'});options.complete()});return{abort:vi.fn()}})
+ const result=await createUniTransport('https://api.example.com')({path:'/api/v1/auth/session',method:'GET',headers:{}})
+ expect(credentials.token).toBe('')
+ expect(result.body).toEqual({errors:[{code:'miniapp_user_banned',detail:'账号已封禁，请联系学校管理员'}]})
+})
