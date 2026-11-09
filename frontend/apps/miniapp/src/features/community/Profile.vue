@@ -1,13 +1,24 @@
 <script setup lang="ts">
+import { shallowRef } from 'vue'
+import Avatar from '../miniapp-users/Avatar.vue'
+import { miniappUserApi, type MiniappUser } from '../miniapp-users/api'
 import { session, restoreSession, logout } from '../identity/session'
-import { schoolContext, loadSchools } from '../school-context/context'
+import { schoolContext, loadSchools, scopeKey } from '../school-context/context'
 import { usePage, navigate, confirm } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
-const { busy, error, run } = usePage()
+const profile = shallowRef<MiniappUser>()
+const { busy, error, run } = usePage(() => {
+  profile.value = undefined
+})
 function load() {
   return run(async () => {
     await restoreSession()
-    if (session.user) await loadSchools()
+    if (session.user) {
+      await loadSchools()
+      const scope = scopeKey()
+      const value = await miniappUserApi.profile()
+      if (scope === scopeKey()) profile.value = value
+    }
   })
 }
 function signout() {
@@ -26,11 +37,10 @@ defineExpose({ show: load })
 <template>
   <view class="page">
     <view class="card">
-      <image
-        src="/static/images/avatar.png"
-        style="width: 120rpx; height: 120rpx; border-radius: 50%"
-      />
-      <text class="heading">{{ session.user?.display_name || '校园成员' }}</text>
+      <Avatar :source="profile?.avatar_url" />
+      <text class="heading">
+        {{ profile?.nickname || session.user?.display_name || '校园成员' }}
+      </text>
       <text class="muted">
         {{ schoolContext.schools.find((s) => s.id === schoolContext.id)?.name || '尚未绑定学校' }}
       </text>
