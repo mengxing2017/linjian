@@ -2,7 +2,7 @@ import {schoolDefaults} from '../../../test/school'
 import { selectOption } from '../../../test/select-option'
 import { afterEach, expect, it, vi } from 'vitest'
 import { cleanup, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Workspace } from './index'
 import { identity, workspace, product } from './api'
@@ -14,7 +14,7 @@ vi.stubGlobal('ResizeObserver', TestResizeObserver)
 configure({ asyncUtilTimeout: 5000 })
 afterEach(() => { cleanup(); vi.resetAllMocks() })
 import {beforeEach} from 'vitest'
-beforeEach(()=>{vi.mocked(workspace.reviews).mockImplementation((s,q,signal)=>workspace.list(s,'posts',q,signal) as ReturnType<typeof workspace.reviews>);vi.mocked(product.resources.artwork).mockResolvedValue([]);vi.mocked(workspace.schoolProfiles.platform).mockImplementation(async(filters={})=>{const all=await workspace.schools();const filtered=all.filter(s=>!filters.search||s.name.includes(filters.search));const n=filters.page??1;return {items:filtered.slice((n-1)*10,n*10),page:{number:n,size:10,has_more:n*10<filtered.length}}})})
+beforeEach(()=>{vi.mocked(workspace.schoolProfiles.detail).mockImplementation(async id => (await workspace.schools()).find(s => s.id === id)!);vi.mocked(workspace.reviews).mockImplementation((s,q,signal)=>workspace.list(s,'posts',q,signal) as ReturnType<typeof workspace.reviews>);vi.mocked(product.resources.artwork).mockResolvedValue([]);vi.mocked(workspace.schoolProfiles.platform).mockImplementation(async(filters={})=>{const all=await workspace.schools();const filtered=all.filter(s=>!filters.search||s.name.includes(filters.search));const n=filters.page??1;return {items:filtered.slice((n-1)*10,n*10),page:{number:n,size:10,has_more:n*10<filtered.length}}})})
 Object.defineProperty(window, 'matchMedia', { writable: true, value: (query: string) => ({ matches: false, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }) })
 it('restores the selected school and business page from its URL', async () => {
   vi.mocked(identity.session).mockResolvedValue({csrf:'csrf',user:{id:'u',username:'admin',display_name:'管理员',platform_admin:true,bound_school_id:null,grants:[],wecom_authenticated:false}})
@@ -34,6 +34,12 @@ it('restores the selected school and business page from its URL', async () => {
   expect(await screen.findByLabelText('学校名称')).toBeTruthy()
 })
 
+function LocationProbe() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  return <><output data-testid="location">{location.search}</output><button onClick={() => navigate(-1)}>返回上一页</button></>
+}
+
 function showManagement(view: string, platformAdmin = true, role: 'member' | 'operator' | 'admin' = 'admin') {
   vi.mocked(identity.session).mockResolvedValue({csrf:'csrf',user:{id:'u',username:'root',display_name:'Root',platform_admin:platformAdmin,bound_school_id:null,grants:[{school_id:'school',role}],wecom_authenticated:false}})
   vi.mocked(workspace.schools).mockResolvedValue([{id:'school',name:'甲学校',...schoolDefaults,revision:1,config:{}}, {id:'other',name:'乙学校',...schoolDefaults,revision:1,config:{}}])
@@ -43,8 +49,28 @@ function showManagement(view: string, platformAdmin = true, role: 'member' | 'op
     {id:'ordinary',username:'ordinary',display_name:'本地管理员',platform_admin:false,active:true,wecom_userid:'wx-user'},
   ])
   const client = new QueryClient({defaultOptions:{queries:{retry:false}}})
-  render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/admin?school=school&view=${view}`]}><Workspace/></MemoryRouter></QueryClientProvider>)
+  render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/admin?school=school&view=${view}`]}><Workspace/><LocationProbe/></MemoryRouter></QueryClientProvider>)
 }
+
+it.each(['comments', 'posts&subview=comments'])('opens comment reviews within content moderation from %s', async view => {
+  showManagement(view, false, 'operator')
+  expect(await screen.findByRole('tab', { name: '评论审核', selected: true })).toBeTruthy()
+  expect(screen.getByRole('heading', { name: '内容审核', level: 1 })).toBeTruthy()
+  expect(within(screen.getByRole('menu')).queryByRole('menuitem', { name: '评论审核' })).toBeNull()
+  expect(screen.getByTestId('location').textContent).toBe('?school=school&view=posts&subview=comments')
+  await waitFor(() => expect(workspace.list).toHaveBeenCalledWith('school', 'comments', expect.stringContaining('status=pending'), expect.any(AbortSignal)))
+  fireEvent.click(screen.getByRole('tab', { name: '帖子审核' }))
+  expect(screen.getByTestId('location').textContent).toBe('?school=school&view=posts&subview=posts')
+  fireEvent.click(screen.getByRole('button', { name: '返回上一页' }))
+  expect(await screen.findByRole('tab', { name: '评论审核', selected: true })).toBeTruthy()
+})
+
+it('keeps the legacy comment review URL subject to school management permission', async () => {
+  showManagement('comments', false, 'member')
+  expect(await screen.findByText('当前账号没有此功能的访问权限')).toBeTruthy()
+  expect(screen.queryByRole('tab', { name: '评论审核' })).toBeNull()
+  expect(workspace.list).not.toHaveBeenCalled()
+})
 
 it('separates ordinary accounts and administrators by privilege, not display name or current school', async () => {
   showManagement('accounts')

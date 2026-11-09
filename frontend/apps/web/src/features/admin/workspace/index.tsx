@@ -1,3 +1,5 @@
+import { AuditModes } from './audit-modes'
+import { Tabs } from 'antd'
 import {SchoolForm} from './school-profile'
 import { MiniappUsers } from '../miniapp-users'
 import {SourceConnections, SourceBindings} from '../source-access'
@@ -9,7 +11,7 @@ import { ListPanel } from '../../../shared/list-panel'
 import { formatDate } from '../../../shared/format-date'
 import { PaginationControls } from '../../../shared/pagination-controls'
 import { useDialogs } from '../../../shared/use-dialogs'
-import { useSearchParams } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { AppShell, schoolRoleLabel } from '../../../app/shell'
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -94,6 +96,12 @@ function Admin({ user, logout }: { user: User; logout: () => Promise<void> }) {
     await cache.invalidateQueries({ queryKey: ['business'] })
     await cache.invalidateQueries({ queryKey: ['directory'] })
     await cache.invalidateQueries({ queryKey: ['linjian', 'school-management'] })
+  }
+  if (requestedTab === 'comments') {
+    const next = new URLSearchParams(params)
+    next.set('view', 'posts')
+    next.set('subview', 'comments')
+    return <Navigate to={{ search: `?${next}` }} replace />
   }
   return (
     <AppShell
@@ -180,7 +188,22 @@ function Admin({ user, logout }: { user: User; logout: () => Promise<void> }) {
         />
       ) : (
         <div className="business-panel" key={`${school.id}-${tab}`}>
-          {tab === 'posts' ? <PostReviews key={school.id} school={school.id} /> : tab === 'source-outbox' ? <Outbox school={school.id} /> : tab === 'members' ? (
+          {tab === 'posts' ? (
+            <Space orientation="vertical" className="full-width">
+              <AuditModes school={school} canEdit={user.platform_admin || role === 'admin'} />
+              <Tabs activeKey={params.get('subview') === 'comments' ? 'comments' : 'posts'} onChange={key => setParams(previous => {
+                const next = new URLSearchParams(previous)
+                next.set('subview', key)
+                return next
+              })} items={[
+                { key: 'posts', label: '帖子审核', children: <PostReviews key={school.id} school={school.id} /> },
+                {
+                  key: 'comments', label: '评论审核',
+                  children: <Panel school={school} schoolAdmin={user.platform_admin || role === 'admin'} resource="comments" refresh={refresh} />,
+                },
+              ]} />
+            </Space>
+          ) : tab === 'source-outbox' ? <Outbox school={school.id} /> : tab === 'members' ? (
             <Members
               key={school.id}
               school={school}
@@ -223,9 +246,10 @@ function Panel({
   const s = school.id
   const [page, setPage] = useState(1),
     [search, setSearch] = useState(''),
-    [status, setStatus] = useState('')
+    [status, setStatus] = useState(resource === 'comments' ? 'pending' : '')
   const [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
+    [conflict, setConflict] = useState(false),
     [editing, setEditing] = useState<Row>()
   const [selectedId, setSelectedId] = useState<string>()
   const [creating, setCreating] = useState(false)
@@ -241,8 +265,10 @@ function Panel({
     try {
       await workspace.mutate(s, path, body, method)
       await refresh()
+      setSelectedId(undefined)
     } catch (e) {
       setError((e as Error).message)
+      if (e && typeof e === 'object' && 'status' in e && e.status === 409) setConflict(true)
     } finally {
       setBusy(false)
     }
@@ -300,7 +326,7 @@ function Panel({
                   aria-label="审核状态"
                   value={status}
                   style={{ width: 140 }}
-                  onChange={setStatus}
+                  onChange={(value) => { setStatus(value); setPage(1); setSelectedId(undefined) }}
                   options={[
                     { value: '', label: '全部状态' },
                     ...['pending', 'approved', 'rejected'].map((value) => ({
@@ -363,8 +389,8 @@ function Panel({
               key: 'title',
               width: 240,
               render: (_, r) => (
-                <Button className="record-title" type="link" onClick={() => setSelectedId(r.id)}>
-                  {label(r.title ?? r.name ?? r.group_name ?? r.display_name ?? r.action) || r.id}
+                <Button className="record-title" type="link" onClick={() => { setConflict(false); setError(''); setSelectedId(r.id) }}>
+                  {label(r.post_title ?? r.title ?? r.name ?? r.group_name ?? r.display_name ?? r.action) || r.id}
                 </Button>
               ),
             },
@@ -413,7 +439,7 @@ function Panel({
               fixed: 'right',
               render: (_, r) => (
                 <Space size={0}>
-                  <Button type="link" onClick={() => setSelectedId(r.id)}>
+                  <Button type="link" onClick={() => { setConflict(false); setError(''); setSelectedId(r.id) }}>
                     详情
                   </Button>
                   {resource === 'resources' && schoolAdmin && (resource!=='resources'||r.school_id===s) && (
@@ -453,12 +479,14 @@ function Panel({
             />
             <section className="detail-section">
               {error && <Alert type="error" showIcon title={error} />}
+              {conflict && <><Alert type="warning" title="内容已变更，请重新加载并核对全文。" /><Button onClick={() => { void q.refetch().then(result => { if (result.isSuccess) { setConflict(false); setError('') } }) }}>重新加载评论全文</Button></>}
               {resource === 'members' && (
                 <p>
                   {school.name} · {label(r.username)} · {schoolRoleLabel(label(r.role))}
                 </p>
               )}
-              {r.content && <p className="text-content">{label(r.content)}</p>}
+              {r.content && <p className="review-full-text">{label(r.content)}</p>}
+              {resource === 'comments' && <p>审核来源：{r.decision_source === 'automatic' ? '自动审核' : r.decision_source === 'human' ? '人工审核' : r.decision_source === 'legacy' ? '历史记录' : '待审核'} · {formatDate(r.decided_at)}</p>}
               {r.body && <p className="text-content">{label(r.body)}</p>}
               {r.contact && <p>联系方式：{label(r.contact)}</p>}
               {r.visibility && <Tag>{stateLabel(r.visibility)}</Tag>}
@@ -485,7 +513,7 @@ function Panel({
                       type="link"
                       danger={decision === 'rejected'}
                       key={decision}
-                      disabled={busy}
+                      disabled={busy || conflict || school.status !== 'normal'}
                       onClick={async () => {
                         const reason = await dialogs.prompt('审核说明')
                         if (reason !== null)

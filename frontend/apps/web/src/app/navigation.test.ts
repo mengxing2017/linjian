@@ -4,7 +4,6 @@ it('exposes complete forum management without sending capabilities', () => {
   expect(navigation.map((v) => v.key)).toEqual(
     expect.arrayContaining([
       'posts',
-      'comments',
       'cases',
       'resources',
       'platform-resources',
@@ -22,11 +21,12 @@ it('exposes complete forum management without sending capabilities', () => {
       ]),
     ),
   ).toEqual({
-    forum: ['posts', 'comments', 'cases', 'resources', 'platform-resources'],
+    forum: ['posts', 'cases', 'resources', 'platform-resources'],
     school: ['schools', 'miniapp-users', 'members', 'settings'],
     source: ['source-connections', 'source-bindings', 'source-outbox'],
     administration: ['administrators', 'accounts', 'audit'],
   })
+  expect(navigation.some((item) => item.key === 'comments')).toBe(false)
   expect(navigation.map((v) => v.key)).not.toEqual(
     expect.arrayContaining(['mobile-execution-tasks', 'broadcast-tasks']),
   )

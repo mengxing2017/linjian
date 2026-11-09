@@ -50,8 +50,9 @@ it('shows role-appropriate navigation and routes business selections', () => {
   expect(screen.getByRole('menuitem', { name: '内容审核' }).getAttribute('aria-current')).toBe(
     'page',
   )
-  fireEvent.click(screen.getByRole('menuitem', { name: '评论审核' }))
-  expect(onNavigate).toHaveBeenCalledWith('comments')
+  expect(screen.queryByRole('menuitem', { name: '评论审核' })).toBeNull()
+  fireEvent.click(screen.getByRole('menuitem', { name: '举报与反馈' }))
+  expect(onNavigate).toHaveBeenCalledWith('cases')
   expect(screen.queryByRole('menuitem', {name:'手机设备'})).toBeNull()
 
 })
