@@ -23,7 +23,7 @@ it('exposes complete forum management without sending capabilities', () => {
     ),
   ).toEqual({
     forum: ['posts', 'comments', 'cases', 'resources', 'platform-resources'],
-    school: ['schools', 'members', 'settings'],
+    school: ['schools', 'miniapp-users', 'members', 'settings'],
     source: ['source-connections', 'source-bindings', 'source-outbox'],
     administration: ['administrators', 'accounts', 'audit'],
   })

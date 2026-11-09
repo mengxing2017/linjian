@@ -86,6 +86,11 @@ export const navigation: NavigationItem[] = [
     capability: 'global.manage',
   },
   {
+    key: 'miniapp-users', icon: <UserOutlined />, label: '用户管理',
+    description: '管理微信小程序注册用户的资料、所属学校及正常或封禁状态。',
+    domain: 'school', scope: 'school', capability: 'school.read',
+  },
+  {
     key: 'members',
     icon: <UsergroupAddOutlined />,
     label: '学校成员与权限',

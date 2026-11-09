@@ -8,6 +8,7 @@ export const pageHelp: Record<string, string> = {
   comments: 'operator/moderation',
   cases: 'operator/moderation',
   resources: 'operator/moderation#display-resources',
+  'miniapp-users': 'school-admin/settings-and-members#miniapp-users',
   members: 'school-admin/settings-and-members',
   settings: 'school-admin/settings-and-members',
   audit: 'platform-admin/audit-and-resources#audit',
