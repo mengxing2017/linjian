@@ -142,7 +142,7 @@ pub async fn import(pool: &PgPool, snapshot: &Snapshot, same_wechat_app: bool) -
         .execute(&mut *tx)
         .await?;
     // Importing history does not enqueue it. Future edits/withdrawals continue at a stable version.
-    sqlx::query("INSERT INTO forum_source_versions(school_id,post_id,sequence,available) SELECT p.school_id,p.id,greatest(p.revision,1),p.audit_status='approved' AND p.visibility='visible' AND s.active FROM posts p JOIN schools s ON s.id=p.school_id").execute(&mut *tx).await?;
+    sqlx::query("INSERT INTO forum_source_versions(school_id,post_id,sequence,available,delivery_intent) SELECT p.school_id,p.id,greatest(p.revision,1),p.audit_status='approved' AND p.visibility='visible' AND s.active,false FROM posts p JOIN schools s ON s.id=p.school_id").execute(&mut *tx).await?;
     sqlx::query("SELECT setval('legacy_public_id',greatest(1000000000000,coalesce((SELECT max(public_id) FROM legacy_aliases),0)),true)").execute(&mut *tx).await?;
     let mut actual = BTreeMap::new();
     for table in TABLES {
@@ -173,10 +173,19 @@ pub async fn import(pool: &PgPool, snapshot: &Snapshot, same_wechat_app: bool) -
     }
     let counts: BTreeMap<_, _> = actual.iter().map(|(t, r)| (t.clone(), r.len())).collect();
     let report = json!({"source_digest":snapshot.digest,"target_digest":digest(&actual),"counts":counts,"sessions_imported":false,"history_enqueued":false});
+    let batch_id = uuid::Uuid::now_v7();
     sqlx::query("INSERT INTO migration_runs(id,source_hash,summary) VALUES($1,$2,$3)")
-        .bind(uuid::Uuid::now_v7())
+        .bind(batch_id)
         .bind(&snapshot.digest)
         .bind(&report)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("INSERT INTO source_import_batches(id) VALUES($1)")
+        .bind(batch_id)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("INSERT INTO source_imported_posts(post_id,batch_id) SELECT id,$1 FROM posts")
+        .bind(batch_id)
         .execute(&mut *tx)
         .await?;
     tx.commit().await?;
