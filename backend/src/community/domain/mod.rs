@@ -33,6 +33,7 @@ impl PostInput {
     }
 }
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CommentInput {
     pub content: String,
     pub parent_id: Option<Uuid>,
