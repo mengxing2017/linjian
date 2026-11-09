@@ -31,7 +31,7 @@ with tempfile.TemporaryDirectory(prefix='source-access-sql-') as directory:
     lookup = re.search(r'sqlx::query_scalar\("(SELECT to_jsonb\(c\)[^"\n]+WHERE origin=\$1 AND key_id=\$2[^"\n]+)"', repository).group(1)
     helper += f"\nCREATE FUNCTION pg_temp.configured_connection(text,text) RETURNS jsonb LANGUAGE SQL AS $lookup$ {lookup} $lookup$;"
     smoke = (root / 'backend/tests/source_v2.sql').read_text().replace('BEGIN;', 'BEGIN;\n'+helper, 1)
-    sql += '\n' + smoke + '\n\n'
+    sql += '\n' + smoke + '\n' + (root / 'backend/tests/dynamic_source.sql').read_text() + '\n\n'
     result = subprocess.run([executable('postgres'), '--single', '-j', '-D', directory, 'postgres'], input=sql, text=True, capture_output=True)
     errors = [line for line in result.stderr.splitlines() if 'ERROR:' in line or 'FATAL:' in line]
     if result.returncode or errors:

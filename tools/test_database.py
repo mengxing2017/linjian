@@ -24,7 +24,7 @@ def main():
             started = True
             env = os.environ.copy()
             env['LINJIAN_TEST_DATABASE_URL'] = f'postgresql://postgres@localhost/postgres?host={root}'
-            subprocess.run(['cargo', 'test', '--locked', '--manifest-path', 'backend/Cargo.toml', '--test', 'forum_database', '--', '--ignored'], env=env, check=True)
+            subprocess.run(['make', 'test-integration'], env=env, check=True)
         finally:
             if started:
                 subprocess.run([str(pg / 'pg_ctl'), '-D', str(data), '-m', 'immediate', '-w', 'stop'], check=True)
