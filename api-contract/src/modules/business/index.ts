@@ -1,8 +1,10 @@
-import { requestResource, requestCollection, setCsrf } from '../../http';
+import { requestResource, requestCollection, requestBinary, setCsrf } from '../../http';
 export { ApiError } from '../../http';
 export * from './types'
+import {createSchoolsClient} from '../schools'
 import type {SourceOutboxView,SourcePreview} from '../source-access'
 import type { Row, Session, School, Post, Resource } from './types'
+const schoolClient=createSchoolsClient({requestResource,requestCollection,requestBinary})
 const part = (s: string) => encodeURIComponent(s);
 export const scope = (school: string, path: string) => `/api/v1/schools/${part(school)}/${path}`;
 export const identity = {
@@ -24,7 +26,8 @@ export const workspace = {
     wecomStatus: () => requestResource<WecomStatus>('/api/v1/wecom/status'),
     globalResources: () => requestResource<Row[]>('/api/v1/platform/resources'),
     schools: () => requestResource<School[]>('/api/v1/schools'),
-    directory: () => requestResource<Pick<School, 'id' | 'name'>[]>('/api/v1/school-directory'),
+    directory: schoolClient.directory,
+    schoolProfiles: schoolClient,
     createSchool: (name: string) => requestResource<School>('/api/v1/schools', 'POST', { name }),
     updateSchool: (s: string, body: unknown) => requestResource<School>(`/api/v1/schools/${part(s)}`, 'PUT', body),
     bind: (s: string) => requestResource(scope(s, 'bind'), 'POST'),

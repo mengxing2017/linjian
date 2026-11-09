@@ -1,0 +1,25 @@
+{
+  "data": {
+    "type": "schools",
+    "attributes": {
+      "name": "示例大学",
+      "short_name": "示大",
+      "province": "广东省",
+      "city": "广州市",
+      "area": "天河区",
+      "latitude": 23.123456,
+      "longitude": 113.123456,
+      "status": "normal",
+      "logo_asset_id": null,
+      "header_bg_asset_id": null,
+      "theme_primary": "#6A5AF9",
+      "theme_secondary": "#8F6BFF",
+      "theme_text_color": "#FFFFFF",
+      "revision": 1,
+      "config": {
+        "post_audit_mode": "manual",
+        "comment_audit_mode": "manual"
+      }
+    }
+  }
+}
