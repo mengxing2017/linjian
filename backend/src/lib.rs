@@ -19,3 +19,5 @@ pub mod system;
 pub mod source_access;
 
 pub mod content_publication;
+
+pub mod miniapp_users;
