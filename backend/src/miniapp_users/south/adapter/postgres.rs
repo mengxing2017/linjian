@@ -361,12 +361,14 @@ pub async fn guard_write(
     school: Uuid,
 ) -> Result<()> {
     if a.browser {
-        return Ok(());
+        return crate::schools::south::adapter::postgres::profiles::lock_active_school(tx, school)
+            .await;
     }
     let (_, status, _) = lock_user(tx, a.id).await?;
     if status != "normal" {
         return Err(Error::MiniappBanned);
     }
+    crate::schools::south::adapter::postgres::profiles::lock_active_school(tx, school).await?;
     let valid:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sessions se JOIN accounts a ON a.id=se.account_id JOIN school_memberships m ON m.account_id=a.id JOIN schools s ON s.id=m.school_id WHERE se.token_hash=$1 AND se.kind='miniapp' AND a.id=$2 AND a.active AND se.expires_at>now() AND se.last_seen_at>now()-interval '30 minutes' AND m.school_id=$3 AND m.role<>'revoked' AND s.active)").bind(&a.session_hash).bind(a.id).bind(school).fetch_one(&mut **tx).await?;
     if !valid {
         return Err(Error::Unauthorized);

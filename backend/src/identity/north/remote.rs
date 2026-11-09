@@ -38,6 +38,23 @@ impl FromRequestParts<Application> for Actor {
         if actor.wecom_authenticated {
             state.integrations.directory().ensure_config().await?;
         }
+        let segments: Vec<_> = parts
+            .uri
+            .path()
+            .trim_start_matches('/')
+            .split('/')
+            .collect();
+        if segments.get(0..3) == Some(&["api", "v1", "schools"][..])
+            && let Some(id) = segments.get(3).and_then(|id| id.parse::<Uuid>().ok())
+        {
+            let entity = segments.len() == 4;
+            let artwork = segments.get(4) == Some(&"resource-artwork");
+            if !(actor.browser && actor.platform_admin && (entity || artwork)) {
+                crate::schools::south::adapter::postgres::Repository(state.pool.clone())
+                    .require_active(id)
+                    .await?;
+            }
+        }
         actor.request_id = parts
             .headers
             .get("x-request-id")

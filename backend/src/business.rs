@@ -6,6 +6,7 @@ use uuid::Uuid;
 pub enum Error {
     Unauthorized,
     MiniappBanned,
+    SchoolUnavailable,
     Forbidden,
     NotFound,
     Conflict,
