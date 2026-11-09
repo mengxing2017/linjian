@@ -279,3 +279,23 @@ async fn post_management_and_import_shared_fixtures() {
         assert_eq!(doc, fixture);
     }
 }
+
+#[test]
+fn comment_visibility_contract_keeps_moderation_separate() {
+    use linjian_api::community::domain::SetCommentVisibility;
+    use serde_json::json;
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../api-contract/fixtures/comment-visibility-input.json"
+    ))
+    .unwrap();
+    let attrs = fixture["data"]["attributes"].clone();
+    let input: SetCommentVisibility = serde_json::from_value(attrs.clone()).unwrap();
+    assert_eq!(serde_json::to_value(input).unwrap(), attrs);
+    for invalid in [
+        json!({"revision":1,"visibility":"deleted"}),
+        json!({"revision":1,"visibility":"normal"}),
+        json!({"revision":1,"visibility":"hidden","audit_status":"approved"}),
+    ] {
+        assert!(serde_json::from_value::<SetCommentVisibility>(invalid).is_err());
+    }
+}

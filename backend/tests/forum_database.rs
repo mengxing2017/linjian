@@ -2302,6 +2302,138 @@ async fn moderation_modes_preserve_policy_evidence_and_publication_boundaries() 
     assert!(comments.iter().any(|v| v["id"] == automatic_comment["id"]
         && v["decision_source"] == "automatic"
         && v["moderator_id"].is_null()));
+    // Visibility is independent from moderation and fenced by revision and school.
+    let cid: Uuid = automatic_comment["id"].as_str().unwrap().parse().unwrap();
+    let visibility_input = |revision: Value, visibility: &str| {
+        serde_json::from_value(json!({"revision":revision,"visibility":visibility})).unwrap()
+    };
+    assert!(
+        app.community
+            .comment_visibility(
+                &actor,
+                other,
+                cid,
+                visibility_input(automatic_comment["revision"].clone(), "hidden")
+            )
+            .await
+            .is_err()
+    );
+    assert!(
+        app.community
+            .comment_visibility(
+                &viewer,
+                school,
+                cid,
+                visibility_input(automatic_comment["revision"].clone(), "hidden")
+            )
+            .await
+            .is_err()
+    );
+    let count_before = app.community.detail(&viewer, school, post).await.unwrap()["comment_count"]
+        .as_i64()
+        .unwrap();
+    let hidden = app
+        .community
+        .comment_visibility(
+            &actor,
+            school,
+            cid,
+            visibility_input(automatic_comment["revision"].clone(), "hidden"),
+        )
+        .await
+        .unwrap();
+    assert_eq!(hidden["audit_status"], "approved");
+    assert_eq!(hidden["visibility"], "hidden");
+    assert_eq!(
+        app.community.detail(&viewer, school, post).await.unwrap()["comment_count"]
+            .as_i64()
+            .unwrap(),
+        count_before - 1
+    );
+
+    assert!(
+        app.community
+            .comment_visibility(
+                &actor,
+                school,
+                cid,
+                visibility_input(automatic_comment["revision"].clone(), "visible")
+            )
+            .await
+            .is_err()
+    );
+    assert!(
+        app.community
+            .comment_visibility(
+                &mini,
+                school,
+                cid,
+                visibility_input(hidden["revision"].clone(), "visible")
+            )
+            .await
+            .is_err()
+    );
+    let public = app
+        .community
+        .comments(&viewer, school, Some(post), Page::default())
+        .await
+        .unwrap();
+    assert!(!public.iter().any(|v| v["id"] == automatic_comment["id"]));
+    let managed = app
+        .community
+        .comments(
+            &actor,
+            school,
+            None,
+            Page {
+                visibility: Some("hidden".into()),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert!(
+        managed
+            .iter()
+            .any(|v| v["id"] == automatic_comment["id"] && v["decision_source"] == "automatic")
+    );
+    assert!(
+        app.community
+            .comment(
+                &mini,
+                school,
+                post,
+                serde_json::from_value(json!({"content":"回复隐藏评论","parent_id":cid})).unwrap()
+            )
+            .await
+            .is_err()
+    );
+    let restored = app
+        .community
+        .comment_visibility(
+            &actor,
+            school,
+            cid,
+            visibility_input(hidden["revision"].clone(), "visible"),
+        )
+        .await
+        .unwrap();
+    assert_eq!(restored["audit_status"], "approved");
+    assert!(
+        app.community
+            .comments(&viewer, school, Some(post), Page::default())
+            .await
+            .unwrap()
+            .iter()
+            .any(|v| v["id"] == automatic_comment["id"])
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM forum_outbox")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        before
+    );
     // Author content input cannot forge decision metadata.
     assert!(
         serde_json::from_value::<linjian_api::community::domain::CommentInput>(

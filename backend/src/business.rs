@@ -96,6 +96,7 @@ pub struct Page {
     pub page_size: Option<i64>,
     pub search: Option<String>,
     pub status: Option<String>,
+    pub visibility: Option<String>,
     pub mine: Option<bool>,
     pub kind: Option<String>,
 }

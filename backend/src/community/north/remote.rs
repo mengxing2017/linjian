@@ -116,6 +116,18 @@ async fn moderate(
         a.community.moderate(&actor, s, id, v, false).await?,
     ))
 }
+async fn comment_visibility(
+    State(a): State<Application>,
+    actor: Actor,
+    Path((s, id)): Path<(Uuid, Uuid)>,
+    input_document: Input,
+) -> Result<ApiResponse> {
+    let v = input_document.decode::<crate::community::domain::SetCommentVisibility>("comments")?;
+    Ok(resource(
+        "comments",
+        a.community.comment_visibility(&actor, s, id, v).await?,
+    ))
+}
 async fn moderate_comment(
     State(a): State<Application>,
     actor: Actor,
@@ -291,6 +303,10 @@ pub fn router() -> Router<Application> {
             get(comments).post(comment),
         )
         .route("/api/v1/schools/{school}/comments", get(all_comments))
+        .route(
+            "/api/v1/schools/{school}/comments/{id}/visibility",
+            put(comment_visibility),
+        )
         .route(
             "/api/v1/schools/{school}/comments/{id}",
             axum::routing::delete(delete_comment),

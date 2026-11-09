@@ -40,6 +40,27 @@ pub struct CommentInput {
     pub parent_id: Option<Uuid>,
 }
 
+#[derive(Debug, Clone, serde::Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SetCommentVisibility {
+    pub revision: i64,
+    pub visibility: CommentVisibility,
+}
+#[derive(Debug, Clone, Copy, serde::Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommentVisibility {
+    Visible,
+    Hidden,
+}
+impl CommentVisibility {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Visible => "visible",
+            Self::Hidden => "hidden",
+        }
+    }
+}
+
 pub mod moderation;
 pub mod review;
 

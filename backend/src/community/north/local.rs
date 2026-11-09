@@ -125,7 +125,33 @@ impl<R: Store> Service<R> {
             return Err(crate::business::Error::Forbidden);
         }
         a.authorize(s, if id.is_some() { "member" } else { "operator" })?;
+        require(
+            p.visibility
+                .as_deref()
+                .is_none_or(|v| matches!(v, "" | "visible" | "hidden")),
+            "显示状态无效",
+        )?;
+        require(
+            p.status
+                .as_deref()
+                .is_none_or(|v| matches!(v, "" | "pending" | "approved" | "rejected")),
+            "审核状态无效",
+        )?;
         self.0.comments(a, s, id, p).await
+    }
+    pub async fn comment_visibility(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+        v: crate::community::domain::SetCommentVisibility,
+    ) -> Result<Value> {
+        if !a.browser {
+            return Err(crate::business::Error::Forbidden);
+        }
+        a.authorize(s, "operator")?;
+        require(v.revision > 0, "版本无效")?;
+        self.0.comment_visibility(a, s, id, v).await
     }
     pub async fn delete_comment(&self, a: &Actor, s: Uuid, id: Uuid, rev: i64) -> Result<()> {
         a.authorize(s, "member")?;

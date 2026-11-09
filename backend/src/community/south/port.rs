@@ -172,6 +172,13 @@ pub trait Store: Clone + Send + Sync + 'static {
         id: Uuid,
         v: CommentInput,
     ) -> impl std::future::Future<Output = Result<Value>> + Send;
+    fn comment_visibility(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+        v: crate::community::domain::SetCommentVisibility,
+    ) -> impl std::future::Future<Output = Result<Value>> + Send;
     fn delete_comment(
         &self,
         a: &Actor,

@@ -52,7 +52,7 @@ impl Repository {
     }
     pub async fn comment_like(&self, a: &Actor, s: Uuid, id: Uuid) -> Result<Value> {
         let mut tx = self.0.begin().await?;
-        sqlx::query("SELECT c.id FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.school_id=$1 AND c.id=$2 AND c.audit_status='approved' AND NOT c.deleted AND p.audit_status='approved' AND p.visibility='visible' FOR UPDATE OF c").bind(s).bind(id).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
+        sqlx::query("SELECT c.id FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.school_id=$1 AND c.id=$2 AND c.audit_status='approved' AND c.visibility='visible' AND NOT c.deleted AND p.audit_status='approved' AND p.visibility='visible' FOR UPDATE OF c").bind(s).bind(id).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
         let removed = sqlx::query(
             "DELETE FROM comment_reactions WHERE school_id=$1 AND comment_id=$2 AND account_id=$3",
         )
