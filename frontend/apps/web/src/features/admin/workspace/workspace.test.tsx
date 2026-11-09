@@ -218,3 +218,43 @@ it('explains missing school management permission for an ordinary member at the 
   expect(screen.queryByText('页面不存在')).toBeNull()
   expect(workspace.list).not.toHaveBeenCalled()
 })
+
+it('resolves a school report with its current revision', async () => {
+  showManagement('cases', false, 'operator')
+  vi.mocked(workspace.list).mockResolvedValue({ items: [{ id: 'case-1', content: '待处理举报', state: 'open', revision: 4 }] })
+  const row = within((await screen.findByText('待处理举报')).closest('tr')!)
+  fireEvent.click(row.getByRole('button', { name: /详\s*情/ }))
+  const detail = within(await screen.findByRole('dialog'))
+  fireEvent.change(detail.getByLabelText('处理说明'), { target: { value: '已核查处理' } })
+  await selectOption(detail.getByLabelText('处理结果'), '已处理')
+  fireEvent.click(detail.getByRole('button', { name: /^保\s*存$/ }))
+  await waitFor(() => expect(workspace.mutate).toHaveBeenCalledWith('school', 'cases/case-1', {
+    resolution: '已核查处理', state: 'resolved', revision: 4,
+  }, 'PUT'))
+})
+
+it('keeps platform default resources read-only while allowing edits to school-owned resources', async () => {
+  showManagement('resources', false, 'admin')
+  vi.mocked(workspace.list).mockResolvedValue({ items: [
+    { id: 'global-resource', title: '平台默认资源', active: true, school_id: null },
+    { id: 'school-resource', title: '本校资源', active: true, school_id: 'school' },
+  ] })
+  const globalRow = within((await screen.findByText('平台默认资源', { exact: true })).closest('tr')!)
+  const schoolRow = within(screen.getByText('本校资源', { exact: true }).closest('tr')!)
+  expect(globalRow.queryByRole('button', { name: /^编\s*辑$/ })).toBeNull()
+  expect(schoolRow.getByRole('button', { name: /^编\s*辑$/ })).toBeTruthy()
+  fireEvent.click(globalRow.getByRole('button', { name: /详\s*情/ }))
+  expect(within(await screen.findByRole('dialog')).queryByRole('button', { name: /^编\s*辑$/ })).toBeNull()
+  expect(workspace.mutate).not.toHaveBeenCalled()
+})
+
+it('shows audit details without mutation actions', async () => {
+  showManagement('audit', false, 'operator')
+  vi.mocked(workspace.list).mockResolvedValue({ items: [{ id: 'audit-1', action: 'school.updated', detail: { revision: 3 } }] })
+  const row = within((await screen.findByText('school.updated')).closest('tr')!)
+  fireEvent.click(row.getByRole('button', { name: /详\s*情/ }))
+  const detail = within(await screen.findByRole('dialog'))
+  expect(detail.getByText(/"revision":3/)).toBeTruthy()
+  expect(detail.queryByRole('button', { name: /^保\s*存$/ })).toBeNull()
+  expect(workspace.mutate).not.toHaveBeenCalled()
+})
