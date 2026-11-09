@@ -114,7 +114,7 @@ function Admin({ user, logout }: { user: User; logout: () => Promise<void> }) {
                 onChange={async (s) => {
                   await cache.cancelQueries()
                   cache.removeQueries({ queryKey: ['business'] })
-                  cache.removeQueries({ queryKey: ['source'] })
+                  cache.removeQueries({ queryKey: ['linjian'] })
                   setParams((previous) => {
                     const next = new URLSearchParams(previous)
                     next.set('school', s)
@@ -133,7 +133,7 @@ function Admin({ user, logout }: { user: User; logout: () => Promise<void> }) {
       : !knownPage ? <Alert type="warning" title="页面不存在" description={<Button onClick={() => navigate(allowedKeys[0] ?? 'posts')}>返回可用功能</Button>} />
       : denied ? <Alert type="warning" title="当前账号没有此功能的访问权限" description={<>请核对当前学校与角色，或从导航选择已授权功能。<Button onClick={() => navigate(allowedKeys[0] ?? 'posts')}>返回可用功能</Button></>} />
       : tab === 'source-connections' && user.platform_admin ? <SourceConnections />
-      : tab === 'source-bindings' && user.platform_admin && school ? <SourceBindings key={school.id} school={school.id} />
+      : tab === 'source-bindings' && school ? <SourceBindings key={school.id} school={school.id} readOnly={!user.platform_admin} />
       : tab === 'accounts' && user.platform_admin && params.get('subview') === 'directory' ? <Directory />
       : tab === 'schools' && user.platform_admin ? (
         <Schools
