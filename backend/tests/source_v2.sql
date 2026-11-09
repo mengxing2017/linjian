@@ -23,6 +23,7 @@ END $$;
 -- This helper is built from the real repository upsert SQL by the isolated runner.
 SELECT pg_temp.test_binding('20000000-0000-0000-0000-000000000032','20000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000011','20000000-0000-0000-0000-000000000021','20000000-0000-0000-0000-000000000101','https://keeper.example.com','m2',true);
 DO $$ BEGIN IF (SELECT count(*) FROM school_source_bindings WHERE connection_id='20000000-0000-0000-0000-000000000011')<>2 THEN RAISE EXCEPTION 'connection cannot serve two schools'; END IF; END $$;
+UPDATE source_active_configuration SET connection_id='20000000-0000-0000-0000-000000000011' WHERE singleton;
 INSERT INTO posts(id,school_id,author_id,title,content,audit_status) VALUES('20000000-0000-0000-0000-000000000041','20000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000003','标题','正文','approved');
 DO $$ BEGIN
  IF (SELECT count(*) FROM forum_outbox WHERE post_id='20000000-0000-0000-0000-000000000041')<>1 THEN RAISE EXCEPTION 'v2 missing'; END IF;
@@ -40,5 +41,6 @@ DO $$ BEGIN
 END $$;
 DO $$ BEGIN IF (SELECT route_id FROM forum_outbox WHERE post_id='20000000-0000-0000-0000-000000000041')<>'m1' THEN RAISE EXCEPTION 'frozen route changed'; END IF; END $$;
 UPDATE schools SET active=false WHERE id='20000000-0000-0000-0000-000000000001';
+SELECT forum_reconcile_school('20000000-0000-0000-0000-000000000001');
 DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM forum_outbox WHERE payload->>'event_type'='content.withdrawn' AND schema_version=2 AND payload->>'content' IS NULL) THEN RAISE EXCEPTION 'withdrawal missing'; END IF; END $$;
 ROLLBACK;

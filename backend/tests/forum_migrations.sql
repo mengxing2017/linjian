@@ -23,16 +23,17 @@ DO $$ BEGIN
 END $$;
 UPDATE posts SET visibility='visible';
 UPDATE schools SET active=false;
+SELECT forum_reconcile_school('00000000-0000-0000-0000-000000000001');
 DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM forum_outbox WHERE sequence=5 AND payload->>'event_type'='content.withdrawn') THEN RAISE EXCEPTION 'school disable did not withdraw'; END IF; END $$;
 UPDATE schools SET active=true;
-DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM forum_outbox WHERE sequence=6 AND payload->>'event_type'='content.upsert') THEN RAISE EXCEPTION 'school restore did not advance'; END IF; END $$;
+DO $$ BEGIN IF (SELECT count(*) FROM forum_outbox)<>5 THEN RAISE EXCEPTION 'school restore replayed history'; END IF; END $$;
 -- Import suppresses historical events; future edits still enqueue.
 ALTER TABLE posts DISABLE TRIGGER forum_post_outbox;
 INSERT INTO posts(id,school_id,author_id,title,content,audit_status) VALUES('00000000-0000-0000-0000-000000000004','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','历史标题','历史正文','approved');
 ALTER TABLE posts ENABLE TRIGGER forum_post_outbox;
-DO $$ BEGIN IF (SELECT count(*) FROM forum_outbox)<>6 THEN RAISE EXCEPTION 'history import sent'; END IF; END $$;
+DO $$ BEGIN IF (SELECT count(*) FROM forum_outbox)<>5 THEN RAISE EXCEPTION 'history import sent'; END IF; END $$;
 UPDATE posts SET content='历史编辑' WHERE id='00000000-0000-0000-0000-000000000004';
-DO $$ BEGIN IF (SELECT count(*) FROM forum_outbox)<>7 THEN RAISE EXCEPTION 'history edit missing'; END IF; END $$;
+DO $$ BEGIN IF (SELECT count(*) FROM forum_outbox)<>6 THEN RAISE EXCEPTION 'history edit missing'; END IF; END $$;
 -- Real media bytes survive PostgreSQL JSON snapshot conversion.
 INSERT INTO media_assets(id,school_id,owner_id,mime_type,size_bytes,content) VALUES('00000000-0000-0000-0000-000000000005','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','image/png',3,decode('0001ff','hex'));
 DO $$ DECLARE original media_assets; copied media_assets;

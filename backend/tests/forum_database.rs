@@ -149,6 +149,12 @@ async fn forum_migration_auth_and_outbox() {
         .execute(&source)
         .await
         .unwrap();
+    linjian_api::outbox::north::local::Worker::from_env(source.clone())
+        .unwrap()
+        .unwrap()
+        .run_once()
+        .await
+        .unwrap();
     assert_eq!(
         count().await.unwrap(),
         5,
@@ -256,6 +262,279 @@ async fn forum_migration_auth_and_outbox() {
         .await
         .unwrap();
     sqlx::query(&format!("DROP SCHEMA {target_name} CASCADE"))
+        .execute(&admin)
+        .await
+        .unwrap();
+    admin.close().await;
+}
+
+#[tokio::test]
+#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
+async fn dynamic_source_history_leases_and_school_isolation() {
+    use linjian_api::outbox::{
+        domain::ReplayInput,
+        south::{
+            adapter::postgres::Repository,
+            port::{OutboxStore, ReceiptResult},
+        },
+    };
+    use linjian_api::source_access::domain::Fault;
+    let url = std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required");
+    let admin = PgPool::connect(&url).await.unwrap();
+    let name = format!("forum_dynamic_{}", Uuid::new_v4().simple());
+    let pool = isolated(&admin, &name).await;
+    database::migrate(&pool).await.unwrap();
+    sqlx::raw_sql(include_str!("dynamic_source.sql"))
+        .execute(&pool)
+        .await
+        .unwrap();
+    let app = bootstrap::build_application(pool.clone());
+    let root = app
+        .identity
+        .bootstrap("root", "管理员", "test-password-at-least-12", true)
+        .await
+        .unwrap();
+    let (_, actor) = app
+        .identity
+        .0
+        .session(root, "browser", false)
+        .await
+        .unwrap();
+    let school = app.schools.create(&actor, "甲校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse::<Uuid>()
+        .unwrap();
+    let other = app.schools.create(&actor, "乙校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse::<Uuid>()
+        .unwrap();
+    let connection = Uuid::new_v4();
+    let version = Uuid::new_v4();
+    let source = Uuid::new_v4();
+    sqlx::query("INSERT INTO source_connections(id,name,source_id,origin,key_id,checked_at) VALUES($1,'test',$2,'https://keeper.example.com','test-key',now())").bind(connection).bind(source).execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO source_connection_versions(id,connection_id,revision,source_id,origin,public_origin) VALUES($1,$2,1,$3,'https://keeper.example.com','https://forum.example.com')").bind(version).bind(connection).bind(source).execute(&pool).await.unwrap();
+    sqlx::query("UPDATE source_active_configuration SET connection_id=$1")
+        .bind(connection)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let bindings = linjian_api::source_access::south::adapter::postgres::Repository(pool.clone());
+    bindings
+        .bind(
+            &actor,
+            school,
+            connection,
+            linjian_api::source_access::north::local::BindingInput {
+                route_id: "route-a".into(),
+                active: true,
+            },
+            0,
+            1,
+        )
+        .await
+        .unwrap();
+    // The same revision can only be saved once, including concurrent attempts.
+    let a = bindings.bind(
+        &actor,
+        school,
+        connection,
+        linjian_api::source_access::north::local::BindingInput {
+            route_id: "route-a".into(),
+            active: true,
+        },
+        1,
+        1,
+    );
+    let b = bindings.bind(
+        &actor,
+        school,
+        connection,
+        linjian_api::source_access::north::local::BindingInput {
+            route_id: "route-a".into(),
+            active: false,
+        },
+        1,
+        1,
+    );
+    let (a, b) = tokio::join!(a, b);
+    assert_ne!(a.is_ok(), b.is_ok());
+    // Resume deterministically regardless of which concurrent request won.
+    bindings
+        .bind(
+            &actor,
+            school,
+            connection,
+            linjian_api::source_access::north::local::BindingInput {
+                route_id: "route-a".into(),
+                active: true,
+            },
+            2,
+            1,
+        )
+        .await
+        .unwrap();
+    let post = Uuid::new_v4();
+    sqlx::query("INSERT INTO posts(id,school_id,author_id,title,content,audit_status) VALUES($1,$2,$3,'标题','正文','approved')").bind(post).bind(school).bind(root).execute(&pool).await.unwrap();
+    let store = Repository(pool.clone());
+    let first = store.claim().await.unwrap().unwrap();
+    assert!(
+        store.claim().await.unwrap().is_none(),
+        "a live lease must exclude another worker"
+    );
+    sqlx::query("UPDATE forum_outbox SET lease_until=now()-interval '1 second' WHERE id=$1")
+        .bind(first.id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let second = store.claim().await.unwrap().unwrap();
+    assert_eq!(first.id, second.id);
+    assert_ne!(first.token, second.token);
+    assert_eq!(first.body, second.body);
+    assert_eq!(first.body_sha256, second.body_sha256);
+    let receipt = Uuid::new_v4();
+    store
+        .finish(
+            &first,
+            Ok(ReceiptResult {
+                id: receipt,
+                status: "received".into(),
+                summary: json!({"sending":null}),
+            }),
+        )
+        .await
+        .unwrap();
+    let saved: Option<String> =
+        sqlx::query_scalar("SELECT receipt_id FROM forum_outbox WHERE id=$1")
+            .bind(first.id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert!(
+        saved.is_none(),
+        "expired worker must not overwrite a renewed lease"
+    );
+    // Upstream may already have received the bytes: retry only the original identity.
+    store
+        .finish(&second, Err((Fault("temporarily_unavailable"), 0)))
+        .await
+        .unwrap();
+    sqlx::query("UPDATE forum_outbox SET next_attempt_at=now() WHERE id=$1")
+        .bind(first.id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let third = store.claim().await.unwrap().unwrap();
+    assert_eq!(third.id, first.id);
+    assert_eq!(third.body, first.body);
+    assert!(third.receipt_id.is_none());
+    store
+        .finish(
+            &third,
+            Ok(ReceiptResult {
+                id: receipt,
+                status: "received".into(),
+                summary: json!({"sending":null}),
+            }),
+        )
+        .await
+        .unwrap();
+    sqlx::query("UPDATE forum_outbox SET next_attempt_at=now() WHERE id=$1")
+        .bind(first.id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let fourth = store.claim().await.unwrap().unwrap();
+    assert_eq!(fourth.receipt_id, Some(receipt));
+    assert_eq!(fourth.body, first.body);
+    store
+        .finish(
+            &fourth,
+            Ok(ReceiptResult {
+                id: receipt,
+                status: "applied".into(),
+                summary: json!({"sending":null}),
+            }),
+        )
+        .await
+        .unwrap();
+    assert!(
+        store.claim().await.unwrap().is_none(),
+        "applied without sending capability must not poll forever"
+    );
+    assert!(
+        store
+            .replay(&actor, school, first.id, ReplayInput { reason: " ".into() })
+            .await
+            .is_err()
+    );
+    let mut operator = actor.clone();
+    operator.platform_admin = false;
+    operator.grants = vec![linjian_api::business::Grant {
+        school_id: school,
+        role: "operator".into(),
+    }];
+    assert!(matches!(
+        store.detail(&operator, other, first.id).await,
+        Err(linjian_api::business::Error::NotFound)
+    ));
+    let detail = store.detail(&operator, school, first.id).await.unwrap();
+    assert_eq!(detail["recoverable"], false);
+    assert!(detail.get("request_body").is_none());
+    // No binding: retain a v2 intent and assign its identity once a verified route exists.
+    let unbound_post = Uuid::new_v4();
+    sqlx::query("INSERT INTO posts(id,school_id,author_id,title,content,audit_status) VALUES($1,$2,$3,'乙标题','乙正文','approved')").bind(unbound_post).bind(other).bind(root).execute(&pool).await.unwrap();
+    let unbound: Uuid = sqlx::query_scalar("SELECT id FROM forum_outbox WHERE post_id=$1")
+        .bind(unbound_post)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert!(!store.prepare().await.unwrap());
+    bindings
+        .bind(
+            &actor,
+            other,
+            connection,
+            linjian_api::source_access::north::local::BindingInput {
+                route_id: "route-b".into(),
+                active: true,
+            },
+            0,
+            1,
+        )
+        .await
+        .unwrap();
+    assert!(store.prepare().await.unwrap());
+    let bound = store.claim().await.unwrap().unwrap();
+    assert_eq!(bound.id, unbound);
+    store
+        .finish(&bound, Err((Fault("protocol_error"), 0)))
+        .await
+        .unwrap();
+    let state: String = sqlx::query_scalar("SELECT delivery_state FROM forum_outbox WHERE id=$1")
+        .bind(unbound)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(state, "retry_wait");
+    // Inject an actual enqueue failure; content and the event must roll back together.
+    sqlx::raw_sql("CREATE FUNCTION fail_source_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected outbox failure'; END $$; CREATE TRIGGER fail_source_test BEFORE INSERT ON forum_outbox FOR EACH ROW EXECUTE FUNCTION fail_source_test();").execute(&pool).await.unwrap();
+    assert!(
+        sqlx::query("UPDATE posts SET content='must roll back' WHERE id=$1")
+            .bind(post)
+            .execute(&pool)
+            .await
+            .is_err()
+    );
+    let content: String = sqlx::query_scalar("SELECT content FROM posts WHERE id=$1")
+        .bind(post)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(content, "正文");
+    pool.close().await;
+    sqlx::query(&format!("DROP SCHEMA {name} CASCADE"))
         .execute(&admin)
         .await
         .unwrap();
