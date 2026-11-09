@@ -1,4 +1,8 @@
 import { beforeEach, vi } from 'vitest'
+import { configure } from '@testing-library/react'
+
+// Ant Design async renders can exceed the default one-second query wait on CI.
+configure({ asyncUtilTimeout: 5000 })
 
 // JSDOM computes element styles, but does not implement pseudo-element styles.
 // Keep real visibility checks while allowing Ant Design scrollbar measurements.
