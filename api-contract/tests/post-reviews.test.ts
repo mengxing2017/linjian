@@ -16,3 +16,11 @@ it('reads a complete paginated review and serializes the full review decision', 
   expect(writeDocument('/api/v1/schools/school-1/posts/post-1/moderation-decisions',decision.data.attributes)).toEqual(decision)
   expect(decision.data.attributes).not.toHaveProperty('source_preview_digest')
 })
+
+it.each(['human', 'automatic', 'legacy'])('reads %s review evidence without inventing an operator', async (source) => {
+  const fixture = JSON.parse(readFileSync(new URL(`../fixtures/post-review-${source}.json`, import.meta.url), 'utf8'))
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json(fixture, { headers: { 'content-type': 'application/vnd.api+json' } })))
+  const review = await workspace.review('school-1', 'post-1')
+  expect(review.decision_source).toBe(source)
+  expect(review.moderator_id !== null).toBe(source === 'human')
+})

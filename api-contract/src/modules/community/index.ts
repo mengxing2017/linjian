@@ -10,6 +10,7 @@ export interface PostInput {
   revision?: number
 }
 export interface Comment extends Row {
+  audit_status: 'pending' | 'approved' | 'rejected'
   author_id: string
   author_name: string
   content: string

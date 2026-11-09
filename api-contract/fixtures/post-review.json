@@ -19,7 +19,10 @@
       "top_sort": 0,
       "revision": 2,
       "content_revision": 1,
-      "review_digest": "review-fixture-digest"
+      "review_digest": "review-fixture-digest",
+      "decision_source": null,
+      "decided_at": null,
+      "moderator_id": null
     }
   }
 }

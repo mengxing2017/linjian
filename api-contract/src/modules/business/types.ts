@@ -22,6 +22,8 @@ export interface Session {
     user: User;
     csrf: string;
 }
+export type AuditMode = 'manual' | 'auto';
+export type DecisionSource = 'human' | 'automatic' | 'legacy';
 export interface School extends Row {
     name: string;
     status: 'normal' | 'hidden';
@@ -31,9 +33,7 @@ export interface School extends Row {
     logo_url: string | null; header_bg_image_url: string | null;
     theme_primary: string; theme_secondary: string; theme_text_color: string;
     revision: number;
-    config: {
-        [key: string]: Json;
-    };
+    config: { [key: string]: Json } & { post_audit_mode?: AuditMode; comment_audit_mode?: AuditMode };
 }
 export interface Post extends Row {
     school_id: string;
@@ -53,4 +53,5 @@ export interface PostReview extends Row {
   title: string; content: string; images: string[]; tags: string[]; created_at: string;
   audit_status: 'pending' | 'approved' | 'rejected'; visibility: 'visible' | 'hidden' | 'deleted';
   top_sort: number; revision: number; content_revision: number; review_digest: string;
+  decision_source: DecisionSource | null; decided_at: string | null; moderator_id: string | null;
 }
