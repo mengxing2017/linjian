@@ -1,3 +1,4 @@
+import {schoolDefaults} from '../../test/school'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -15,8 +16,8 @@ vi.mock('./api', () => ({ identity: { profile: vi.fn() }, workspace: {
   schools: vi.fn(), directory: vi.fn(), list: vi.fn(), mutate: vi.fn(), upload: vi.fn(),
 } }))
 beforeEach(() => {
-  vi.mocked(workspace.schools).mockResolvedValue([{ id: 's', name: '测试学校', active: true, revision: 1, config: {} }])
-  vi.mocked(workspace.directory).mockResolvedValue([])
+  vi.mocked(workspace.schools).mockResolvedValue([{ id: 's', name: '测试学校', ...schoolDefaults,revision: 1, config: {} }])
+  vi.mocked(workspace.directory).mockResolvedValue({items:[]})
   vi.mocked(workspace.list).mockResolvedValue({ items: [], page: { number: 1, size: 20, has_more: false } })
   vi.mocked(workspace.mutate).mockResolvedValue({})
   vi.mocked(workspace.upload).mockResolvedValue({ url: '/image.png' })

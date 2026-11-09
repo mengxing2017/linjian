@@ -5,5 +5,5 @@ export function useSchools() {
   return useQuery({ queryKey: ['schools'], queryFn: schoolsApi.schools })
 }
 export function useSchoolDirectory() {
-  return useQuery({ queryKey: ['directory'], queryFn: schoolsApi.directory })
+  return useQuery({ queryKey: ['directory'], queryFn: ({signal})=>schoolsApi.directory({},signal) })
 }
