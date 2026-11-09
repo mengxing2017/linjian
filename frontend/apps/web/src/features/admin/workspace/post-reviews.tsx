@@ -193,6 +193,8 @@ function ReviewDetail({
               { key: 'school', label: '学校', children: post.school_name },
               { key: 'author', label: '用户昵称', children: post.author_nickname },
               { key: 'created', label: '创建时间', children: formatDate(post.created_at) },
+              { key: 'source', label: '审核来源', children: post.decision_source === 'automatic' ? '自动审核（自动通过）' : post.decision_source === 'human' ? '人工审核' : post.decision_source === 'legacy' ? '历史记录' : '待审核' },
+              { key: 'decided', label: '决定时间', children: formatDate(post.decided_at) },
               {
                 key: 'status',
                 label: '审核状态',

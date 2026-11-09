@@ -23,6 +23,7 @@ const post: PostReview = {
   revision: 3,
   content_revision: 2,
   review_digest: 'full-review-digest',
+  decision_source: null, decided_at: null, moderator_id: null,
 }
 class ResizeObserver {
   observe() {}
