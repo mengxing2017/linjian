@@ -2451,7 +2451,11 @@ async fn moderation_mode_upgrade_preserves_legacy_publication_evidence() {
     let schema = format!("forum_mode_upgrade_{}", Uuid::new_v4().simple());
     let pool = isolated(&admin, &schema).await;
     let migrations = database::MIGRATOR.iter().collect::<Vec<_>>();
-    for migration in &migrations[..migrations.len() - 1] {
+    let target = migrations
+        .iter()
+        .position(|m| m.version == 202611090005)
+        .unwrap();
+    for migration in &migrations[..target] {
         sqlx::raw_sql(&migration.sql).execute(&pool).await.unwrap();
     }
     let account = Uuid::new_v4();
@@ -2480,7 +2484,7 @@ async fn moderation_mode_upgrade_preserves_legacy_publication_evidence() {
         .fetch_one(&pool)
         .await
         .unwrap();
-    sqlx::raw_sql(&migrations.last().unwrap().sql)
+    sqlx::raw_sql(&migrations[target].sql)
         .execute(&pool)
         .await
         .unwrap();
@@ -2522,6 +2526,352 @@ async fn moderation_mode_upgrade_preserves_legacy_publication_evidence() {
             .is_err()
     );
     assert!(sqlx::query("INSERT INTO moderation_events(id,school_id,actor_id,object_id,object_kind,decision,reason,decision_source) VALUES($1,$2,$3,$4,'post','approved','','legacy')").bind(Uuid::new_v4()).bind(school).bind(account).bind(post).execute(&pool).await.is_err());
+    pool.close().await;
+    sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
+        .execute(&admin)
+        .await
+        .unwrap();
+    admin.close().await;
+}
+
+#[tokio::test]
+#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
+async fn case_management_projection_handling_and_upgrade() {
+    use linjian_api::{
+        business::{Error, Page},
+        community::domain::case::ResolveCaseInput,
+    };
+    let admin = PgPool::connect(
+        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
+    )
+    .await
+    .unwrap();
+    let schema = format!("forum_cases_{}", Uuid::new_v4().simple());
+    let pool = isolated(&admin, &schema).await;
+    // Exercise a populated upgrade, keeping historical terminal metadata unknown.
+    let migrations = database::MIGRATOR.iter().collect::<Vec<_>>();
+    let target = migrations
+        .iter()
+        .position(|m| m.version == 202611100001)
+        .unwrap();
+    for migration in &migrations[..target] {
+        sqlx::raw_sql(&migration.sql).execute(&pool).await.unwrap();
+    }
+    let app = bootstrap::build_application(pool.clone());
+    let root = app
+        .identity
+        .bootstrap("case-root", "显示名", "test-password-at-least-12", true)
+        .await
+        .unwrap();
+    let (_, actor) = app
+        .identity
+        .0
+        .session(root, "browser", false)
+        .await
+        .unwrap();
+    let school: Uuid = app.schools.create(&actor, "案件所属学校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let other: Uuid = app.schools.create(&actor, "其他学校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let legacy = Uuid::now_v7();
+    sqlx::query("INSERT INTO cases(id,school_id,account_id,kind,content,state,resolution) VALUES($1,$2,$3,'feedback','历史反馈','resolved','旧处理')").bind(legacy).bind(school).bind(root).execute(&pool).await.unwrap();
+    sqlx::raw_sql(&migrations[target].sql)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert!(
+        sqlx::query_scalar::<_, Option<chrono::DateTime<chrono::Utc>>>(
+            "SELECT handled_at FROM cases WHERE id=$1"
+        )
+        .bind(legacy)
+        .fetch_one(&pool)
+        .await
+        .unwrap()
+        .is_none()
+    );
+    sqlx::query("INSERT INTO miniapp_users(account_id,nickname) VALUES($1,'提交人昵称')")
+        .bind(root)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let post = Uuid::now_v7();
+    sqlx::query("INSERT INTO posts(id,school_id,author_id,title,content) VALUES($1,$2,$3,'搜索帖子标题','原始正文')").bind(post).bind(school).bind(root).execute(&pool).await.unwrap();
+    let case = app
+        .community
+        .case(
+            &actor,
+            school,
+            json!({"kind":"report","post_id":post,"content":"举报原因","images":[]}),
+        )
+        .await
+        .unwrap();
+    assert!(case.get("handled_by").is_none());
+    let id: Uuid = case["id"].as_str().unwrap().parse().unwrap();
+    let rows = app
+        .community
+        .cases(
+            &actor,
+            school,
+            Page {
+                search: Some("搜索帖子标题".into()),
+                status: Some("open".into()),
+                page_size: Some(1),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["reporter_name"], "提交人昵称");
+    assert_eq!(rows[0]["school_name"], "案件所属学校");
+    assert!(rows[0]["handled_at"].is_null());
+    assert!(
+        app.community
+            .cases(
+                &actor,
+                school,
+                Page {
+                    status: Some("pending".into()),
+                    ..Default::default()
+                }
+            )
+            .await
+            .is_err()
+    );
+    assert!(
+        app.community
+            .cases(&actor, other, Page::default())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let mut member = actor.clone();
+    member.platform_admin = false;
+    member.grants = vec![linjian_api::business::Grant {
+        school_id: school,
+        role: "member".into(),
+    }];
+    let own = app
+        .community
+        .cases(&member, school, Page::default())
+        .await
+        .unwrap();
+    assert_eq!(own.len(), 2);
+    assert!(
+        own.iter()
+            .all(|v| v.get("handled_by").is_none() && v.get("reporter_name").is_none())
+    );
+    assert!(
+        app.community
+            .cases(&member, other, Page::default())
+            .await
+            .is_err()
+    );
+    let other_account = app
+        .identity
+        .bootstrap(
+            "other-reporter",
+            "其他人",
+            "test-password-at-least-12",
+            false,
+        )
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO cases(id,school_id,account_id,kind,content) VALUES($1,$2,$3,'feedback','其他人的反馈')").bind(Uuid::now_v7()).bind(school).bind(other_account).execute(&pool).await.unwrap();
+    assert_eq!(
+        app.community
+            .cases(&member, school, Page::default())
+            .await
+            .unwrap()
+            .len(),
+        2
+    );
+    let mut mini = actor.clone();
+    mini.browser = false;
+    let mini_rows = app
+        .community
+        .cases(&mini, school, Page::default())
+        .await
+        .unwrap();
+    assert!(mini_rows.iter().all(|v| v.get("handled_by").is_none()));
+    let input = |revision, state: &str, resolution: &str| {
+        serde_json::from_value::<ResolveCaseInput>(
+            json!({"revision":revision,"state":state,"resolution":resolution}),
+        )
+        .unwrap()
+    };
+    assert!(
+        app.community
+            .resolve(&mini, school, id, input(1, "resolved", "完成"))
+            .await
+            .is_err()
+    );
+    assert!(
+        app.community
+            .resolve(&member, school, id, input(1, "resolved", "完成"))
+            .await
+            .is_err()
+    );
+    assert!(matches!(
+        app.community
+            .resolve(&actor, other, id, input(1, "resolved", "完成"))
+            .await,
+        Err(Error::Conflict)
+    ));
+    let before: Value = sqlx::query_scalar("SELECT to_jsonb(p) FROM posts p WHERE id=$1")
+        .bind(post)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let outbox: i64 = sqlx::query_scalar("SELECT count(*) FROM forum_outbox")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let (first, second) = tokio::join!(
+        app.community
+            .resolve(&actor, school, id, input(1, "resolved", "核实处理")),
+        app.community
+            .resolve(&actor, school, id, input(1, "dismissed", "核实驳回"))
+    );
+    assert_ne!(first.is_ok(), second.is_ok());
+    let handled = first.or(second).unwrap();
+    assert_eq!(handled.record.revision, 2);
+    assert_eq!(handled.handled_by, Some(root));
+    assert!(handled.handled_at.is_some());
+    let repeated = app
+        .community
+        .resolve(
+            &actor,
+            school,
+            id,
+            input(2, handled.record.state.as_str(), &handled.record.resolution),
+        )
+        .await
+        .unwrap();
+    assert_eq!(repeated.handled_at, handled.handled_at);
+    assert_eq!(repeated.record.revision, 2);
+    assert!(matches!(
+        app.community
+            .resolve(
+                &actor,
+                school,
+                id,
+                input(1, handled.record.state.as_str(), &handled.record.resolution)
+            )
+            .await,
+        Err(Error::Conflict)
+    ));
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM audit_events WHERE action='case.resolve' AND object_id=$1"
+        )
+        .bind(id)
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        1
+    );
+    // An audit failure rolls back metadata and revision as well as state.
+    sqlx::raw_sql("CREATE FUNCTION reject_case_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='case.resolve' THEN RAISE EXCEPTION 'audit unavailable'; END IF; RETURN NEW; END $$; CREATE TRIGGER reject_case_audit BEFORE INSERT ON audit_events FOR EACH ROW EXECUTE FUNCTION reject_case_audit();").execute(&pool).await.unwrap();
+    assert!(
+        app.community
+            .resolve(&actor, school, id, input(2, "resolved", "修正处理说明"))
+            .await
+            .is_err()
+    );
+    let after: Value = sqlx::query_scalar("SELECT to_jsonb(c) FROM cases c WHERE id=$1")
+        .bind(id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(after["revision"], 2);
+    assert_eq!(after["resolution"], handled.record.resolution);
+    assert_eq!(
+        after["handled_at"]
+            .as_str()
+            .unwrap()
+            .parse::<chrono::DateTime<chrono::Utc>>()
+            .unwrap(),
+        handled.handled_at.unwrap()
+    );
+    sqlx::raw_sql(
+        "DROP TRIGGER reject_case_audit ON audit_events; DROP FUNCTION reject_case_audit();",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let corrected = app
+        .community
+        .resolve(&actor, school, id, input(2, "resolved", "修正处理说明"))
+        .await
+        .unwrap();
+    assert_eq!(corrected.record.revision, 3);
+    assert!(corrected.handled_at > handled.handled_at);
+    assert_eq!(
+        sqlx::query_scalar::<_, Value>("SELECT to_jsonb(p) FROM posts p WHERE id=$1")
+            .bind(post)
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        before
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM forum_outbox")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        outbox
+    );
+    // Reporter fallback uses public display name, never username or contact.
+    sqlx::query("DELETE FROM miniapp_users WHERE account_id=$1")
+        .bind(root)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let found = app
+        .community
+        .cases(
+            &actor,
+            school,
+            Page {
+                search: Some("显示名".into()),
+                page_size: Some(1),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(found.len(), 2); // size+1 is fetched before JSON:API truncation.
+    assert!(found.iter().all(|v| v["reporter_name"] == "显示名"));
+    sqlx::query(
+        "UPDATE school_memberships SET role='revoked' WHERE account_id=$1 AND school_id=$2",
+    )
+    .bind(root)
+    .bind(school)
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query("UPDATE accounts SET platform_admin=false WHERE id=$1")
+        .bind(root)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert!(matches!(
+        app.community.cases(&actor, school, Page::default()).await,
+        Err(Error::Forbidden)
+    ));
+    assert!(matches!(
+        app.community
+            .resolve(&actor, school, id, input(3, "resolved", "再次处理"))
+            .await,
+        Err(Error::Forbidden)
+    ));
     pool.close().await;
     sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
         .execute(&admin)

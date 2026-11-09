@@ -168,3 +168,49 @@ async fn school_profile_fixture_matches_rust_and_excludes_active() {
         .validate()
         .unwrap();
 }
+
+#[tokio::test]
+async fn case_jsonapi_matches_shared_fixtures_and_rejects_spoofed_handling() {
+    use axum::response::IntoResponse;
+    use linjian_api::community::domain::case::{CaseManagementView, ResolveCaseInput};
+    use serde_json::json;
+    for raw in [
+        include_str!("../../api-contract/fixtures/case-open.json"),
+        include_str!("../../api-contract/fixtures/case-resolved.json"),
+        include_str!("../../api-contract/fixtures/case-dismissed.json"),
+        include_str!("../../api-contract/fixtures/case-feedback.json"),
+        include_str!("../../api-contract/fixtures/case-legacy.json"),
+    ] {
+        let fixture: serde_json::Value = serde_json::from_str(raw).unwrap();
+        let mut attributes = fixture["data"]["attributes"].clone();
+        attributes["id"] = fixture["data"]["id"].clone();
+        let case: CaseManagementView = serde_json::from_value(attributes).unwrap();
+        let response =
+            linjian_api::http::jsonapi::singleton("cases", case.record.id, case).into_response();
+        let document: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 8192).await.unwrap()).unwrap();
+        assert_eq!(document, fixture);
+    }
+    let input = json!({"revision":1,"state":"resolved","resolution":" 已处理 "});
+    let mut valid: ResolveCaseInput = serde_json::from_value(input.clone()).unwrap();
+    valid.validate().unwrap();
+    assert_eq!(valid.resolution, "已处理");
+    for key in ["handled_at", "handled_by", "reporter_name", "school_name"] {
+        let mut spoofed = input.clone();
+        spoofed[key] = json!("forged");
+        assert!(serde_json::from_value::<ResolveCaseInput>(spoofed).is_err());
+    }
+    for invalid in [
+        json!({"revision":0,"state":"resolved","resolution":"已处理"}),
+        json!({"revision":1,"state":"open","resolution":"已处理"}),
+        json!({"revision":1,"state":"dismissed","resolution":" "}),
+        json!({"revision":1,"state":"resolved","resolution":"a".repeat(2001)}),
+    ] {
+        assert!(
+            serde_json::from_value::<ResolveCaseInput>(invalid)
+                .unwrap()
+                .validate()
+                .is_err()
+        );
+    }
+}
