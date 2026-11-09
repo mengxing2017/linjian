@@ -27,3 +27,25 @@ test('checks static, type-only, re-export and dynamic imports, including Vue scr
   assert.ok(violations('apps/web/src/main.ts', "import x from '../../miniapp/src/main'").length)
   assert.ok(violations('packages/core/index.ts', "export * from '../../apps/web/src/main'").length)
 })
+
+test('keeps public indexes as session wiring and compatibility exports', () => {
+  const file = 'apps/web/src/features/example/index.tsx'
+  for (const source of [
+    "export { Page } from './page'",
+    'export default function Entry() { return <SessionGate>{user => <Page user={user} />}</SessionGate> }',
+  ])
+    assert.equal(violations(file, source).length, 0)
+  for (const source of [
+    'export function Page() { const data = useQuery(); return <View data={data} /> }',
+    'export async function save() { return api.save() }',
+    'export const useSchools = () => useQuery({})',
+  ])
+    assert.ok(violations(file, source).length)
+  assert.equal(
+    violations(
+      'apps/miniapp/src/features/media/api/index.ts',
+      "import { createMediaClient } from '@linjian/api-contract/media'; export const mediaApi = createMediaClient(client)",
+    ).length,
+    0,
+  )
+})

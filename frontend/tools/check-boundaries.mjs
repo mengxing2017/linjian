@@ -46,6 +46,27 @@ export function imports(source, filename) {
 }
 export function violations(file, source) {
   const errors = []
+  if (/^apps\/(web|miniapp)\/src\/.*\/index\.tsx?$/.test(file) && !/\/api\/index\.ts$/.test(file)) {
+    const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    for (const statement of tree.statements) {
+      if (ts.isFunctionDeclaration(statement)) {
+        if (
+          statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword) ||
+          !statement.body ||
+          statement.body.statements.length !== 1 ||
+          !ts.isReturnStatement(statement.body.statements[0])
+        )
+          errors.push('index 只允许入口装配和兼容导出，业务函数应移到具名模块')
+      } else if (
+        !ts.isImportDeclaration(statement) &&
+        !ts.isExportDeclaration(statement) &&
+        !ts.isExportAssignment(statement) &&
+        !ts.isInterfaceDeclaration(statement) &&
+        !ts.isTypeAliasDeclaration(statement)
+      )
+        errors.push('index 不承载状态、查询或业务初始化，请移到具名模块')
+    }
+  }
   for (const spec of imports(source, file)) {
     if (spec === '<computed-import>') errors.push('动态导入必须使用可检查的字面量')
     if (spec.startsWith('@linjian/api-contract') && !/\/features\/.+\/api\/index\.ts$/.test(file))
