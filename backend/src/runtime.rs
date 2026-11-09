@@ -101,8 +101,13 @@ async fn serve_inner(
         }
     });
     let artwork = crate::schools::south::adapter::postgres::Repository(application.pool.clone());
+    let avatar_cleanup =
+        crate::miniapp_users::south::adapter::postgres::Repository(application.pool.clone());
     let artwork_worker = tokio::spawn(async move {
         loop {
+            if avatar_cleanup.cleanup().await.is_err() {
+                tracing::warn!("unused miniapp avatar cleanup failed");
+            }
             if artwork.cleanup_artwork().await.is_err() {
                 tracing::warn!("abandoned artwork cleanup failed; referenced assets retained");
             }

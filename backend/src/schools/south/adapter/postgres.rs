@@ -36,6 +36,14 @@ impl Repository {
     }
     pub async fn bind(&self, a: &Actor, school: Uuid) -> Result<()> {
         let mut tx = self.0.begin().await?;
+        if !a.browser {
+            let (_, status, _) =
+                crate::miniapp_users::south::adapter::postgres::lock_user(&mut tx, a.id).await?;
+            if status != "normal" {
+                return Err(Error::MiniappBanned);
+            }
+            crate::miniapp_users::south::adapter::postgres::guard_session(&mut tx, a).await?;
+        }
         let current: Option<Uuid> =
             sqlx::query_scalar("SELECT bound_school_id FROM accounts WHERE id=$1 FOR UPDATE")
                 .bind(a.id)
@@ -51,6 +59,9 @@ impl Repository {
                 .await?;
         if !active {
             return Err(Error::NotFound);
+        }
+        if !a.browser {
+            sqlx::query("UPDATE miniapp_users SET revision=revision+1,updated_at=now() WHERE account_id=$1 AND $2::uuid IS NULL").bind(a.id).bind(current).execute(&mut *tx).await?;
         }
         sqlx::query("UPDATE accounts SET bound_school_id=$2 WHERE id=$1")
             .bind(a.id)
