@@ -10,6 +10,8 @@
 
 学校资料、正常/隐藏状态、品牌图片和小程序三色主题见 [学校信息与主题配置](docs/school-profiles.md)。
 
+内容审核字段、全文展示与版本冲突处理见 [内容全文审核](docs/content-review.md)。
+
 小程序人工审核后的摘要与短链接准备、投递和恢复配置见 [小程序内容来源推送](docs/miniapp-publication.md)。
 
 ## 目录
