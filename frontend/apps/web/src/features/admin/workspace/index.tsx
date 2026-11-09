@@ -1,5 +1,6 @@
 import {SourceConnections, SourceBindings} from '../source-access'
 import { Outbox } from './outbox'
+import { SourceModeration } from './source-moderation'
 import { ResourceEditor } from './resource-editor'
 import { navigation, visibleNavigationKeys } from '../../../app/navigation'
 import { ListPanel } from '../../../shared/list-panel'
@@ -206,7 +207,7 @@ function Settings({ school, refresh }: { school: School; refresh: () => Promise<
         { name: 'name', title: '学校名称', value: school.name },
         {
           name: 'post_audit_mode',
-          title: '帖子审核模式',
+          title: '帖子审核模式（小程序帖子始终人工审核）',
           value: label(school.config.post_audit_mode) || 'manual',
           options: [
             { value: 'manual', label: '人工审核' },
@@ -512,9 +513,10 @@ function Panel({
                   </a>
                 </p>
               )}
+              {resource === 'posts' && r.source_projection === 'miniapp_summary_v1' && <SourceModeration school={s} post={r} refresh={refresh} />}
               {['posts', 'comments'].includes(resource) && (
                 <Space wrap>
-                  {['approved', 'rejected', 'pending'].map((decision) => (
+                  {(resource === 'posts' && r.source_projection === 'miniapp_summary_v1' ? [] : ['approved', 'rejected', 'pending']).map((decision) => (
                     <Button
                       type="link"
                       danger={decision === 'rejected'}
