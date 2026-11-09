@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { QuestionCircleOutlined } from '@ant-design/icons'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Form, Select, Space } from 'antd'
+import { Alert, Button, Form, Select, Space, Tooltip } from 'antd'
 import { workspace, type School } from './api'
 
 const options = [
@@ -98,11 +99,13 @@ function ModeForm({
         }
       }}
     >
-      <p className="full-width">
-        {school.name}
-        ：仅影响之后的新投稿及内容编辑，已有审核状态不变。自动审核在基础校验后直接通过并展示。
-      </p>
       <AuditModeFields disabled={disabled} />
+      <Tooltip
+        title="仅影响之后的新投稿及内容编辑，已有审核状态不变。自动审核在基础校验后直接通过并展示。"
+        trigger={['hover', 'focus', 'click']}
+      >
+        <Button type="text" icon={<QuestionCircleOutlined />} aria-label="审核模式说明" />
+      </Tooltip>
       {canEdit && (
         <Button htmlType="submit" type="primary" disabled={disabled} loading={busy}>
           保存审核模式

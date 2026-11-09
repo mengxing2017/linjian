@@ -194,6 +194,11 @@ a:focus-visible {
 .page-heading h1 {
   margin: 0;
 }
+.page-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .page-body {
   padding: 24px;
   min-width: 0;
@@ -731,3 +736,4 @@ code {
 .review-full-text { white-space: pre-wrap; overflow-wrap: anywhere; margin-block: 8px; font: inherit; }
 .review-title.ant-btn { display: block; width: 100%; height: auto; white-space: nowrap; text-align: start; overflow: hidden; text-overflow: ellipsis; }
 .review-list-preview { display: block; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+

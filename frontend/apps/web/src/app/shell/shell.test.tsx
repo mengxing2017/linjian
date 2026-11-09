@@ -47,7 +47,7 @@ function show(platformAdmin = false) {
 it('shows role-appropriate navigation and routes business selections', () => {
   const { onNavigate } = show()
   expect(screen.queryByRole('menuitem', { name: '学校管理' })).toBeNull()
-  expect(screen.getByRole('menuitem', { name: '内容审核' }).getAttribute('aria-current')).toBe(
+  expect(screen.getByRole('menuitem', { name: '内容管理' }).getAttribute('aria-current')).toBe(
     'page',
   )
   expect(screen.queryByRole('menuitem', { name: '评论审核' })).toBeNull()
@@ -77,7 +77,7 @@ it('collapses the desktop sidebar while keeping the active page and account acce
   show()
   fireEvent.click(screen.getByRole('button', { name: '收起侧栏' }))
   expect(document.querySelector('.workspace-shell')?.classList.contains('is-collapsed')).toBe(true)
-  expect(screen.getByRole('menuitem', { name: '内容审核' }).getAttribute('aria-current')).toBe(
+  expect(screen.getByRole('menuitem', { name: '内容管理' }).getAttribute('aria-current')).toBe(
     'page',
   )
   expect(screen.getByRole('button', { name: '账号菜单' })).toBeTruthy()

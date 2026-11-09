@@ -1,7 +1,7 @@
 import { schoolRoleLabel } from './role-label'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Avatar, Breadcrumb, Button, Dropdown, Menu } from 'antd'
-import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons'
+import { Avatar, Breadcrumb, Button, Dropdown, Menu, Tooltip } from 'antd'
+import { MenuFoldOutlined, MenuUnfoldOutlined, QuestionCircleOutlined } from '@ant-design/icons'
 import { navigation, navigationDomains } from '../navigation'
 import { Link } from 'react-router-dom'
 import { helpHref } from './help'
@@ -185,9 +185,16 @@ export function AppShell({
               ]}
             />
             <header className="page-heading">
-              <div>
+              <div className="page-title">
                 <h1>{current.label}</h1>
-                <a href={helpHref(active)}>使用说明</a>
+                <Tooltip title="使用说明" trigger={['hover', 'focus']}>
+                  <Button
+                    type="text"
+                    href={helpHref(active)}
+                    aria-label="使用说明"
+                    icon={<QuestionCircleOutlined />}
+                  />
+                </Tooltip>
               </div>
               {pageExtra}
             </header>
