@@ -1,0 +1,16 @@
+export const schoolDefaults = {
+  status: 'normal' as const,
+  short_name: '',
+  province: '',
+  city: '',
+  area: '',
+  latitude: null,
+  longitude: null,
+  logo_asset_id: null,
+  header_bg_asset_id: null,
+  logo_url: null,
+  header_bg_image_url: null,
+  theme_primary: '#6A5AF9',
+  theme_secondary: '#8F6BFF',
+  theme_text_color: '#FFFFFF',
+}

@@ -1,21 +1,24 @@
+import {schoolDefaults} from '../../../test/school'
 import { selectOption } from '../../../test/select-option'
 import { afterEach, expect, it, vi } from 'vitest'
 import { cleanup, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Workspace } from './index'
-import { identity, workspace } from './api'
+import { identity, workspace, product } from './api'
 vi.mock('../../school-context/api', async () => ({ schoolsApi: (await import('./api')).workspace }))
 vi.mock('../../identity/api', async () => ({ identity: (await import('./api')).identity, subscribeUnauthorized: () => () => {} }))
-vi.mock('./api', () => ({ identity: { session: vi.fn(), accounts: vi.fn(), create: vi.fn(), update: vi.fn(), reset: vi.fn(), logout: vi.fn() }, workspace: { schools: vi.fn(), list: vi.fn(), createSchool: vi.fn(), updateSchool: vi.fn(), mutate: vi.fn() } }))
+vi.mock('./api', () => ({ product:{resources:{artwork:vi.fn().mockResolvedValue([])}}, identity: { session: vi.fn(), accounts: vi.fn(), create: vi.fn(), update: vi.fn(), reset: vi.fn(), logout: vi.fn() }, workspace: { schools: vi.fn(), list: vi.fn(), schoolProfiles:{platform:vi.fn(),detail:vi.fn(),create:vi.fn(),update:vi.fn(),artwork:vi.fn(),branding:vi.fn()}, createSchool: vi.fn(), updateSchool: vi.fn(), mutate: vi.fn() } }))
 class TestResizeObserver { observe() {} unobserve() {} disconnect() {} }
 vi.stubGlobal('ResizeObserver', TestResizeObserver)
 configure({ asyncUtilTimeout: 5000 })
 afterEach(() => { cleanup(); vi.resetAllMocks() })
+import {beforeEach} from 'vitest'
+beforeEach(()=>{vi.mocked(product.resources.artwork).mockResolvedValue([]);vi.mocked(workspace.schoolProfiles.platform).mockImplementation(async(filters={})=>{const all=await workspace.schools();const filtered=all.filter(s=>!filters.search||s.name.includes(filters.search));const n=filters.page??1;return {items:filtered.slice((n-1)*10,n*10),page:{number:n,size:10,has_more:n*10<filtered.length}}})})
 Object.defineProperty(window, 'matchMedia', { writable: true, value: (query: string) => ({ matches: false, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }) })
 it('restores the selected school and business page from its URL', async () => {
   vi.mocked(identity.session).mockResolvedValue({csrf:'csrf',user:{id:'u',username:'admin',display_name:'管理员',platform_admin:true,bound_school_id:null,grants:[],wecom_authenticated:false}})
-  vi.mocked(workspace.schools).mockResolvedValue([{id:'school',name:'测试学校',active:true,revision:1,config:{}}])
+  vi.mocked(workspace.schools).mockResolvedValue([{id:'school',name:'测试学校',...schoolDefaults,revision:1,config:{}}])
   vi.mocked(workspace.list).mockResolvedValue({items:[], page:{number:1,size:30,has_more:false}})
   vi.mocked(identity.accounts).mockResolvedValue([])
   const client = new QueryClient({defaultOptions:{queries:{retry:false}}})
@@ -33,7 +36,7 @@ it('restores the selected school and business page from its URL', async () => {
 
 function showManagement(view: string, platformAdmin = true, role: 'member' | 'operator' | 'admin' = 'admin') {
   vi.mocked(identity.session).mockResolvedValue({csrf:'csrf',user:{id:'u',username:'root',display_name:'Root',platform_admin:platformAdmin,bound_school_id:null,grants:[{school_id:'school',role}],wecom_authenticated:false}})
-  vi.mocked(workspace.schools).mockResolvedValue([{id:'school',name:'甲学校',active:true,revision:1,config:{}}, {id:'other',name:'乙学校',active:true,revision:1,config:{}}])
+  vi.mocked(workspace.schools).mockResolvedValue([{id:'school',name:'甲学校',...schoolDefaults,revision:1,config:{}}, {id:'other',name:'乙学校',...schoolDefaults,revision:1,config:{}}])
   vi.mocked(workspace.list).mockResolvedValue({items:[]})
   vi.mocked(identity.accounts).mockResolvedValue([
     {id:'u',username:'root',display_name:'平台维护者',platform_admin:true,active:true},
@@ -72,13 +75,13 @@ it('requires a new session after resetting the current platform administrator pa
 
 it('searches and paginates schools, and opens settings for the selected row', async () => {
   showManagement('schools')
-  vi.mocked(workspace.schools).mockResolvedValue(Array.from({length:12}, (_, i) => ({id:`s${i}`,name:`学校-${i}`,active:true,revision:1,config:{}})))
+  vi.mocked(workspace.schools).mockResolvedValue(Array.from({length:12}, (_, i) => ({id:`s${i}`,name:`学校-${i}`,...schoolDefaults,revision:1,config:{}})))
   expect(await screen.findByText('学校-0')).toBeTruthy()
   expect(screen.queryByText('学校-11')).toBeNull()
-  fireEvent.click(screen.getByTitle('2'))
+  fireEvent.click(screen.getByRole('button',{name:'下一页'}))
   expect(await screen.findByText('学校-11')).toBeTruthy()
   fireEvent.change(screen.getByLabelText('搜索学校'), {target:{value:'学校-11'}})
-  const row = screen.getByText('学校-11').closest('tr')!
+  const row = (await screen.findByText('学校-11')).closest('tr')!
   fireEvent.click(within(row).getByRole('button', {name:'学校配置'}))
   expect(await screen.findByLabelText('学校名称')).toHaveProperty('value','学校-11')
   expect(screen.getByText('学校-11 · 学校设置')).toBeTruthy()
@@ -149,7 +152,7 @@ it('allows explicit school administrator grants for platform accounts and refres
 
 it('opens a content record from the table and keeps moderation scoped to that record', async () => {
   vi.mocked(identity.session).mockResolvedValue({csrf:'csrf',user:{id:'u',username:'admin',display_name:'管理员',platform_admin:true,bound_school_id:null,grants:[],wecom_authenticated:false}})
-  vi.mocked(workspace.schools).mockResolvedValue([{id:'school',name:'测试学校',active:true,revision:1,config:{}}])
+  vi.mocked(workspace.schools).mockResolvedValue([{id:'school',name:'测试学校',...schoolDefaults,revision:1,config:{}}])
   vi.mocked(workspace.list).mockResolvedValue({items:[{id:'post-1',title:'待审核校园动态',content:'需要审核的正文',audit_status:'pending',revision:3}],page:{number:1,size:30,has_more:false}})
   vi.mocked(workspace.mutate).mockResolvedValue({id:'post-1'})
   const client = new QueryClient({defaultOptions:{queries:{retry:false}}})

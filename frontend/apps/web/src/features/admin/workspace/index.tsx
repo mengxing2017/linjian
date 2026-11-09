@@ -1,3 +1,4 @@
+import {SchoolForm} from './school-profile'
 import { MiniappUsers } from '../miniapp-users'
 import {SourceConnections, SourceBindings} from '../source-access'
 import { Outbox } from './outbox'
@@ -70,9 +71,9 @@ function Admin({ user, logout }: { user: User; logout: () => Promise<void> }) {
   const q = useSchools()
   const [params, setParams] = useSearchParams()
   const selected = params.get('school') ?? ''
-  const visibleSchools = q.data?.filter((s) => user.platform_admin || s.active)
+  const visibleSchools = q.data?.filter((s) => user.platform_admin || s.status === 'normal')
   const school = visibleSchools?.find((s) => s.id === (selected || visibleSchools[0]?.id))
-  const role = school?.active ? user.grants.find((g) => g.school_id === school.id)?.role : undefined
+  const role = school?.status === 'normal' ? user.grants.find((g) => g.school_id === school.id)?.role : undefined
   const allowedKeys = visibleNavigationKeys(user.platform_admin, role)
   const requestedTab = params.get('view') ?? allowedKeys[0] ?? ''
   const knownPage = navigation.find(n => n.key === requestedTab)
@@ -91,6 +92,8 @@ function Admin({ user, logout }: { user: User; logout: () => Promise<void> }) {
   const refresh = async () => {
     await cache.invalidateQueries({ queryKey: ['schools'] })
     await cache.invalidateQueries({ queryKey: ['business'] })
+    await cache.invalidateQueries({ queryKey: ['directory'] })
+    await cache.invalidateQueries({ queryKey: ['linjian', 'school-management'] })
   }
   return (
     <AppShell
@@ -186,7 +189,7 @@ function Admin({ user, logout }: { user: User; logout: () => Promise<void> }) {
             />
           ) : tab === 'settings' ? (
             <Card title={`${school.name} · 学校设置`}>
-              <Settings key={school.id} school={school} refresh={refresh} />
+              <Settings key={school.id} school={school} refresh={refresh} platform={user.platform_admin} />
             </Card>
           ) : (
             <Panel
@@ -202,52 +205,10 @@ function Admin({ user, logout }: { user: User; logout: () => Promise<void> }) {
     </AppShell>
   )
 }
-function Settings({ school, refresh }: { school: School; refresh: () => Promise<void> }) {
-  return (
-    <Editor
-      fields={[
-        { name: 'name', title: '学校名称', value: school.name },
-        {
-          name: 'post_audit_mode',
-          title: '帖子审核模式（小程序帖子始终人工审核）',
-          value: label(school.config.post_audit_mode) || 'manual',
-          options: [
-            { value: 'manual', label: '人工审核' },
-            { value: 'auto', label: '自动通过' },
-          ],
-        },
-        {
-          name: 'comment_audit_mode',
-          title: '评论审核模式',
-          value: label(school.config.comment_audit_mode) || 'manual',
-          options: [
-            { value: 'manual', label: '人工审核' },
-            { value: 'auto', label: '自动通过' },
-          ],
-        },
-        {
-          name: 'theme_color',
-          title: '主题颜色',
-          type: 'color',
-          value: label(school.config.theme_color) || '#25624b',
-        },
-      ]}
-      onSave={async (v) => {
-        await workspace.updateSchool(school.id, {
-          name: v.name,
-          revision: school.revision,
-          config: {
-            ...school.config,
-            post_audit_mode: v.post_audit_mode,
-            comment_audit_mode: v.comment_audit_mode,
-            theme_color: v.theme_color,
-          },
-        })
-        await refresh()
-      }}
-    />
-  )
+function Settings({ school, refresh, platform }: { school: School; refresh: () => Promise<void>;platform:boolean }) {
+ return <SchoolForm key={`${school.id}:${school.revision}`} school={school} platform={platform} onSaved={async()=>{await refresh()}}/>
 }
+
 function Panel({
   school,
   resource,
