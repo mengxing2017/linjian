@@ -162,12 +162,14 @@ pub fn recoverable(schema: i32, state: &str, receipt: Option<&str>, reason: Opti
                 | "waiting_configuration"
                 | "paused"
                 | "in_flight"
+                | "preparing_content"
         )
         && !matches!(receipt, Some("rejected" | "ignored_stale"))
         && !matches!(
             reason,
             Some(
                 "legacy_version_blocked"
+                    | "link_expired_before_delivery"
                     | "snapshot_incomplete"
                     | "event_conflict"
                     | "body_digest_mismatch"
@@ -209,6 +211,10 @@ pub struct OutboxView {
     pub recovery_reason: Option<String>,
     pub delivery_state: String,
     pub recoverable: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preparation: Option<PreparationView>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub publication: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recoveries: Option<Vec<serde_json::Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -219,14 +225,16 @@ mod local_contract_tests {
     use super::*;
     #[test]
     fn local_outbox_fixture_matches_the_public_view() {
-        let fixture: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../api-contract/fixtures/source-outbox.json"
-        ))
-        .unwrap();
-        let mut attributes = fixture["data"]["attributes"].clone();
-        attributes["id"] = fixture["data"]["id"].clone();
-        let view: OutboxView = serde_json::from_value(attributes.clone()).unwrap();
-        assert_eq!(serde_json::to_value(view).unwrap(), attributes);
+        for raw in [
+            include_str!("../../../api-contract/fixtures/source-outbox.json"),
+            include_str!("../../../api-contract/fixtures/source-outbox-preparation.json"),
+        ] {
+            let fixture: serde_json::Value = serde_json::from_str(raw).unwrap();
+            let mut attributes = fixture["data"]["attributes"].clone();
+            attributes["id"] = fixture["data"]["id"].clone();
+            let view: OutboxView = serde_json::from_value(attributes.clone()).unwrap();
+            assert_eq!(serde_json::to_value(view).unwrap(), attributes);
+        }
     }
     #[test]
     fn recovery_does_not_unblock_terminal_or_corrupt_events() {
@@ -260,4 +268,15 @@ mod local_contract_tests {
         assert!(retryable("timestamp_expired", 1));
         assert!(!retryable("timestamp_expired", 2));
     }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PreparationView {
+    pub state: String,
+    pub revision: i64,
+    pub attempts: i32,
+    pub next_attempt_at: chrono::DateTime<chrono::Utc>,
+    pub error_code: Option<String>,
+    pub recoverable: bool,
 }

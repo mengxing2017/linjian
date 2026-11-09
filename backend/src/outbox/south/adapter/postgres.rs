@@ -13,7 +13,7 @@ use uuid::Uuid;
 pub struct Repository(pub PgPool);
 
 // Explicit public projection. No frozen body, signatures, credentials or upstream internal metadata.
-const VIEW: &str = "SELECT o.id,o.post_id,o.sequence,o.payload->>'event_type' AS event_type,o.attempts,o.next_attempt_at,o.receipt_id,o.receipt_status,o.receipt_summary,o.last_error,o.schema_version,o.route_id,o.blocked_reason,o.accepted_at,o.created_at,o.frozen_at,o.binding_version,o.superseded_by,o.recovery_reason,CASE WHEN o.delivery_state IN ('ready','retry_wait') AND o.receipt_id IS NULL AND o.payload->>'event_type'='content.upsert' AND b.active=false THEN 'paused' ELSE o.delivery_state END AS delivery_state FROM forum_outbox o LEFT JOIN school_source_bindings b ON b.school_id=o.school_id";
+const VIEW: &str = "SELECT o.id,o.post_id,o.sequence,o.payload->>'event_type' AS event_type,o.attempts,o.next_attempt_at,o.receipt_id,o.receipt_status,o.receipt_summary,o.last_error,o.schema_version,o.route_id,o.blocked_reason,o.accepted_at,o.created_at,o.frozen_at,o.binding_version,o.superseded_by,o.recovery_reason,CASE WHEN p.event_id IS NOT NULL THEN jsonb_build_object('state',p.state,'revision',p.revision,'attempts',p.attempts,'next_attempt_at',p.next_attempt_at,'error_code',p.last_error_code,'recoverable',o.request_body IS NULL AND p.state IN ('blocked','retry_wait') AND forum_publication_is_current(o.id)) ELSE NULL END AS preparation,CASE WHEN o.delivery_state IN ('ready','retry_wait') AND o.receipt_id IS NULL AND o.payload->>'event_type'='content.upsert' AND b.active=false THEN 'paused' ELSE o.delivery_state END AS delivery_state FROM forum_outbox o LEFT JOIN school_source_bindings b ON b.school_id=o.school_id LEFT JOIN forum_publication_preparations p ON p.event_id=o.id";
 fn public(mut v: Value) -> Result<Value> {
     v["recoverable"] = json!(recoverable(
         v["schema_version"].as_i64().unwrap_or(1) as i32,
@@ -26,7 +26,7 @@ fn public(mut v: Value) -> Result<Value> {
     serde_json::to_value(view).map_err(|e| Error::Database(e.to_string()))
 }
 fn authorize(actor: &Actor, school: Uuid) -> Result<()> {
-    if actor.can(school, "operator") {
+    if actor.browser && actor.can(school, "operator") {
         Ok(())
     } else {
         Err(Error::NotFound)
@@ -42,6 +42,7 @@ impl Repository {
                     status.as_str(),
                     "waiting_binding"
                         | "waiting_configuration"
+                        | "preparing_content"
                         | "paused"
                         | "ready"
                         | "in_flight"
@@ -76,10 +77,15 @@ impl Repository {
         .fetch_optional(&self.0)
         .await?
         .ok_or(Error::NotFound)?;
-        let audit:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('actor_id',actor_id,'reason',detail->>'reason','created_at',created_at) FROM audit_events WHERE school_id=$1 AND object_id=$2 AND action='source_event.replay' ORDER BY created_at DESC,id DESC LIMIT 50").bind(school).bind(id).fetch_all(&self.0).await?;
+        let audit:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('actor_id',actor_id,'reason',detail->>'reason','created_at',created_at) FROM audit_events WHERE school_id=$1 AND object_id=$2 AND action IN ('source_event.replay','source_preparation.retry') ORDER BY created_at DESC,id DESC LIMIT 50").bind(school).bind(id).fetch_all(&self.0).await?;
         value["recoveries"] = json!(audit);
         let related:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',id,'route_id',route_id,'sequence',sequence,'event_type',payload->>'event_type','receipt_status',receipt_status) FROM forum_outbox WHERE school_id=$1 AND post_id=(SELECT post_id FROM forum_outbox WHERE id=$2 AND school_id=$1) ORDER BY sequence DESC,id DESC LIMIT 50").bind(school).bind(id).fetch_all(&self.0).await?;
         value["related_events"] = json!(related);
+        let publication:Option<Value>=sqlx::query_scalar("SELECT jsonb_build_object('summary',s.summary,'summary_algorithm',s.summary_algorithm,'approved_post_revision',s.approved_post_revision,'link_type',coalesce(a.link_type,p.resolved_policy->>'link_type',s.link_policy->>'link_type'),'link',a.link,'expires_at',a.expires_at) FROM forum_outbox o JOIN forum_publication_snapshots s ON s.id=o.publication_snapshot_id LEFT JOIN forum_publication_preparations p ON p.event_id=o.id LEFT JOIN miniapp_link_assets a ON a.id=p.link_asset_id WHERE o.id=$1 AND o.school_id=$2").bind(id).bind(school).fetch_optional(&self.0).await?;
+        if let Some(p) = publication {
+            value["publication"] = p;
+        }
+
         public(value)
     }
     pub async fn replay(
@@ -97,6 +103,9 @@ impl Repository {
             .fetch_one(&mut *tx)
             .await?;
         let row=sqlx::query("SELECT o.*,v.origin,v.key_id,b.active AS binding_active FROM forum_outbox o LEFT JOIN source_connection_versions v ON v.id=o.connection_version LEFT JOIN school_source_bindings b ON b.school_id=o.school_id WHERE o.id=$1 AND o.school_id=$2 FOR UPDATE OF o").bind(id).bind(school).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
+        if row.get::<Option<String>, _>("request_body").is_none() {
+            return Err(Error::Conflict);
+        }
         // Repeated clicks while already scheduled/in flight do not revoke a lease or add another intent.
         let state: String = row.get("delivery_state");
         if state == "in_flight" {
@@ -168,13 +177,15 @@ impl OutboxStore for Repository {
         Ok(false)
     }
     async fn claim(&self) -> SourceResult<Option<Delivery>> {
+        // Frozen links cannot be refreshed by replaying or mutating an original event.
+        sqlx::query("UPDATE forum_outbox o SET delivery_state='blocked',blocked_reason='link_expired_before_delivery',last_error='link_expired_before_delivery' FROM forum_publication_preparations p JOIN miniapp_link_assets a ON a.id=p.link_asset_id WHERE p.event_id=o.id AND o.attempts=0 AND o.receipt_id IS NULL AND o.lease_token IS NULL AND o.delivery_state IN ('ready','retry_wait') AND a.expires_at IS NOT NULL AND a.expires_at<=now()+make_interval(secs=>(p.resolved_policy->>'min_remaining')::integer)").execute(&self.0).await?;
         let mut tx = self.0.begin().await?;
         // Lock the school before the event so pause/configuration and claiming have a defined commit order.
-        let school:Option<Uuid>=sqlx::query_scalar("SELECT s.id FROM schools s JOIN LATERAL (SELECT min(o.next_attempt_at) AS due FROM forum_outbox o LEFT JOIN school_source_bindings b ON b.school_id=o.school_id WHERE o.school_id=s.id AND o.schema_version=2 AND o.blocked_reason IS NULL AND o.next_attempt_at<=now() AND (o.delivery_state IN ('ready','retry_wait','tracking_receipt') OR (o.delivery_state='in_flight' AND o.lease_until<now())) AND (o.receipt_id IS NOT NULL OR o.payload->>'event_type'='content.withdrawn' OR (s.active AND coalesce(b.active,false)))) candidate ON candidate.due IS NOT NULL ORDER BY candidate.due,s.id FOR UPDATE OF s SKIP LOCKED LIMIT 1").fetch_optional(&mut *tx).await?;
+        let school:Option<Uuid>=sqlx::query_scalar("SELECT s.id FROM schools s JOIN LATERAL (SELECT min(o.next_attempt_at) AS due FROM forum_outbox o LEFT JOIN school_source_bindings b ON b.school_id=o.school_id WHERE o.school_id=s.id AND o.schema_version=2 AND o.request_body IS NOT NULL AND o.blocked_reason IS NULL AND o.next_attempt_at<=now() AND (o.delivery_state IN ('ready','retry_wait','tracking_receipt') OR (o.delivery_state='in_flight' AND o.lease_until<now())) AND (o.receipt_id IS NOT NULL OR o.payload->>'event_type'='content.withdrawn' OR (s.active AND coalesce(b.active,false)))) candidate ON candidate.due IS NOT NULL ORDER BY candidate.due,s.id FOR UPDATE OF s SKIP LOCKED LIMIT 1").fetch_optional(&mut *tx).await?;
         let Some(school) = school else {
             return Ok(None);
         };
-        let row=sqlx::query("SELECT o.*,v.origin,v.key_id FROM forum_outbox o JOIN source_connection_versions v ON v.id=o.connection_version LEFT JOIN school_source_bindings b ON b.school_id=o.school_id WHERE o.school_id=$1 AND o.schema_version=2 AND o.blocked_reason IS NULL AND o.next_attempt_at<=now() AND (o.delivery_state IN ('ready','retry_wait','tracking_receipt') OR (o.delivery_state='in_flight' AND o.lease_until<now())) AND (o.receipt_id IS NOT NULL OR o.payload->>'event_type'='content.withdrawn' OR ((SELECT active FROM schools WHERE id=$1) AND coalesce(b.active,false))) ORDER BY o.next_attempt_at,o.created_at,o.id FOR UPDATE OF o SKIP LOCKED LIMIT 1").bind(school).fetch_optional(&mut *tx).await?;
+        let row=sqlx::query("SELECT o.*,v.origin,v.key_id FROM forum_outbox o JOIN source_connection_versions v ON v.id=o.connection_version LEFT JOIN school_source_bindings b ON b.school_id=o.school_id WHERE o.school_id=$1 AND o.schema_version=2 AND o.request_body IS NOT NULL AND o.blocked_reason IS NULL AND o.next_attempt_at<=now() AND (o.delivery_state IN ('ready','retry_wait','tracking_receipt') OR (o.delivery_state='in_flight' AND o.lease_until<now())) AND (o.receipt_id IS NOT NULL OR o.payload->>'event_type'='content.withdrawn' OR ((SELECT active FROM schools WHERE id=$1) AND coalesce(b.active,false))) ORDER BY o.next_attempt_at,o.created_at,o.id FOR UPDATE OF o SKIP LOCKED LIMIT 1").bind(school).fetch_optional(&mut *tx).await?;
         let Some(row) = row else { return Ok(None) };
         let id: Uuid = row.get("id");
         let token = Uuid::new_v4();
