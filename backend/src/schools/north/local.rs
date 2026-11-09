@@ -1,40 +1,11 @@
 use super::super::south::adapter::postgres::Repository;
-use crate::business::{Actor, Result, require, text};
+use crate::business::{Actor, Result, require};
 use crate::schools::south::port::Store;
 use serde_json::Value;
 use uuid::Uuid;
 #[derive(Clone)]
 pub struct Service<R: Store = Repository>(pub R);
 impl<R: Store> Service<R> {
-    pub async fn create(&self, a: &Actor, name: &str) -> Result<Value> {
-        a.platform()?;
-        self.0.create(&text(name, 1, 100)?).await
-    }
-    pub async fn update(&self, a: &Actor, id: Uuid, v: Value) -> Result<Value> {
-        a.authorize(id, "admin")?;
-        let config = v
-            .get("config")
-            .cloned()
-            .unwrap_or_else(|| serde_json::json!({}));
-        require(
-            config.is_object() && config.to_string().len() < 16384,
-            "学校配置无效",
-        )?;
-        for key in ["post_audit_mode", "comment_audit_mode"] {
-            if let Some(v) = config.get(key) {
-                require(v == "auto" || v == "manual", "审核模式只能为 auto/manual")?;
-            }
-        }
-        self.0
-            .update(
-                a,
-                id,
-                &text(v["name"].as_str().unwrap_or(""), 1, 100)?,
-                config,
-                v["revision"].as_i64().unwrap_or(0),
-            )
-            .await
-    }
     pub async fn grant(&self, a: &Actor, school: Uuid, id: Uuid, role: &str) -> Result<()> {
         a.platform()?;
         require(
@@ -57,9 +28,6 @@ impl<R: Store> Service<R> {
     pub async fn list(&self, a: &Actor) -> Result<Vec<Value>> {
         self.0.list(a).await
     }
-    pub async fn directory(&self) -> Result<Vec<Value>> {
-        self.0.directory().await
-    }
     pub async fn bind(&self, a: &Actor, s: Uuid) -> Result<()> {
         self.0.bind(a, s).await
     }
@@ -77,5 +45,20 @@ impl<R: Store> Service<R> {
     pub async fn global_resources(&self, a: &Actor) -> Result<Vec<Value>> {
         a.platform()?;
         self.0.resources(Uuid::nil(), true).await
+    }
+}
+
+impl Service<Repository> {
+    pub async fn create(&self, a: &Actor, name: &str) -> Result<Value> {
+        serde_json::to_value(
+            self.0
+                .save_school(a, None, serde_json::json!({"name":name}))
+                .await?,
+        )
+        .map_err(|_| crate::business::Error::Unavailable)
+    }
+    pub async fn update(&self, a: &Actor, id: Uuid, v: Value) -> Result<Value> {
+        serde_json::to_value(self.0.save_school(a, Some(id), v).await?)
+            .map_err(|_| crate::business::Error::Unavailable)
     }
 }

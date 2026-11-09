@@ -128,7 +128,7 @@ impl Repository {
         sqlx::query("SELECT pg_advisory_xact_lock(78234610244)")
             .execute(&mut *tx)
             .await?;
-        sqlx::query("DELETE FROM operational_media m WHERE created_at<now()-interval '7 days' AND NOT EXISTS(SELECT 1 FROM school_resources r WHERE r.image_ref->>'kind'='asset' AND r.image_ref->>'id'=m.id::text) AND NOT EXISTS(SELECT 1 FROM resource_publications r WHERE r.snapshot->'image_ref'->>'kind'='asset' AND r.snapshot->'image_ref'->>'id'=m.id::text) AND NOT EXISTS(SELECT 1 FROM product_previews p WHERE p.kind='resource' AND p.expires_at>now() AND p.payload->'image_ref'->>'id'=m.id::text)").execute(&mut *tx).await?;
+        sqlx::query("DELETE FROM operational_media m WHERE created_at<now()-interval '7 days' AND NOT EXISTS(SELECT 1 FROM schools s WHERE s.logo_asset_id=m.id OR s.header_bg_asset_id=m.id) AND NOT EXISTS(SELECT 1 FROM school_resources r WHERE r.image_ref->>'kind'='asset' AND r.image_ref->>'id'=m.id::text) AND NOT EXISTS(SELECT 1 FROM resource_publications r WHERE r.snapshot->'image_ref'->>'kind'='asset' AND r.snapshot->'image_ref'->>'id'=m.id::text) AND NOT EXISTS(SELECT 1 FROM product_previews p WHERE p.kind='resource' AND p.expires_at>now() AND p.payload->'image_ref'->>'id'=m.id::text)").execute(&mut *tx).await?;
         tx.commit().await?;
         Ok(())
     }

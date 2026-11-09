@@ -3,16 +3,6 @@ use serde_json::Value;
 use uuid::Uuid;
 pub trait Store: Clone + Send + Sync + 'static {
     fn list(&self, a: &Actor) -> impl std::future::Future<Output = Result<Vec<Value>>> + Send;
-    fn directory(&self) -> impl std::future::Future<Output = Result<Vec<Value>>> + Send;
-    fn create(&self, name: &str) -> impl std::future::Future<Output = Result<Value>> + Send;
-    fn update(
-        &self,
-        a: &Actor,
-        id: Uuid,
-        name: &str,
-        config: Value,
-        revision: i64,
-    ) -> impl std::future::Future<Output = Result<Value>> + Send;
     fn bind(&self, a: &Actor, school: Uuid)
     -> impl std::future::Future<Output = Result<()>> + Send;
     fn members(&self, school: Uuid)

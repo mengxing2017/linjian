@@ -6,33 +6,7 @@ use uuid::Uuid;
 pub struct Repository(pub PgPool);
 impl Repository {
     pub async fn list(&self, a: &Actor) -> Result<Vec<Value>> {
-        Ok(sqlx::query_scalar("SELECT to_jsonb(s) FROM schools s WHERE ($1 OR id IN (SELECT school_id FROM school_memberships WHERE account_id=$2 AND role<>'revoked')) ORDER BY name").bind(a.platform_admin).bind(a.id).fetch_all(&self.0).await?)
-    }
-    pub async fn directory(&self) -> Result<Vec<Value>> {
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',id,'name',name) FROM schools WHERE active ORDER BY name").fetch_all(&self.0).await?)
-    }
-    pub async fn create(&self, name: &str) -> Result<Value> {
-        let id = Uuid::now_v7();
-        sqlx::query("INSERT INTO schools(id,name) VALUES($1,$2)")
-            .bind(id)
-            .bind(name)
-            .execute(&self.0)
-            .await?;
-        Ok(json!({"id":id}))
-    }
-    pub async fn update(
-        &self,
-        a: &Actor,
-        id: Uuid,
-        name: &str,
-        config: Value,
-        revision: i64,
-    ) -> Result<Value> {
-        let mut tx = self.0.begin().await?;
-        let item=sqlx::query_scalar("UPDATE schools SET name=$2,config=$3,revision=revision+1 WHERE id=$1 AND revision=$4 RETURNING to_jsonb(schools)").bind(id).bind(name).bind(config).bind(revision).fetch_optional(&mut *tx).await?.ok_or(Error::Conflict)?;
-        crate::audit::record(&mut tx, a, id, "school.update", id, json!({})).await?;
-        tx.commit().await?;
-        Ok(item)
+        self.school_list(a).await
     }
     pub async fn bind(&self, a: &Actor, school: Uuid) -> Result<()> {
         let mut tx = self.0.begin().await?;
@@ -52,14 +26,11 @@ impl Repository {
         if current.is_some_and(|s| s != school) {
             return Err(Error::Forbidden);
         }
-        let active: bool =
-            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM schools WHERE id=$1 AND active)")
-                .bind(school)
-                .fetch_one(&mut *tx)
-                .await?;
-        if !active {
-            return Err(Error::NotFound);
-        }
+        sqlx::query("SELECT id FROM schools WHERE id=$1 AND active FOR SHARE")
+            .bind(school)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or(Error::SchoolUnavailable)?;
         if !a.browser {
             sqlx::query("UPDATE miniapp_users SET revision=revision+1,updated_at=now() WHERE account_id=$1 AND $2::uuid IS NULL").bind(a.id).bind(current).execute(&mut *tx).await?;
         }
@@ -120,22 +91,6 @@ impl crate::schools::south::port::Store for Repository {
     async fn list(&self, a: &Actor) -> Result<Vec<Value>> {
         Repository::list(self, a).await
     }
-    async fn directory(&self) -> Result<Vec<Value>> {
-        Repository::directory(self).await
-    }
-    async fn create(&self, name: &str) -> Result<Value> {
-        Repository::create(self, name).await
-    }
-    async fn update(
-        &self,
-        a: &Actor,
-        id: Uuid,
-        name: &str,
-        config: Value,
-        revision: i64,
-    ) -> Result<Value> {
-        Repository::update(self, a, id, name, config, revision).await
-    }
     async fn bind(&self, a: &Actor, school: Uuid) -> Result<()> {
         Repository::bind(self, a, school).await
     }
@@ -156,3 +111,5 @@ impl crate::schools::south::port::Store for Repository {
 pub mod resources;
 
 pub mod preview;
+
+pub mod profiles;

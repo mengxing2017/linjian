@@ -20,7 +20,7 @@ pub async fn authorize(
     if a.platform_admin {
         platform(tx, a).await?;
         if let Some(s) = s {
-            sqlx::query("SELECT id FROM schools WHERE id=$1 AND active FOR SHARE")
+            sqlx::query("SELECT id FROM schools WHERE id=$1 FOR SHARE")
                 .bind(s)
                 .fetch_optional(&mut **tx)
                 .await?
