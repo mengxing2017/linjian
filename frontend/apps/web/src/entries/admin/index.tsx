@@ -1,5 +1,1 @@
-import { Workspace } from '../../features/admin/workspace'
-
-export default function AdminEntry() {
-  return <Workspace />
-}
+export { Workspace as default } from '../../features/admin/workspace'
