@@ -3,7 +3,7 @@ export { ApiError } from '../../http';
 export * from './types'
 import {createSchoolsClient} from '../schools'
 import type {SourceOutboxView} from '../source-access'
-import type { Row, Session, School, Post, PostReview, Resource } from './types'
+import type { Row, Session, School, Post, PostReview, Resource, CaseManagementView, ResolveCaseInput } from './types'
 const schoolClient=createSchoolsClient({requestResource,requestCollection,requestBinary})
 const part = (s: string) => encodeURIComponent(s);
 export const scope = (school: string, path: string) => `/api/v1/schools/${part(school)}/${path}`;
@@ -34,6 +34,8 @@ export const workspace = {
     list: <T extends Row = Row>(s: string, resource: Resource, query = '', signal?: AbortSignal) => requestCollection<T>(scope(s, resource) + query, signal),
     outboxDetail: (s:string,id:string,signal?:AbortSignal) => requestResource<SourceOutboxView>(scope(s,`source-outbox/${part(id)}`),'GET',undefined,signal),
     replaySource: (s:string,id:string,reason:string) => requestResource(scope(s,`source-outbox/${part(id)}/replays`),'POST',{reason}),
+    cases: (s:string,query='',signal?:AbortSignal)=>requestCollection<CaseManagementView>(scope(s,'cases')+query,signal),
+    resolveCase: (s:string,id:string,input:ResolveCaseInput)=>requestResource<CaseManagementView>(scope(s,`cases/${part(id)}`),'PUT',input),
     reviews: (s:string,query='',signal?:AbortSignal)=>requestCollection<PostReview>(scope(s,'post-reviews')+query,signal),
     review: (s:string,id:string,signal?:AbortSignal)=>requestResource<PostReview>(scope(s,`posts/${part(id)}/review`),'GET',undefined,signal),
     reviewImage: (s:string,id:string,signal?:AbortSignal)=>requestBinary(scope(s,`media/${part(id)}`),signal),

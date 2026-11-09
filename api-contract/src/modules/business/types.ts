@@ -55,3 +55,31 @@ export interface PostReview extends Row {
   top_sort: number; revision: number; content_revision: number; review_digest: string;
   decision_source: DecisionSource | null; decided_at: string | null; moderator_id: string | null;
 }
+
+export type CaseState = 'open' | 'resolved' | 'dismissed'
+export type CaseKind = 'report' | 'feedback'
+export interface CaseRecord extends Row {
+  school_id: string
+  account_id: string
+  kind: CaseKind
+  post_id: string | null
+  content: string
+  contact: string
+  images: string[]
+  state: CaseState
+  resolution: string
+  revision: number
+  created_at: string
+}
+export interface CaseManagementView extends CaseRecord {
+  title: string
+  reporter_name: string
+  school_name: string
+  handled_at: string | null
+  handled_by: string | null
+}
+export interface ResolveCaseInput {
+  revision: number
+  state: Exclude<CaseState, 'open'>
+  resolution: string
+}
