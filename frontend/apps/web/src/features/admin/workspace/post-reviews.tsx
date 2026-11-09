@@ -327,7 +327,7 @@ export function PostReviews({ school }: { school: string }) {
         pagination={false}
         loading={q.isFetching}
         dataSource={q.data?.items ?? []}
-        scroll={{ x: 1100 }}
+        scroll={{ x: 1300 }}
         tableLayout="fixed"
         columns={[
           {
@@ -342,6 +342,16 @@ export function PostReviews({ school }: { school: string }) {
               >
                 {row.title}
               </Button>
+            ),
+          },
+          {
+            title: '审核状态',
+            dataIndex: 'audit_status',
+            width: 110,
+            render: (_, row) => (
+              <Tag color={{ pending: 'warning', approved: 'success', rejected: 'error' }[row.audit_status]}>
+                {states[row.audit_status]}
+              </Tag>
             ),
           },
           {
