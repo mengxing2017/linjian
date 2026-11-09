@@ -1,5 +1,5 @@
 import { onUnmounted, ref } from 'vue'
-import { onScopeChange, clearScope } from '../features/school-context/context'
+import { onScopeChange, clearScope, invalidateSchool } from '../features/school-context/context'
 export function usePage(clear: () => void = () => {}) {
   const busy = ref(false),
     error = ref('')
@@ -24,6 +24,7 @@ export function usePage(clear: () => void = () => {}) {
       await action(current)
     } catch (e) {
       if (current()) {
+        if(e&&typeof e==='object'&&'code'in e&&e.code==='school_unavailable')invalidateSchool()
         if (e && typeof e === 'object' && 'status' in e && e.status === 403) clearScope()
         error.value = e instanceof Error ? e.message : '操作失败，请重试'
       }

@@ -34,7 +34,10 @@ export async function loadSchools(preferred?: string) {
   const revision = credentials.revision
   const schools = await schoolsApi.list()
   if (revision !== credentials.revision) return false
-  schoolContext.schools = schools
+  const old = schoolContext.schools.find((s) => s.id === schoolContext.id)
+  const next = schools.find((s) => s.id === schoolContext.id)
+  if (old && (!next || old.revision !== next.revision)) clearScope()
+  schoolContext.schools = schools.filter((s) => s.status === 'normal')
   const id = preferred || schoolContext.id || session.user.bound_school_id || schools[0]?.id
   if (id && schools.some((s) => s.id === id)) selectSchool(id)
   else if (preferred) {
@@ -55,8 +58,15 @@ export async function bindSchool(id: string) {
 }
 export async function requireSchool(preferred?: string) {
   if (!(await loadSchools(preferred))) {
+    if (session.user?.bound_school_id) throw new Error('学校暂不可用，请联系管理员')
     uni.navigateTo({ url: session.user ? '/pages/plugin/index' : '/pages/user/login' })
     return false
   }
   return true
+}
+
+export function invalidateSchool() {
+  clearScope()
+  schoolContext.schools = []
+  schoolContext.id = ''
 }

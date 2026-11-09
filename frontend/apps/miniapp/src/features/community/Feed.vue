@@ -6,6 +6,7 @@ import { session } from '../identity/session'
 import { usePage, navigate } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
 import PrivateImage from '../media/PrivateImage.vue'
+import SchoolHeader from '../school-context/SchoolHeader.vue'
 const props = defineProps<{
   initial?: 'feed' | 'following' | 'mine' | 'collect'
   searchPage?: boolean
@@ -27,9 +28,13 @@ const { busy, error, run } = usePage(() => {
   page.value = 1
   more.value = false
 })
-function load(reset = true) {
+function load(reset = true, retryAfterScopeRefresh = true): Promise<void> {
   return run(async (current) => {
     if (!(await requireSchool())) return
+    if (!current()) {
+      if (retryAfterScopeRefresh) void load(true, false)
+      return
+    }
     const id = schoolContext.id,
       generation = schoolContext.generation,
       user = session.user?.id
@@ -67,6 +72,7 @@ defineExpose({
     posts.value.length
       ? run(async () => {
           await requireSchool()
+          if (!posts.value.length) void load()
         })
       : load(),
   refresh: load,
@@ -77,6 +83,10 @@ defineExpose({
 </script>
 <template>
   <view class="page">
+    <SchoolHeader :school="school" />
+    <text v-if="session.user?.bound_school_id && !schoolContext.schools.length">
+      学校暂不可用，请联系管理员
+    </text>
     <view class="row spread">
       <text class="heading">{{ school?.name || '校园社区' }}</text>
       <button size="mini" @tap="navigate('/pages/plugin/index')">选校</button>
