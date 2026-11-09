@@ -158,8 +158,8 @@ export function createClient(transport: Transport) {
           : decodeResource(doc.data)
     ) as T
   }
-  async function requestCollection<T>(path: string, signal?: Cancellation): Promise<Collection<T>> {
-    const doc = await requestDocument(path, 'GET', undefined, signal)
+  async function requestCollection<T>(path: string, signal?: Cancellation, method = 'GET', body?: unknown): Promise<Collection<T>> {
+    const doc = await requestDocument(path, method, body, signal)
     if (!Array.isArray(doc.data)) return invalidDocument()
     return { items: doc.data.map(decodeResource) as T[], page: doc.meta?.page }
   }

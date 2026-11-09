@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MiniappUser",
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "type",
+        "id",
+        "attributes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "miniapp-users",
+            "miniapp-profiles"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "attributes": {
+          "type": "object",
+          "required": [
+            "avatar_url",
+            "avatar_asset_id",
+            "nickname",
+            "mobile",
+            "school_id",
+            "school_name",
+            "post_count",
+            "created_at",
+            "status",
+            "revision"
+          ],
+          "properties": {
+            "avatar_url": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "avatar_asset_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            },
+            "nickname": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "mobile": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^1[0-9]{10}$"
+            },
+            "school_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            },
+            "school_name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "post_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "status": {
+              "enum": [
+                "normal",
+                "banned"
+              ]
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "history": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "created_at",
+                  "action",
+                  "reason",
+                  "from",
+                  "to",
+                  "actor_id"
+                ],
+                "properties": {
+                  "created_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "action": {
+                    "const": "miniapp_user.status"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "from": {
+                    "enum": [
+                      "normal",
+                      "banned"
+                    ]
+                  },
+                  "to": {
+                    "enum": [
+                      "normal",
+                      "banned"
+                    ]
+                  },
+                  "actor_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  }
+}

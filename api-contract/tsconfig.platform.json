@@ -13,6 +13,7 @@
     "src/modules/schools/index.ts",
     "src/modules/community/index.ts",
     "src/modules/media/index.ts",
-    "src/modules/source-events/index.ts"
+    "src/modules/source-events/index.ts",
+    "src/modules/miniapp-users/index.ts"
   ]
 }

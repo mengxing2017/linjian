@@ -65,3 +65,5 @@ export const requestJson = client.requestJson
 export function getJson<T>(path: string, signal?: Cancellation): Promise<T> {
   return client.requestJson(path, 'GET', undefined, signal)
 }
+
+export const requestBinary = client.requestBinary

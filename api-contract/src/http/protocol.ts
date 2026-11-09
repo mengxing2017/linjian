@@ -111,6 +111,20 @@ export function resourceType(path: string): string {
   const kind=parts[2]==='platform'?parts[3]:parts[2]==='schools'?parts[4]:undefined;
   if(kind && ['resource-previews','resource-publications','resource-qrcodes','source-outbox'].includes(kind))return kind;
   if (parts[2] === "schools" && parts[4] === "published-resources") return "resources";
+  if(parts[2]==='miniapp') {
+    if(parts[3]==='profile' && parts[4]==='mobile') return 'miniapp-user-mobiles';
+    if(parts[3]==='profile') return 'miniapp-profiles';
+    if(parts[3]==='avatar-assets') return 'miniapp-avatar-assets';
+  }
+  const userKind=parts[2]==='platform'?parts[3]:parts[2]==='schools'?parts[4]:undefined;
+  if(userKind==='miniapp-users') {
+    const action=parts[2]==='platform'?parts[5]:parts[6];
+    if((parts[2]==='platform'?parts[4]:parts[5])==='searches')return 'miniapp-user-searches';
+    if(action==='status')return 'miniapp-user-statuses';
+    if(action==='mobile')return 'miniapp-user-mobiles';
+    if(action==='school')return 'miniapp-user-schools';
+    return 'miniapp-users';
+  }
   if (parts[2] === "auth") return "sessions";
   if (
     parts[2] === "platform" &&

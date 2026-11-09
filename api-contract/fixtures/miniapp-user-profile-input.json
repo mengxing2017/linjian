@@ -1,0 +1,10 @@
+{
+  "data": {
+    "type": "miniapp-profiles",
+    "attributes": {
+      "nickname": "新昵称",
+      "avatar_asset_id": null,
+      "revision": 1
+    }
+  }
+}

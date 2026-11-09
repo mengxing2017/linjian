@@ -1,0 +1,10 @@
+{
+  "data": {
+    "type": "miniapp-user-statuses",
+    "attributes": {
+      "status": "banned",
+      "reason": "违反学校规则",
+      "revision": 1
+    }
+  }
+}
