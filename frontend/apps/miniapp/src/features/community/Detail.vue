@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { postVisibilityLabel } from './post-status'
 import { shallowRef, ref } from 'vue'
 import { communityApi, type Post, type Comment, type Reaction, type Follow } from './api'
 import { requireSchool, scopeKey } from '../school-context/context'
@@ -135,6 +136,7 @@ defineExpose({
       <view class="card">
         <text class="heading">{{ post.title }}</text>
         <text class="muted">{{ post.author_name || '校园成员' }}</text>
+        <text v-if="post.visibility !== 'visible'" class="muted">状态：{{ postVisibilityLabel(post.visibility) }}</text>
         <text class="body">{{ post.content }}</text>
         <PrivateImage v-for="src in post.images" :key="src" :school="props.school" :source="src" />
         <view class="row">

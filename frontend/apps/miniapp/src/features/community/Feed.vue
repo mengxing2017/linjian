@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { postVisibilityLabel } from './post-status'
 import { shallowRef, ref, computed, watch } from 'vue'
 import { communityApi, type Post, type FeedFilter } from './api'
 import { requireSchool, schoolContext } from '../school-context/context'
@@ -145,6 +146,7 @@ defineExpose({
           <text>{{ post.author_name || '校园成员' }}</text>
           <text>♡ {{ post.like_count || 0 }}</text>
         </view>
+        <text v-if="mode === 'mine'" class="muted">状态：{{ postVisibilityLabel(post.visibility) }}</text>
         <text v-if="mode === 'mine'" class="muted">
           {{
             post.audit_status === 'pending'
