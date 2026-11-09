@@ -727,3 +727,7 @@ code {
     transition: none !important;
   }
 }
+
+.review-full-text { white-space: pre-wrap; overflow-wrap: anywhere; margin-block: 8px; font: inherit; }
+.review-title.ant-btn { display: block; width: 100%; height: auto; white-space: nowrap; text-align: start; overflow: hidden; text-overflow: ellipsis; }
+.review-list-preview { display: block; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

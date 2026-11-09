@@ -2,7 +2,7 @@ import {SchoolForm} from './school-profile'
 import { MiniappUsers } from '../miniapp-users'
 import {SourceConnections, SourceBindings} from '../source-access'
 import { Outbox } from './outbox'
-import { SourceModeration } from './source-moderation'
+import { PostReviews } from './post-reviews'
 import { ResourceEditor } from './resource-editor'
 import { navigation, visibleNavigationKeys } from '../../../app/navigation'
 import { ListPanel } from '../../../shared/list-panel'
@@ -180,7 +180,7 @@ function Admin({ user, logout }: { user: User; logout: () => Promise<void> }) {
         />
       ) : (
         <div className="business-panel" key={`${school.id}-${tab}`}>
-          {tab === 'source-outbox' ? <Outbox school={school.id} /> : tab === 'members' ? (
+          {tab === 'posts' ? <PostReviews key={school.id} school={school.id} /> : tab === 'source-outbox' ? <Outbox school={school.id} /> : tab === 'members' ? (
             <Members
               key={school.id}
               school={school}
@@ -369,11 +369,13 @@ function Panel({
               ),
             },
             {
-              title: '内容摘要',
+              title: resource === 'comments' ? '内容' : '详情',
               key: 'summary',
-              ellipsis: true,
+              ellipsis: resource !== 'comments',
               render: (_, r) =>
-                label(r.content ?? r.body ?? r.detail ?? r.contact ?? r.chat_id) || '—',
+                resource === 'comments'
+                  ? <p className="review-full-text">{label(r.content ?? r.body) || '—'}</p>
+                  : label(r.content ?? r.body ?? r.detail ?? r.contact ?? r.chat_id) || '—',
             },
             {
               title: '状态',
@@ -476,10 +478,9 @@ function Panel({
                   </a>
                 </p>
               )}
-              {resource === 'posts' && r.source_projection === 'miniapp_summary_v1' && <SourceModeration school={s} post={r} refresh={refresh} />}
               {['posts', 'comments'].includes(resource) && (
                 <Space wrap>
-                  {(resource === 'posts' && r.source_projection === 'miniapp_summary_v1' ? [] : ['approved', 'rejected', 'pending']).map((decision) => (
+                  {['approved', 'rejected', 'pending'].map((decision) => (
                     <Button
                       type="link"
                       danger={decision === 'rejected'}

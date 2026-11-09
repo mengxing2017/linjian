@@ -8,13 +8,13 @@ import { Workspace } from './index'
 import { identity, workspace, product } from './api'
 vi.mock('../../school-context/api', async () => ({ schoolsApi: (await import('./api')).workspace }))
 vi.mock('../../identity/api', async () => ({ identity: (await import('./api')).identity, subscribeUnauthorized: () => () => {} }))
-vi.mock('./api', () => ({ product:{resources:{artwork:vi.fn().mockResolvedValue([])}}, identity: { session: vi.fn(), accounts: vi.fn(), create: vi.fn(), update: vi.fn(), reset: vi.fn(), logout: vi.fn() }, workspace: { schools: vi.fn(), list: vi.fn(), schoolProfiles:{platform:vi.fn(),detail:vi.fn(),create:vi.fn(),update:vi.fn(),artwork:vi.fn(),branding:vi.fn()}, createSchool: vi.fn(), updateSchool: vi.fn(), mutate: vi.fn() } }))
+vi.mock('./api', () => ({ product:{resources:{artwork:vi.fn().mockResolvedValue([])}}, identity: { session: vi.fn(), accounts: vi.fn(), create: vi.fn(), update: vi.fn(), reset: vi.fn(), logout: vi.fn() }, workspace: { schools: vi.fn(), reviews: vi.fn(), review: vi.fn(), list: vi.fn(), schoolProfiles:{platform:vi.fn(),detail:vi.fn(),create:vi.fn(),update:vi.fn(),artwork:vi.fn(),branding:vi.fn()}, createSchool: vi.fn(), updateSchool: vi.fn(), mutate: vi.fn() } }))
 class TestResizeObserver { observe() {} unobserve() {} disconnect() {} }
 vi.stubGlobal('ResizeObserver', TestResizeObserver)
 configure({ asyncUtilTimeout: 5000 })
 afterEach(() => { cleanup(); vi.resetAllMocks() })
 import {beforeEach} from 'vitest'
-beforeEach(()=>{vi.mocked(product.resources.artwork).mockResolvedValue([]);vi.mocked(workspace.schoolProfiles.platform).mockImplementation(async(filters={})=>{const all=await workspace.schools();const filtered=all.filter(s=>!filters.search||s.name.includes(filters.search));const n=filters.page??1;return {items:filtered.slice((n-1)*10,n*10),page:{number:n,size:10,has_more:n*10<filtered.length}}})})
+beforeEach(()=>{vi.mocked(workspace.reviews).mockImplementation((s,q,signal)=>workspace.list(s,'posts',q,signal) as ReturnType<typeof workspace.reviews>);vi.mocked(product.resources.artwork).mockResolvedValue([]);vi.mocked(workspace.schoolProfiles.platform).mockImplementation(async(filters={})=>{const all=await workspace.schools();const filtered=all.filter(s=>!filters.search||s.name.includes(filters.search));const n=filters.page??1;return {items:filtered.slice((n-1)*10,n*10),page:{number:n,size:10,has_more:n*10<filtered.length}}})})
 Object.defineProperty(window, 'matchMedia', { writable: true, value: (query: string) => ({ matches: false, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }) })
 it('restores the selected school and business page from its URL', async () => {
   vi.mocked(identity.session).mockResolvedValue({csrf:'csrf',user:{id:'u',username:'admin',display_name:'管理员',platform_admin:true,bound_school_id:null,grants:[],wecom_authenticated:false}})
@@ -150,26 +150,7 @@ it('allows explicit school administrator grants for platform accounts and refres
   await waitFor(()=>expect(vi.mocked(identity.session).mock.calls.length).toBeGreaterThan(calls))
 })
 
-it('opens a content record from the table and keeps moderation scoped to that record', async () => {
-  vi.mocked(identity.session).mockResolvedValue({csrf:'csrf',user:{id:'u',username:'admin',display_name:'管理员',platform_admin:true,bound_school_id:null,grants:[],wecom_authenticated:false}})
-  vi.mocked(workspace.schools).mockResolvedValue([{id:'school',name:'测试学校',...schoolDefaults,revision:1,config:{}}])
-  vi.mocked(workspace.list).mockResolvedValue({items:[{id:'post-1',title:'待审核校园动态',content:'需要审核的正文',audit_status:'pending',revision:3}],page:{number:1,size:30,has_more:false}})
-  vi.mocked(workspace.mutate).mockResolvedValue({id:'post-1'})
-  const client = new QueryClient({defaultOptions:{queries:{retry:false}}})
-  render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/admin?school=school&view=posts']}><Workspace/></MemoryRouter></QueryClientProvider>)
-  const row = (await screen.findByText('待审核校园动态')).closest('tr')!
-  expect(row.closest('table')).toBeTruthy()
-  expect(screen.queryByRole('button', {name:'已通过'})).toBeNull()
-  fireEvent.click(within(row).getByRole('button', {name:'详情'}))
-  const detail = await screen.findByRole('dialog')
-  expect(within(detail).getByText('需要审核的正文')).toBeTruthy()
-  fireEvent.click(within(detail).getByRole('button', {name:'已通过'}))
-  const reason = await screen.findByRole('textbox', {name:'审核说明'})
-  fireEvent.change(reason, {target:{value:'核验通过'}})
-  const prompt = within(reason.closest('[role="dialog"]') as HTMLElement)
-  fireEvent.click(prompt.getByRole('button', {name:/^确\s*认$/}))
-  await waitFor(()=>expect(workspace.mutate).toHaveBeenCalledWith('school','posts/post-1/moderation-decisions',{revision:3,decision:'approved',reason:'核验通过'},'POST'))
-})
+
 
 
 it('keeps school settings scoped after moving them into platform functions', async () => {
