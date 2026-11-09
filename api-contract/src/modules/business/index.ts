@@ -1,6 +1,7 @@
 import { requestResource, requestCollection, requestBinary, setCsrf } from '../../http';
 export { ApiError } from '../../http';
 export * from './types'
+export * from './post-management'
 import {createSchoolsClient} from '../schools'
 import type {SourceOutboxView} from '../source-access'
 import type { Row, Session, School, Post, PostReview, Resource, CaseManagementView, ResolveCaseInput } from './types'
@@ -22,7 +23,9 @@ export const identity = {
     reset: (id: string, password: string) => requestResource(`/api/v1/accounts/${part(id)}/password`, 'POST', { username: '', password }),
 };
 export interface WecomStatus { server_configured: boolean; client_configured: boolean; oauth_available: boolean; share_available: boolean }
+import { postManagement } from './post-management'
 export const workspace = {
+    postManagement,
     wecomStatus: () => requestResource<WecomStatus>('/api/v1/wecom/status'),
     globalResources: () => requestResource<Row[]>('/api/v1/platform/resources'),
     schools: () => requestResource<School[]>('/api/v1/schools'),

@@ -1,5 +1,5 @@
 /** Browser compatibility facade. New platforms inject their own transport. */
-import { createClient, type Cancellation, type Transport } from './client'
+import { createClient, type Cancellation, type Transport, type TransportRequest } from './client'
 export * from './client'
 
 const unauthorizedListeners = new Set<() => void>()
@@ -9,7 +9,7 @@ export function subscribeUnauthorized(listener: () => void) {
   return () => { unauthorizedListeners.delete(listener) }
 }
 
-export const browserTransport: Transport = async (request) => {
+async function sendBrowser(request: TransportRequest, requestBody: BodyInit | undefined = request.body) {
   const controller = new AbortController()
   const cancel = () => controller.abort()
   if (request.signal?.aborted) cancel()
@@ -19,7 +19,7 @@ export const browserTransport: Transport = async (request) => {
       method: request.method,
       credentials: 'same-origin',
       headers: request.headers,
-      body: request.body,
+      body: requestBody,
       signal: controller.signal,
     })
     let body: unknown
@@ -29,7 +29,7 @@ export const browserTransport: Transport = async (request) => {
       body = undefined
     }
     if (response.status === 401 && !controller.signal.aborted) {
-      client.setCsrf('')
+      setCsrf('')
       unauthorizedListeners.forEach((listener) => listener())
     }
     return {
@@ -41,8 +41,22 @@ export const browserTransport: Transport = async (request) => {
     request.signal?.removeEventListener('abort', cancel)
   }
 }
+export const browserTransport: Transport = (request) => sendBrowser(request)
 const client = createClient(browserTransport)
-export const setCsrf = client.setCsrf
+let browserCsrf = ''
+export function setCsrf(value: string) { browserCsrf = value; client.setCsrf(value) }
+/** Browser-only multipart adapter; native transports continue to receive bytes or JSON. */
+export async function requestMultipart<T>(path: string, file: File, signal?: Cancellation): Promise<T> {
+  const form = new FormData()
+  form.append('file', file)
+  const upload = createClient(request => {
+    const headers = {...request.headers}
+    delete headers['Content-Type']
+    return sendBrowser({...request, headers}, form)
+  })
+  upload.setCsrf(browserCsrf)
+  return upload.requestResource<T>(path, 'POST', undefined, signal)
+}
 export const requestDocument = client.requestDocument
 export const requestCollection = client.requestCollection
 // Legacy Web clients accept Blob; the protocol and other platforms only see bytes.

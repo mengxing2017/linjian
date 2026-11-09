@@ -1,0 +1,30 @@
+{
+  "data": {
+    "type": "post-management",
+    "id": "60000000-0000-0000-0000-000000000001",
+    "attributes": {
+      "school_id": "50000000-0000-0000-0000-000000000001",
+      "school_name": "测试学校",
+      "author_id": "60000000-0000-0000-0000-000000000002",
+      "author_nickname": "小程序昵称",
+      "title": "全文审核标题",
+      "content": "完整正文第一行\n保留换行和正文末尾",
+      "images": [],
+      "tags": [
+        "校园"
+      ],
+      "created_at": "2026-11-09T00:00:00Z",
+      "audit_status": "pending",
+      "visibility": "visible",
+      "top_sort": 0,
+      "revision": 2,
+      "content_revision": 1,
+      "review_digest": "review-fixture-digest",
+      "decision_source": null,
+      "decided_at": null,
+      "moderator_id": null,
+      "is_top": false,
+      "cover_image": null
+    }
+  }
+}
