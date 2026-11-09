@@ -30,6 +30,10 @@ async fn serve_inner(
     crate::source_access::configuration::ConnectionConfig::from_env()
         .map_err(|fault| std::io::Error::new(std::io::ErrorKind::InvalidInput, fault.0))?;
     database::migrate(&pool).await?;
+    crate::source_access::south::adapter::postgres::Repository(pool.clone())
+        .publish_environment()
+        .await
+        .map_err(|fault| std::io::Error::other(fault.0))?;
     let mut application = bootstrap::build_application(pool.clone());
     let configured_password = std::env::var("LINJIAN_DEV_ADMIN_PASSWORD").ok();
     let generated_password = (embedded && configured_password.is_none())

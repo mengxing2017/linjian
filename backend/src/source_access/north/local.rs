@@ -24,10 +24,14 @@ pub struct SchoolRoute {
     pub route_id: String,
     pub active: bool,
     pub revision: i64,
+    pub checked_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 #[derive(Serialize)]
 pub struct SchoolRouteSettings {
     pub binding: Option<SchoolRoute>,
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub backlog: std::collections::BTreeMap<String, i64>,
 }
 #[derive(Serialize)]
 pub struct ConnectionSettings {
@@ -82,7 +86,13 @@ impl Service {
             .save(a, config, source, capability)
             .await
     }
-    pub async fn bind(&self, a: &Actor, school: Uuid, v: BindingInput) -> Result<Value> {
+    pub async fn bind(
+        &self,
+        a: &Actor,
+        school: Uuid,
+        v: BindingInput,
+        expected: i64,
+    ) -> Result<Value> {
         ensure(a.platform_admin, "forbidden")?;
         ensure(identifier(&v.route_id), "invalid_request")?;
         let repo = Repository(self.0.clone());
@@ -126,7 +136,15 @@ impl Service {
                 "route_unavailable",
             )?;
         }
-        repo.bind(a, school, connection_id, v).await
+        repo.bind(
+            a,
+            school,
+            connection_id,
+            v,
+            expected,
+            conn["revision"].as_i64().ok_or(Fault("protocol_error"))?,
+        )
+        .await
     }
 }
 pub fn authenticated_caller(capability: &Value) -> Result<Uuid> {
@@ -255,11 +273,14 @@ mod tests {
         ))
         .unwrap();
         let actual = SchoolRouteSettings {
+            backlog: Default::default(),
             binding: Some(SchoolRoute {
                 id: "20000000-0000-0000-0000-000000000031".parse().unwrap(),
                 route_id: "school-route-1".into(),
                 active: true,
                 revision: 2,
+                checked_at: None,
+                updated_at: "2026-11-09T00:00:00Z".parse().unwrap(),
             }),
         };
         assert_eq!(
@@ -267,7 +288,11 @@ mod tests {
             fixture["data"]["attributes"]
         );
         assert_eq!(
-            serde_json::to_value(SchoolRouteSettings { binding: None }).unwrap(),
+            serde_json::to_value(SchoolRouteSettings {
+                binding: None,
+                backlog: Default::default()
+            })
+            .unwrap(),
             json!({"binding":null})
         );
     }
