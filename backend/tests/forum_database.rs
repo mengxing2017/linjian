@@ -540,3 +540,361 @@ async fn dynamic_source_history_leases_and_school_isolation() {
         .unwrap();
     admin.close().await;
 }
+
+#[tokio::test]
+#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
+async fn reviewed_miniapp_publication_freezing_and_fencing() {
+    use linjian_api::content_publication::{
+        domain::{Failure, Link, Policy, preview},
+        south::{adapter::postgres::Repository, port::PreparationStore},
+    };
+    let admin = PgPool::connect(
+        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
+    )
+    .await
+    .unwrap();
+    let name = format!("forum_publication_{}", Uuid::new_v4().simple());
+    let pool = isolated(&admin, &name).await;
+    database::migrate(&pool).await.unwrap();
+    let app = bootstrap::build_application(pool.clone());
+    let root = app
+        .identity
+        .bootstrap("root", "管理员", "test-password-at-least-12", true)
+        .await
+        .unwrap();
+    let (_, actor) = app
+        .identity
+        .0
+        .session(root, "browser", false)
+        .await
+        .unwrap();
+    let (_, mini) = app
+        .identity
+        .0
+        .session(root, "miniapp", false)
+        .await
+        .unwrap();
+    let school: Uuid = app.schools.create(&actor, "发布测试校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    sqlx::query(
+        "UPDATE schools SET config=config||'{\"post_audit_mode\":\"auto\"}'::jsonb WHERE id=$1",
+    )
+    .bind(school)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let connection = Uuid::new_v4();
+    let version = Uuid::new_v4();
+    let source = Uuid::new_v4();
+    sqlx::query("INSERT INTO source_connections(id,name,source_id,origin,key_id,checked_at) VALUES($1,'test',$2,'https://keeper.example.com','test-key',now())").bind(connection).bind(source).execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO source_connection_versions(id,connection_id,revision,source_id,origin,public_origin) VALUES($1,$2,1,$3,'https://keeper.example.com','https://forum.example.com')").bind(version).bind(connection).bind(source).execute(&pool).await.unwrap();
+    sqlx::query("UPDATE source_active_configuration SET connection_id=$1")
+        .bind(connection)
+        .execute(&pool)
+        .await
+        .unwrap();
+    linjian_api::source_access::south::adapter::postgres::Repository(pool.clone())
+        .bind(
+            &actor,
+            school,
+            connection,
+            linjian_api::source_access::north::local::BindingInput {
+                route_id: "route-a".into(),
+                active: true,
+            },
+            0,
+            1,
+        )
+        .await
+        .unwrap();
+    let create = || {
+        serde_json::from_value(
+            json!({"title":"审核标题","content":" 第一行\n 第二行 😀 ","images":[],"tags":[]}),
+        )
+        .unwrap()
+    };
+    assert!(
+        serde_json::from_value::<linjian_api::community::domain::PostInput>(
+            json!({"title":"伪造","content":"正文","source_projection":"legacy_full_v2"})
+        )
+        .is_err()
+    );
+    let pending = app
+        .community
+        .post(&mini, school, None, create())
+        .await
+        .unwrap();
+    let post: Uuid = pending["id"].as_str().unwrap().parse().unwrap();
+    assert_eq!(
+        pending["audit_status"], "pending",
+        "school auto mode must not bypass human review"
+    );
+    assert_eq!(pending["created_via"], "miniapp");
+    let store = Repository(pool.clone());
+    assert!(store.preview(&mini, school, post).await.is_err());
+    let stale = json!({"decision":"approved","reason":"人工审核","revision":1,"source_preview_digest":"stale"});
+    assert!(
+        app.community
+            .moderate(
+                &actor,
+                school,
+                post,
+                serde_json::from_value(stale).unwrap(),
+                false
+            )
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM forum_publication_snapshots")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        0
+    );
+    let decision = |row: &Value| {
+        serde_json::from_value(json!({"decision":"approved","reason":"人工审核","revision":row["revision"],"source_preview_digest":preview(row).unwrap().preview_digest})).unwrap()
+    };
+    assert!(
+        app.community
+            .moderate(&mini, school, post, decision(&pending), false)
+            .await
+            .is_err()
+    );
+    let approved = app
+        .community
+        .moderate(&actor, school, post, decision(&pending), false)
+        .await
+        .unwrap();
+    let event: Uuid = sqlx::query_scalar("SELECT id FROM forum_outbox WHERE post_id=$1")
+        .bind(post)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let intent: Value = sqlx::query_scalar("SELECT to_jsonb(o) FROM forum_outbox o WHERE id=$1")
+        .bind(event)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(intent["delivery_state"], "preparing_content");
+    assert!(intent["request_body"].is_null());
+    assert_eq!(intent["payload"]["content"], "第一行 第二行 😀");
+    let delivery_store = linjian_api::outbox::south::adapter::postgres::Repository(pool.clone());
+    let detail = delivery_store.detail(&actor, school, event).await.unwrap();
+    assert_eq!(detail["preparation"]["state"], "pending");
+    assert_eq!(detail["publication"]["link_type"], "short_link");
+    assert!(detail["publication"]["link"].is_null());
+    app.community
+        .moderate(&actor, school, post, decision(&approved), false)
+        .await
+        .unwrap();
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM forum_publication_snapshots")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        1,
+        "repeat approval is idempotent"
+    );
+    let policy = Policy::parse(
+        "test-app".into(),
+        "short_link".into(),
+        "false",
+        "30",
+        "86400",
+    )
+    .unwrap();
+    sqlx::query("UPDATE forum_publication_preparations SET resolved_policy=$2 WHERE event_id=$1")
+        .bind(event)
+        .bind(json!(policy))
+        .execute(&pool)
+        .await
+        .unwrap();
+    let work = store.claim().await.unwrap().unwrap();
+    assert!(
+        store.claim().await.unwrap().is_none(),
+        "one live preparation lease"
+    );
+    store
+        .finish(&work, Err(Failure::blocked("permission_denied")))
+        .await
+        .unwrap();
+    assert!(
+        sqlx::query_scalar::<_, bool>("SELECT request_body IS NULL FROM forum_outbox WHERE id=$1")
+            .bind(event)
+            .fetch_one(&pool)
+            .await
+            .unwrap()
+    );
+    let revision: i64 =
+        sqlx::query_scalar("SELECT revision FROM forum_publication_preparations WHERE event_id=$1")
+            .bind(event)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    store
+        .retry(
+            &actor,
+            school,
+            event,
+            linjian_api::content_publication::domain::Retry {
+                reason: "权限已开通".into(),
+                revision,
+            },
+        )
+        .await
+        .unwrap();
+    let expired = store.claim().await.unwrap().unwrap();
+    sqlx::query("UPDATE forum_publication_preparations SET lease_until=now()-interval '1 second' WHERE event_id=$1").bind(event).execute(&pool).await.unwrap();
+    let work = store.claim().await.unwrap().unwrap();
+    assert_ne!(expired.token, work.token);
+    let link = Link {
+        value: "#小程序://Linjian/发布测试".into(),
+        generated_at: chrono::Utc::now(),
+        expires_at: Some(chrono::Utc::now() + chrono::Duration::days(30)),
+    };
+    store.finish(&expired, Ok(link.clone())).await.unwrap();
+    assert!(
+        sqlx::query_scalar::<_, bool>("SELECT request_body IS NULL FROM forum_outbox WHERE id=$1")
+            .bind(event)
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        "an expired lease cannot freeze bytes after reclamation"
+    );
+    store.finish(&work, Ok(link.clone())).await.unwrap();
+    let frozen: String = sqlx::query_scalar("SELECT request_body FROM forum_outbox WHERE id=$1")
+        .bind(event)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let body: Value = serde_json::from_str(&frozen).unwrap();
+    assert_eq!(
+        body["data"]["attributes"]["content"],
+        "第一行 第二行 😀\n查看详情：#小程序://Linjian/发布测试"
+    );
+    assert_eq!(
+        body["data"]["attributes"]["detail_url"],
+        format!("https://forum.example.com/community/{school}/posts/{post}")
+    );
+    store
+        .finish(
+            &work,
+            Ok(Link {
+                value: "#小程序://changed".into(),
+                ..link.clone()
+            }),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("SELECT request_body FROM forum_outbox WHERE id=$1")
+            .bind(event)
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        frozen,
+        "late results cannot replace frozen bytes"
+    );
+    let before: i64 = sqlx::query_scalar("SELECT count(*) FROM forum_outbox")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    app.community.detail(&mini, school, post).await.unwrap();
+    app.community
+        .react(&mini, school, post, "like", true)
+        .await
+        .unwrap();
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM forum_outbox")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        before,
+        "interactions do not push"
+    );
+    let edited = app
+        .community
+        .post(
+            &mini,
+            school,
+            Some(post),
+            serde_json::from_value(
+                json!({"title":"审核标题","content":"新版本正文","revision":approved["revision"]}),
+            )
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(edited["audit_status"], "pending");
+    assert!(edited["approved_snapshot_id"].is_null());
+    assert!(sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM forum_outbox WHERE post_id=$1 AND payload->>'event_type'='content.withdrawn' AND request_body IS NOT NULL)").bind(post).fetch_one(&pool).await.unwrap());
+    let approved2 = app
+        .community
+        .moderate(&actor, school, post, decision(&edited), false)
+        .await
+        .unwrap();
+    sqlx::query(
+        "UPDATE forum_publication_preparations SET resolved_policy=$1 WHERE state='pending'",
+    )
+    .bind(json!(policy))
+    .execute(&pool)
+    .await
+    .unwrap();
+    let late = store.claim().await.unwrap().unwrap();
+    app.community.post(&mini,school,Some(post),serde_json::from_value(json!({"title":"再次修改","content":"编辑发生在链接生成期间","revision":approved2["revision"]})).unwrap()).await.unwrap();
+    store.finish(&late, Ok(link.clone())).await.unwrap();
+    let obsolete: Value = sqlx::query_scalar("SELECT to_jsonb(o) FROM forum_outbox o WHERE id=$1")
+        .bind(late.id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(obsolete["delivery_state"], "superseded");
+    assert!(obsolete["request_body"].is_null());
+    // Stopping the school fences an in-progress generation even before reconciliation runs.
+    let row: Value = sqlx::query_scalar("SELECT to_jsonb(p) FROM posts p WHERE id=$1")
+        .bind(post)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    app.community
+        .moderate(&actor, school, post, decision(&row), false)
+        .await
+        .unwrap();
+    sqlx::query(
+        "UPDATE forum_publication_preparations SET resolved_policy=$1 WHERE state='pending'",
+    )
+    .bind(json!(policy))
+    .execute(&pool)
+    .await
+    .unwrap();
+    let stopped = store.claim().await.unwrap().unwrap();
+    sqlx::query("UPDATE schools SET active=false WHERE id=$1")
+        .bind(school)
+        .execute(&pool)
+        .await
+        .unwrap();
+    store.finish(&stopped, Ok(link)).await.unwrap();
+    assert!(
+        sqlx::query_scalar::<_, bool>("SELECT request_body IS NULL FROM forum_outbox WHERE id=$1")
+            .bind(stopped.id)
+            .fetch_one(&pool)
+            .await
+            .unwrap()
+    );
+    sqlx::query("SELECT forum_reconcile_school($1)")
+        .bind(school)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert!(!sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM forum_source_route_states WHERE school_id=$1 AND last_event_type='content.upsert')").bind(school).fetch_one(&pool).await.unwrap());
+    pool.close().await;
+    sqlx::query(&format!("DROP SCHEMA {name} CASCADE"))
+        .execute(&admin)
+        .await
+        .unwrap();
+    admin.close().await;
+}

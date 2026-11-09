@@ -49,3 +49,28 @@ async fn routing_has_no_sender_or_shared_session_dependency() {
         serde_json::from_slice(&to_bytes(response.into_body(), 8192).await.unwrap()).unwrap();
     assert_eq!(doc["data"]["attributes"]["application"], "linjian");
 }
+
+#[tokio::test]
+async fn publication_preview_jsonapi_matches_shared_fixture() {
+    use axum::response::IntoResponse;
+    use linjian_api::content_publication::domain::{Preview, Retry};
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../api-contract/fixtures/source-preview.json"
+    ))
+    .unwrap();
+    let mut attributes = fixture["data"]["attributes"].clone();
+    attributes["id"] = fixture["data"]["id"].clone();
+    let preview: Preview = serde_json::from_value(attributes).unwrap();
+    let response = linjian_api::http::jsonapi::singleton("source-previews", preview.id, preview)
+        .into_response();
+    let doc: serde_json::Value =
+        serde_json::from_slice(&to_bytes(response.into_body(), 8192).await.unwrap()).unwrap();
+    assert_eq!(doc, fixture);
+    let retry: serde_json::Value = serde_json::from_str(include_str!(
+        "../../api-contract/fixtures/source-preparation-retry-input.json"
+    ))
+    .unwrap();
+    let input: Retry = serde_json::from_value(retry["data"]["attributes"].clone()).unwrap();
+    assert_eq!(input.revision, 3);
+    assert!(!input.reason.is_empty());
+}
