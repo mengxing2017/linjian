@@ -16,3 +16,4 @@ coverage/
 .vscode/
 # Migration snapshots contain account hashes and media. Store them outside the repo.
 *forum-snapshot*.json
+report/
