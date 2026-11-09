@@ -46,3 +46,16 @@ Web 默认 `http://localhost:5173`，通过 Vite 代理请求 `LINJIAN_API_ORIGI
 旧独立分类改为校园服务入口，标签页展示配置标签，不冒充服务端精确标签筛选；旧粉丝及点赞人员明细明确下线，我的关注与互动消息保留。位置、视频、手机号/头像修改、短信登录不在首期恢复。旧整数详情链接不自动猜测 UUID，需使用已验证的迁移映射后再做兼容发布。
 
 复用旧默认主题色、双列内容卡片/图片预览等交互及默认头像素材。未整包复制旧 UI 库和混合 PHP 调用的巨型页面；Vue 2 全局注入已由 Vue 3 feature 与显式 client 代替。
+
+## 公开入口约定
+
+`index.ts`、`index.tsx` 是公开入口：保留稳定的默认导出、命名导出和类型导出；页面入口只装配会话与具名组件。查询、状态、事件处理和业务表单放在具名模块，模块内部不反向依赖自身的入口。
+
+- Web 社区入口接入会话，`community-content.tsx` 协调学校和页面数据，发布、评论、帖子操作、消息、个人信息及反馈各有独立组件。
+- 身份入口导出 `session-gate.tsx`，登录表单在 `sign-in.tsx`；学校上下文的查询在 `queries.ts`。
+- 后台各 feature 入口导出具名业务页面；工作区的业务拆分见其目录下的 README。
+- `app/shell/index.tsx` 只导出布局、角色文案和导航；管理端页面入口保持默认导出兼容。
+- API 的 `index.ts` 是 contract 适配边界，保留 client 装配与类型导出。只有这些文件可以直接引用 `@linjian/api-contract`，其他业务模块通过所属 feature 的 API 入口访问。
+- 小程序的 `pages/**/index.vue` 保留页面注册、主题和 `useScreen` 生命周期接线；业务实现位于 feature 组件。Web 启动页和文档的 `index.html` 保留静态页面入口职责。
+
+`make check-web` 包含公开入口边界检查，防止状态、查询和业务函数重新进入 TypeScript 的 index 文件。小程序与 Web 仍独立构建，禁止互相引用。
