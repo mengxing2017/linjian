@@ -15,7 +15,7 @@ export function ContentModeration({ school, canEditModes, platformAdmin = false,
       return next
     })} items={[
       { key: 'posts', label: '帖子管理', children: <PostManagement publisherId={publisherId} key={school.id} context={`学校：${school.name}；发布人：${publisher || "当前登录账号"}；帖子审核模式：${school.config.post_audit_mode === "auto" ? "自动审核" : "人工审核"}`} school={school.id} platformAdmin={platformAdmin} /> },
-      { key: 'comments', label: '评论审核', children: <CommentReviews school={school} refresh={refresh} /> },
+      { key: 'comments', label: '评论管理', children: <CommentReviews school={school} refresh={refresh} /> },
     ]} />
   </Space>
 }

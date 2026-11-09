@@ -24,6 +24,7 @@ interface RecordListProps<T extends Row = Row> {
   resource: ListResource
   columns: (open: (id: string) => void) => TableColumnsType<T>
   detail: (props: RecordDetailProps<T>) => ReactNode
+  extraQuery?: Record<string, string>
   status?: string
   onStatusChange?: (value: string) => void
   filters?: (changeStatus: (value: string) => void) => ReactNode
@@ -37,7 +38,7 @@ interface RecordListProps<T extends Row = Row> {
 }
 
 export function RecordList<T extends Row = Row>({
-  school, resource, columns, detail, status, onStatusChange, filters, actions,
+  school, resource, columns, detail, status, onStatusChange, filters, actions, extraQuery,
   rowActions, paginated = true, scrollWidth = 880, loader, showCreatedAt = true, searchPlaceholder = '搜索标题或正文',
 }: RecordListProps<T>) {
   const [page, setPage] = useState(1)
@@ -45,7 +46,7 @@ export function RecordList<T extends Row = Row>({
   const [selectedId, setSelectedId] = useState<string>()
   const query = `?${new URLSearchParams({
     'page[number]': String(page), 'page[size]': '30',
-    ...(search ? { search } : {}), ...(status ? { status } : {}),
+    ...(search ? { search } : {}), ...(status ? { status } : {}), ...extraQuery,
   })}`
   const q = useQuery({
     queryKey: ['business', school, resource, query],

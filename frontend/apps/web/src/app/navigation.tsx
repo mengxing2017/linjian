@@ -34,7 +34,7 @@ export const navigation: NavigationItem[] = [
     key: 'posts',
     icon: <FileSearchOutlined />,
     label: '内容管理',
-    description: '管理帖子、审核评论，维护校园内容展示。',
+    description: '管理帖子与评论，维护校园内容展示。',
     domain: 'forum',
     scope: 'school',
     capability: 'school.read',

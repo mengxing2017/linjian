@@ -8,7 +8,7 @@ import { Workspace } from './index'
 import { identity, workspace, product } from './api'
 vi.mock('../../school-context/api', async () => ({ schoolsApi: (await import('./api')).workspace }))
 vi.mock('../../identity/api', async () => ({ identity: (await import('./api')).identity, subscribeUnauthorized: () => () => {} }))
-vi.mock('./api', () => ({ product:{resources:{artwork:vi.fn().mockResolvedValue([])}}, identity: { session: vi.fn(), accounts: vi.fn(), create: vi.fn(), update: vi.fn(), reset: vi.fn(), logout: vi.fn() }, workspace: { postManagement: {list: vi.fn()}, schools: vi.fn(), cases: vi.fn(), resolveCase: vi.fn(), reviews: vi.fn(), review: vi.fn(), list: vi.fn(), schoolProfiles:{platform:vi.fn(),detail:vi.fn(),create:vi.fn(),update:vi.fn(),artwork:vi.fn(),branding:vi.fn()}, createSchool: vi.fn(), updateSchool: vi.fn(), mutate: vi.fn() } }))
+vi.mock('./api', () => ({ product:{resources:{artwork:vi.fn().mockResolvedValue([])}}, identity: { session: vi.fn(), accounts: vi.fn(), create: vi.fn(), update: vi.fn(), reset: vi.fn(), logout: vi.fn() }, workspace: { postManagement: {list: vi.fn()}, schools: vi.fn(), cases: vi.fn(), resolveCase: vi.fn(), reviews: vi.fn(), review: vi.fn(), list: vi.fn(), schoolProfiles:{platform:vi.fn(),detail:vi.fn(),create:vi.fn(),update:vi.fn(),artwork:vi.fn(),branding:vi.fn()}, createSchool: vi.fn(), updateSchool: vi.fn(), setCommentVisibility: vi.fn(), mutate: vi.fn() } }))
 class TestResizeObserver { observe() {} unobserve() {} disconnect() {} }
 vi.stubGlobal('ResizeObserver', TestResizeObserver)
 configure({ asyncUtilTimeout: 5000 })
@@ -55,15 +55,15 @@ function showManagement(view: string, platformAdmin = true, role: 'member' | 'op
 it.each(['comments', 'posts&subview=comments'])('opens comment reviews within content moderation from %s', async view => {
   showManagement(view, false, 'operator')
   vi.mocked(workspace.list).mockResolvedValue({items:[{id:'comment-1',post_title:'评论所属帖子',content:'评论正文',author_name:'评论用户昵称',audit_status:'pending',revision:1}]})
-  expect(await screen.findByRole('tab', { name: '评论审核', selected: true })).toBeTruthy()
+  expect(await screen.findByRole('tab', { name: '评论管理', selected: true })).toBeTruthy()
   expect(screen.getByRole('heading', { name: '内容管理', level: 1 })).toBeTruthy()
-  expect(within(screen.getByRole('menu')).queryByRole('menuitem', { name: '评论审核' })).toBeNull()
+  expect(within(screen.getByRole('menu')).queryByRole('menuitem', { name: '评论管理' })).toBeNull()
   expect(screen.getByTestId('location').textContent).toBe('?school=school&view=posts&subview=comments')
-  await waitFor(() => expect(workspace.list).toHaveBeenCalledWith('school', 'comments', expect.stringContaining('status=pending'), expect.any(AbortSignal)))
-  const commentPanel = within(screen.getByRole('tabpanel', {name:'评论审核'}))
+  await waitFor(() => expect(workspace.list).toHaveBeenCalledWith('school', 'comments', expect.not.stringContaining('status='), expect.any(AbortSignal)))
+  const commentPanel = within(screen.getByRole('tabpanel', {name:'评论管理'}))
   const commentRow = within((await commentPanel.findByText('评论正文')).closest('tr')!)
   expect(commentPanel.getAllByRole('columnheader').map(header => header.textContent)).toEqual([
-    '标题 / 名称', '审核状态', '内容', '用户昵称', '创建时间', '操作',
+    '标题 / 名称', '审核状态', '显示状态', '内容', '用户昵称', '创建时间', '操作',
   ])
   expect(commentPanel.getByRole('columnheader', { name: '用户昵称' })).toBeTruthy()
   expect(commentRow.getByText('评论用户昵称')).toBeTruthy()
@@ -72,24 +72,26 @@ it.each(['comments', 'posts&subview=comments'])('opens comment reviews within co
   expect(within(detail).getByText('审核状态')).toBeTruthy()
   expect(within(detail).getByText('用户昵称')).toBeTruthy()
   expect(within(detail).getByText('评论用户昵称')).toBeTruthy()
-  fireEvent.click(within(detail).getByRole('button', { name: 'Close' }))
+  vi.mocked(workspace.setCommentVisibility).mockResolvedValue({ id: 'comment-1' } as never)
+  fireEvent.click(within(detail).getByRole('button', { name: '隐藏评论' }))
+  await waitFor(() => expect(workspace.setCommentVisibility).toHaveBeenCalledWith('school', 'comment-1', { revision: 1, visibility: 'hidden' }))
   await waitFor(() => expect(detail.isConnected).toBe(false))
 
 })
 
 it('preserves comment and post tab URLs through browser history', async () => {
   showManagement('posts&subview=comments', false, 'operator')
-  await screen.findByRole('tab', {name: '评论审核', selected: true})
+  await screen.findByRole('tab', {name: '评论管理', selected: true})
   fireEvent.click(screen.getByRole('tab', { name: '帖子管理' }))
   expect(screen.getByTestId('location').textContent).toBe('?school=school&view=posts&subview=posts')
   fireEvent.click(screen.getByRole('button', { name: '返回上一页' }))
-  expect(await screen.findByRole('tab', { name: '评论审核', selected: true })).toBeTruthy()
+  expect(await screen.findByRole('tab', { name: '评论管理', selected: true })).toBeTruthy()
 })
 
 it('keeps the legacy comment review URL subject to school management permission', async () => {
   showManagement('comments', false, 'member')
   expect(await screen.findByText('当前账号没有此功能的访问权限')).toBeTruthy()
-  expect(screen.queryByRole('tab', { name: '评论审核' })).toBeNull()
+  expect(screen.queryByRole('tab', { name: '评论管理' })).toBeNull()
   expect(workspace.list).not.toHaveBeenCalled()
 })
 

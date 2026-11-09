@@ -5,7 +5,7 @@ import { CommentReviews } from './comment-reviews'
 import { workspace } from './api'
 import { schoolDefaults } from '../../../test/school'
 
-vi.mock('./api', () => ({ workspace: { list: vi.fn(), mutate: vi.fn() } }))
+vi.mock('./api', () => ({ workspace: { list: vi.fn(), mutate: vi.fn(), setCommentVisibility: vi.fn() } }))
 vi.mock('../../../shared/use-dialogs', () => ({
   useDialogs: () => ({ contextHolder: null, prompt: async () => '已核对评论' }),
 }))
@@ -40,5 +40,27 @@ it('requires reloading a conflicted comment before submitting its new revision',
     revision: 2, decision: 'rejected', reason: '已核对评论',
   }))
   await waitFor(() => expect(drawer.isConnected).toBe(false))
+  expect(refresh).toHaveBeenCalledOnce()
+})
+
+it.each([
+  ['visible', '隐藏评论', 'hidden'],
+  ['hidden', '设为正常', 'visible'],
+] as const)('changes %s visibility without submitting a moderation decision', async (visibility, action, target) => {
+  vi.mocked(workspace.list).mockResolvedValue({ items: [{
+    id: 'comment', content: '评论正文', audit_status: 'rejected', visibility, revision: 7,
+  }] })
+  vi.mocked(workspace.setCommentVisibility).mockResolvedValue({ id: 'comment' } as never)
+  const refresh = vi.fn().mockResolvedValue(undefined)
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <CommentReviews school={{ ...schoolDefaults, id: 'school', name: '学校', revision: 1, config: {} }} refresh={refresh} />
+  </QueryClientProvider>)
+  const row = within((await screen.findByText('评论正文')).closest('tr')!)
+  fireEvent.click(row.getByRole('button', { name: /详\s*情/ }))
+  const drawer = await screen.findByRole('dialog')
+  fireEvent.click(within(drawer).getByRole('button', { name: action }))
+  await waitFor(() => expect(workspace.setCommentVisibility).toHaveBeenCalledWith('school', 'comment', { revision: 7, visibility: target }))
+  await waitFor(() => expect(drawer.isConnected).toBe(false))
+  expect(workspace.mutate).not.toHaveBeenCalled()
   expect(refresh).toHaveBeenCalledOnce()
 })

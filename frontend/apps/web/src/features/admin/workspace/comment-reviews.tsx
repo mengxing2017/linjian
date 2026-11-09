@@ -8,15 +8,19 @@ import { RecordBody, RecordInformation, RecordList, recordTitleColumn, type Reco
 import { states, stateLabel } from './state-label'
 
 export function CommentReviews({ school, refresh }: { school: School; refresh: () => Promise<void> }) {
-  const [status, setStatus] = useState('pending')
+  const [status, setStatus] = useState('')
+  const [visibility, setVisibility] = useState('')
   return <RecordList school={school.id} resource="comments" scrollWidth={1040}
-    status={status} onStatusChange={setStatus}
-    filters={change => <Select aria-label="审核状态" value={status} style={{ width: 140 }} onChange={change} options={[
-      { value: '', label: '全部状态' },
+    status={status} onStatusChange={setStatus} extraQuery={visibility ? { visibility } : {}}
+    filters={change => <Space><Select aria-label="审核状态" value={status} style={{ width: 140 }} onChange={change} options={[
+      { value: '', label: '全部审核状态' },
       ...['pending', 'approved', 'rejected'].map(value => ({ value, label: states[value] })),
-    ]} />}
+    ]} /><Select aria-label="显示状态" value={visibility} style={{ width: 140 }} onChange={value => { setVisibility(value); change(status) }} options={[
+      { value: '', label: '全部显示状态' }, { value: 'visible', label: '正常' }, { value: 'hidden', label: '隐藏' },
+    ]} /></Space>}
     columns={open => [recordTitleColumn(open),
       { title: '审核状态', key: 'status', width: 140, render: (_, row) => <Tag color={row.audit_status === 'approved' ? 'success' : row.audit_status === 'rejected' ? 'error' : 'processing'}>{stateLabel(row.audit_status)}</Tag> },
+      { title: '显示状态', key: 'visibility', width: 100, render: (_, row) => <Tag>{row.visibility === 'hidden' ? '隐藏' : '正常'}</Tag> },
       { title: '内容', key: 'summary', render: (_, row) => <p className="review-full-text">{label(row.content ?? row.body) || '—'}</p> },
       { title: '用户昵称', key: 'author', dataIndex: 'author_name', width: 160, ellipsis: true, render: value => label(value) || '—' },
     ]}
@@ -45,10 +49,25 @@ function CommentReviewDetail({ record, close, reload, school, refresh }: RecordD
       setBusy(false)
     }
   }
+  async function setVisibility() {
+    setBusy(true)
+    setError('')
+    try {
+      await workspace.setCommentVisibility(school.id, record.id, {
+        revision: Number(record.revision), visibility: record.visibility === 'hidden' ? 'visible' : 'hidden',
+      })
+      await refresh()
+      close()
+    } catch (error) {
+      setError((error as Error).message)
+      if (error && typeof error === 'object' && 'status' in error && error.status === 409) setConflict(true)
+    } finally { setBusy(false) }
+  }
   return <>
     {dialogs.contextHolder}
     <RecordInformation record={record} statusLabel="审核状态" extra={[
       { key: 'author', label: '用户昵称', children: label(record.author_name) || '—' },
+      { key: 'visibility', label: '显示状态', children: record.visibility === 'hidden' ? '隐藏' : '正常' },
     ]} />
     <section className="detail-section">
       {error && <Alert type="error" showIcon title={error} />}
@@ -56,8 +75,11 @@ function CommentReviewDetail({ record, close, reload, school, refresh }: RecordD
         <Alert type="warning" title="内容已变更，请重新加载并核对全文。" />
         <Button onClick={() => { void reload().then(success => { if (success) { setConflict(false); setError('') } }) }}>重新加载评论全文</Button>
       </>}
-      <RecordBody record={record} />
+      <RecordBody record={{ ...record, visibility: null }} />
       <p>审核来源：{record.decision_source === 'automatic' ? '自动审核' : record.decision_source === 'human' ? '人工审核' : record.decision_source === 'legacy' ? '历史记录' : '待审核'} · {formatDate(record.decided_at)}</p>
+      <Button disabled={busy || conflict || school.status !== 'normal' || record.deleted === true} loading={busy} onClick={() => void setVisibility()}>
+        {record.visibility === 'hidden' ? '设为正常' : '隐藏评论'}
+      </Button>
       <Space wrap>{['approved', 'rejected', 'pending'].map(decision => <Button type="link" danger={decision === 'rejected'} key={decision}
         disabled={busy || conflict || school.status !== 'normal'} onClick={() => void decide(decision)}>{states[decision]}</Button>)}</Space>
     </section>
