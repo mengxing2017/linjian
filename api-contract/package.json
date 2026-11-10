@@ -17,7 +17,8 @@
     "./source-events": "./src/modules/source-events/index.ts",
     "./source-access": "./src/modules/source-access/index.ts",
     "./miniapp-users/browser": "./src/modules/miniapp-users/browser.ts",
-    "./miniapp-users": "./src/modules/miniapp-users/index.ts"
+    "./miniapp-users": "./src/modules/miniapp-users/index.ts",
+    "./home-menu": "./src/modules/home-menu/index.ts"
   },
   "scripts": {
     "build": "tsc --noEmit && tsc -p tsconfig.platform.json",

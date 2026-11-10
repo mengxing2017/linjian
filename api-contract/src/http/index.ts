@@ -42,7 +42,7 @@ async function sendBrowser(request: TransportRequest, requestBody: BodyInit | un
   }
 }
 export const browserTransport: Transport = (request) => sendBrowser(request)
-const client = createClient(browserTransport)
+export const client = createClient(browserTransport)
 let browserCsrf = ''
 export function setCsrf(value: string) { browserCsrf = value; client.setCsrf(value) }
 /** Browser-only multipart adapter; native transports continue to receive bytes or JSON. */
