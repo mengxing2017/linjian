@@ -3072,6 +3072,7 @@ async fn post_management_order_status_import_and_live_permissions() {
             content: format!("{title}的正文"),
             images: vec![],
             tags: vec!["校园".into()],
+            candidate_tag_ids: vec![],
             revision,
         }
     }
@@ -3739,6 +3740,125 @@ async fn post_management_upgrade_and_concurrent_reorders() {
         .await
         .unwrap();
     assert_eq!(config_version, 1);
+    pool.close().await;
+    sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
+        .execute(&admin)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
+async fn home_menu_scope_import_and_revision_fencing() {
+    use linjian_api::schools::{
+        domain::home_menu::{CatalogQuery, OrderInput, TagInput},
+        south::adapter::postgres::Repository,
+    };
+    let admin = PgPool::connect(
+        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
+    )
+    .await
+    .unwrap();
+    let schema = format!("forum_home_menu_{}", Uuid::new_v4().simple());
+    let pool = isolated(&admin, &schema).await;
+    database::migrate(&pool).await.unwrap();
+    let app = bootstrap::build_application(pool.clone());
+    let root = app
+        .identity
+        .bootstrap("root", "管理员", "test-password-at-least-12", true)
+        .await
+        .unwrap();
+    let (_, actor) = app
+        .identity
+        .0
+        .session(root, "browser", false)
+        .await
+        .unwrap();
+    let school: Uuid = app.schools.create(&actor, "甲校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let other: Uuid = app.schools.create(&actor, "乙校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let repo = Repository(pool.clone());
+    let input: TagInput = serde_json::from_value(
+        json!({"name":"校园","menu_status":"hot","enable_status":"enabled"}),
+    )
+    .unwrap();
+    let tag = repo
+        .home_menu_save(&actor, school, None, input)
+        .await
+        .unwrap();
+    let id: Uuid = tag["id"].as_str().unwrap().parse().unwrap();
+    assert_eq!(
+        repo.home_menu_list(&actor, school, true).await.unwrap()["tags"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(repo.home_menu_delete(&actor, other, id, 1).await.is_err());
+    let preview = repo
+        .home_menu_import_preview(
+            &actor,
+            school,
+            "tags.csv",
+            "菜单/标签名称,菜单状态,是否启用,排序\n活动,shown,enabled,2\n".as_bytes(),
+        )
+        .await
+        .unwrap();
+    let job: Uuid = preview["id"].as_str().unwrap().parse().unwrap();
+    let digest = preview["digest"].as_str().unwrap();
+    assert!(
+        repo.home_menu_import_commit(&actor, other, job, digest)
+            .await
+            .is_err()
+    );
+    let result = repo
+        .home_menu_import_commit(&actor, school, job, digest)
+        .await
+        .unwrap();
+    assert_eq!(
+        repo.home_menu_import_commit(&actor, school, job, digest)
+            .await
+            .unwrap(),
+        result
+    );
+    assert!(
+        repo.home_menu_order(
+            &actor,
+            school,
+            OrderInput {
+                ids: vec![id],
+                catalog_revision: 2
+            }
+        )
+        .await
+        .is_err()
+    );
+    let filtered = repo
+        .home_menu_filtered(
+            &actor,
+            school,
+            &CatalogQuery {
+                search: Some("活动".into()),
+                ..Default::default()
+            },
+            false,
+        )
+        .await
+        .unwrap();
+    assert_eq!(filtered["tags"].as_array().unwrap().len(), 1);
+    sqlx::query("UPDATE schools SET active=false WHERE id=$1")
+        .bind(school)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert!(repo.home_menu_list(&actor, school, true).await.is_err());
     pool.close().await;
     sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
         .execute(&admin)
