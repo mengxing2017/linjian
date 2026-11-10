@@ -28,6 +28,10 @@ async fn resource_check(
     s: Option<Uuid>,
     v: &ResourceInput,
 ) -> Result<()> {
+    require(
+        !matches!(v.kind.as_str(), "banner" | "qrcode"),
+        "请在运营中心维护群二维码及首页广告位",
+    )?;
     image_check(tx, s, &v.image_ref).await?;
     if let ResourceAction::InternalPage { page, object_id } = &v.action
         && page == "post"
@@ -48,7 +52,7 @@ impl Store for Repository {
             Command::Preview(input) => {
                 resource_check(&mut tx, s, &input).await?;
                 if let Some(id) = input.id {
-                    sqlx::query("SELECT id FROM school_resources WHERE id=$1 AND school_id IS NOT DISTINCT FROM $2 AND revision=$3 FOR SHARE").bind(id).bind(s).bind(input.revision).fetch_optional(&mut *tx).await?.ok_or(Error::Conflict)?;
+                    sqlx::query("SELECT id FROM school_resources WHERE id=$1 AND school_id IS NOT DISTINCT FROM $2 AND revision=$3 AND deleted_at IS NULL FOR SHARE").bind(id).bind(s).bind(input.revision).fetch_optional(&mut *tx).await?.ok_or(Error::Conflict)?;
                 }
                 preview::create(&mut tx, a, s, "resource", json!(input), json!({})).await?
             }
@@ -66,7 +70,7 @@ impl Store for Repository {
                 if v.id.is_none() {
                     sqlx::query("INSERT INTO school_resources(id,school_id,kind,title,content,active,sort_order,starts_at,ends_at,image_ref,action) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)").bind(id).bind(s).bind(&v.kind).bind(&v.title).bind(&v.content).bind(v.active).bind(v.sort_order).bind(v.starts_at).bind(v.ends_at).bind(json!(v.image_ref)).bind(json!(v.action)).execute(&mut *tx).await?;
                 } else {
-                    let n=sqlx::query("UPDATE school_resources SET title=$3,content=$4,active=$5,sort_order=$6,starts_at=$7,ends_at=$8,image_ref=$9,action=$10,revision=revision+1 WHERE id=$1 AND school_id IS NOT DISTINCT FROM $2 AND revision=$11 AND kind=$12").bind(id).bind(s).bind(&v.title).bind(&v.content).bind(v.active).bind(v.sort_order).bind(v.starts_at).bind(v.ends_at).bind(json!(v.image_ref)).bind(json!(v.action)).bind(v.revision).bind(&v.kind).execute(&mut *tx).await?.rows_affected();
+                    let n=sqlx::query("UPDATE school_resources SET title=$3,content=$4,active=$5,sort_order=$6,starts_at=$7,ends_at=$8,image_ref=$9,action=$10,revision=revision+1 WHERE id=$1 AND school_id IS NOT DISTINCT FROM $2 AND revision=$11 AND kind=$12 AND deleted_at IS NULL").bind(id).bind(s).bind(&v.title).bind(&v.content).bind(v.active).bind(v.sort_order).bind(v.starts_at).bind(v.ends_at).bind(json!(v.image_ref)).bind(json!(v.action)).bind(v.revision).bind(&v.kind).execute(&mut *tx).await?.rows_affected();
                     require(n == 1, "资源已变化，请重新核对")?;
                 }
                 sqlx::query("INSERT INTO resource_publications(id,resource_id,school_id,actor_id,snapshot) VALUES($1,$2,$3,$4,$5)").bind(Uuid::now_v7()).bind(id).bind(s).bind(a.id).bind(payload).execute(&mut *tx).await?;
@@ -128,7 +132,10 @@ impl Repository {
         sqlx::query("SELECT pg_advisory_xact_lock(78234610244)")
             .execute(&mut *tx)
             .await?;
-        sqlx::query("DELETE FROM operational_media m WHERE created_at<now()-interval '7 days' AND NOT EXISTS(SELECT 1 FROM schools s WHERE s.logo_asset_id=m.id OR s.header_bg_asset_id=m.id) AND NOT EXISTS(SELECT 1 FROM school_resources r WHERE r.image_ref->>'kind'='asset' AND r.image_ref->>'id'=m.id::text) AND NOT EXISTS(SELECT 1 FROM resource_publications r WHERE r.snapshot->'image_ref'->>'kind'='asset' AND r.snapshot->'image_ref'->>'id'=m.id::text) AND NOT EXISTS(SELECT 1 FROM product_previews p WHERE p.kind='resource' AND p.expires_at>now() AND p.payload->'image_ref'->>'id'=m.id::text)").execute(&mut *tx).await?;
+        sqlx::query("DELETE FROM operational_media m WHERE created_at<now()-interval '7 days' AND NOT EXISTS(SELECT 1 FROM schools s WHERE s.logo_asset_id=m.id OR s.header_bg_asset_id=m.id) AND NOT EXISTS(SELECT 1 FROM school_resources r WHERE r.image_ref->>'kind'='asset' AND r.image_ref->>'id'=m.id::text) AND NOT EXISTS(SELECT 1 FROM customer_config c WHERE m.id IN (c.business_asset_id,c.join_asset_id,c.service_asset_id,c.fallback_asset_id)) AND NOT EXISTS(SELECT 1 FROM resource_publications r WHERE r.snapshot->'image_ref'->>'kind'='asset' AND r.snapshot->'image_ref'->>'id'=m.id::text) AND NOT EXISTS(SELECT 1 FROM product_previews p WHERE p.kind='resource' AND p.expires_at>now() AND p.payload->'image_ref'->>'id'=m.id::text)").execute(&mut *tx).await?;
+        sqlx::query("DELETE FROM banner_metric_events WHERE created_at<now()-interval '8 days'")
+            .execute(&mut *tx)
+            .await?;
         tx.commit().await?;
         Ok(())
     }

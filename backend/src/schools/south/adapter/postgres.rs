@@ -69,21 +69,16 @@ impl Repository {
         Ok(())
     }
     pub async fn resources(&self, school: Uuid, operator: bool) -> Result<Vec<Value>> {
-        Ok(sqlx::query_scalar("SELECT to_jsonb(r)||jsonb_build_object('image_url',CASE WHEN image_ref->>'kind'='asset' THEN '/api/v1/schools/'||($1::uuid)::text||'/resource-media/'||r.id::text ELSE NULL END) FROM school_resources r WHERE kind NOT IN ('tag','blocked_word') AND (school_id=$1 OR (school_id IS NULL AND NOT EXISTS(SELECT 1 FROM school_resources custom WHERE custom.school_id=$1 AND custom.kind=r.kind AND custom.active AND (custom.starts_at IS NULL OR custom.starts_at<=now()) AND (custom.ends_at IS NULL OR custom.ends_at>now())))) AND ($2 OR (active AND (starts_at IS NULL OR starts_at<=now()) AND (ends_at IS NULL OR ends_at>now()))) ORDER BY sort_order DESC,id").bind(school).bind(operator).fetch_all(&self.0).await?)
-    }
-    pub async fn click(&self, school: Uuid, id: Uuid) -> Result<()> {
-        let visible = self.resources(school, false).await?;
-        if !visible
-            .iter()
-            .any(|v| v["id"].as_str() == Some(&id.to_string()) && v["kind"] == "banner")
-        {
-            return Err(Error::NotFound);
+        if !operator {
+            return crate::operations::south::adapter::postgres::effective_resources(
+                &self.0, school,
+            )
+            .await;
         }
-        sqlx::query("UPDATE school_resources SET clicks=clicks+1 WHERE id=$1 AND kind='banner'")
-            .bind(id)
-            .execute(&self.0)
-            .await?;
-        Ok(())
+        Ok(sqlx::query_scalar("SELECT to_jsonb(r) FROM school_resources r WHERE deleted_at IS NULL AND kind IN ('service','legal') AND (school_id=$1 OR school_id IS NULL) ORDER BY sort_order DESC,id").bind(school).fetch_all(&self.0).await?)
+    }
+    pub async fn click(&self, _school: Uuid, _id: Uuid) -> Result<()> {
+        Err(Error::Invalid("请使用运营中心广告事件接口上报点击".into()))
     }
 }
 
