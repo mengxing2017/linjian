@@ -38,7 +38,12 @@ pub(super) async fn validate(
         .await?;
         require(exists, "图片不存在或属于其他学校")?;
     }
-    let words:Vec<String>=sqlx::query_scalar("SELECT title FROM school_resources WHERE (school_id=$1 OR school_id IS NULL) AND kind='blocked_word' AND active").bind(s).fetch_all(&mut **tx).await?;
+    let words: Vec<String> = sqlx::query_scalar(
+        "SELECT word FROM blocked_words WHERE (school_id=$1 OR school_id IS NULL) AND active",
+    )
+    .bind(s)
+    .fetch_all(&mut **tx)
+    .await?;
     let content = format!("{} {}", v.title, v.content).to_lowercase();
     require(
         !words.iter().any(|v| content.contains(&v.to_lowercase())),

@@ -35,7 +35,12 @@ impl Repository {
     }
 
     pub async fn check_words(&self, s: Uuid, content: &str) -> Result<()> {
-        let words:Vec<String>=sqlx::query_scalar("SELECT title FROM school_resources WHERE (school_id=$1 OR school_id IS NULL) AND kind='blocked_word' AND active").bind(s).fetch_all(&self.0).await?;
+        let words: Vec<String> = sqlx::query_scalar(
+            "SELECT word FROM blocked_words WHERE (school_id=$1 OR school_id IS NULL) AND active",
+        )
+        .bind(s)
+        .fetch_all(&self.0)
+        .await?;
         let normalized = content.to_lowercase();
         require(
             !words.iter().any(|w| normalized.contains(&w.to_lowercase())),
