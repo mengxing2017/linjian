@@ -24,3 +24,5 @@ pub trait Store: Clone + Send + Sync + 'static {
 }
 
 pub mod resources;
+
+pub mod home_menu;

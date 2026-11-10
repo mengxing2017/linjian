@@ -88,7 +88,7 @@ impl ResourceInput {
         require(
             matches!(
                 self.kind.as_str(),
-                "banner" | "qrcode" | "service" | "legal" | "tag" | "blocked_word"
+                "banner" | "qrcode" | "service" | "legal" | "blocked_word"
             ),
             "资源类型无效",
         )?;
@@ -163,3 +163,5 @@ mod tests {
 }
 
 pub mod profile;
+
+pub mod home_menu;
