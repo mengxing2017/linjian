@@ -1,6 +1,7 @@
 use crate::business::{Result, require, text};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+pub mod blocked_words;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ImageRef {
@@ -88,7 +89,7 @@ impl ResourceInput {
         require(
             matches!(
                 self.kind.as_str(),
-                "banner" | "qrcode" | "service" | "legal" | "blocked_word"
+                "banner" | "qrcode" | "service" | "legal"
             ),
             "资源类型无效",
         )?;

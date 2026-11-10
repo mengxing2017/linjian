@@ -25,4 +25,5 @@ pub trait Store: Clone + Send + Sync + 'static {
 
 pub mod resources;
 
+pub mod blocked_words;
 pub mod home_menu;

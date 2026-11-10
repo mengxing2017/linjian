@@ -7,4 +7,6 @@ pub mod resource_remote;
 
 pub mod home_menu_remote;
 
+pub mod blocked_words;
+pub mod blocked_words_remote;
 pub mod home_menu;
