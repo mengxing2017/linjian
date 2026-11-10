@@ -1,4 +1,4 @@
-import { createCommunityClient } from '@linjian/api-contract/community'
+import { createOperationsClient } from '@linjian/api-contract/operations'
 import { client } from '../../identity/api'
-const community = createCommunityClient(client)
-export const feedbackApi = { submit: community.feedback }
+export const feedbackApi = createOperationsClient(client)
+export type { FeedbackType } from '@linjian/api-contract/operations'

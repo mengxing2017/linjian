@@ -21,6 +21,7 @@ beforeEach(() => {
   vi.stubGlobal('uni', {
     login: vi.fn().mockResolvedValue({ code: 'fresh' }),
     getStorageSync: vi.fn(),
+    getStorageInfoSync: vi.fn().mockReturnValue({keys:['linjian:miniapp:group-qrcode:u:s:r','linjian:miniapp:group-qrcode:other:s:r']}),
     setStorageSync: vi.fn(),
     removeStorageSync: vi.fn(),
   })
@@ -73,4 +74,6 @@ it('clears local credentials even when server logout cannot be confirmed', async
   await expect(logout()).rejects.toThrow('offline')
   expect(credentials.token).toBe('')
   expect(session.user).toBeNull()
+  expect(uni.removeStorageSync).toHaveBeenCalledWith('linjian:miniapp:group-qrcode:u:s:r')
+  expect(uni.removeStorageSync).not.toHaveBeenCalledWith('linjian:miniapp:group-qrcode:other:s:r')
 })

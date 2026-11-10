@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import HomeOperations from '../operations/HomeOperations.vue'
+const operations = shallowRef<InstanceType<typeof HomeOperations>>()
 import { postVisibilityLabel } from './post-status'
 import { shallowRef, ref, computed, watch } from 'vue'
 import { communityApi, homeMenuApi, type HomeMenu, type Post, type FeedFilter } from './api'
@@ -85,14 +87,18 @@ function detail(post: Post) {
   navigate(`/pages/index/detail?school=${schoolContext.id}&id=${post.id}`)
 }
 defineExpose({
-  show: () =>
-    posts.value.length
+  hide: () => operations.value?.hide(),
+  show: async () => {
+    if (!(await requireSchool())) return
+    void operations.value?.show()
+    return posts.value.length
       ? run(async () => {
           await requireSchool()
           if (!posts.value.length) void load()
         })
-      : load(),
-  refresh: load,
+      : load()
+  },
+  refresh: async () => { await load(); await operations.value?.refresh() },
   loadMore: () => {
     if (more.value) return load(false)
   },
@@ -100,6 +106,7 @@ defineExpose({
 </script>
 <template>
   <view class="page">
+    <HomeOperations v-if="!searchPage" ref="operations" />
     <SchoolHeader :school="school" />
     <text v-if="session.user?.bound_school_id && !schoolContext.schools.length">
       学校暂不可用，请联系管理员

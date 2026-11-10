@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { shallowRef } from 'vue'
+import CustomerContacts from '../operations/CustomerContacts.vue'
+const contacts = shallowRef<InstanceType<typeof CustomerContacts>>()
 import Avatar from '../miniapp-users/Avatar.vue'
 import { miniappUserApi, type MiniappUser } from '../miniapp-users/api'
 import { session, restoreSession, logout } from '../identity/session'
@@ -17,7 +19,7 @@ function load() {
       await loadSchools()
       const scope = scopeKey()
       const value = await miniappUserApi.profile()
-      if (scope === scopeKey()) profile.value = value
+      if (scope === scopeKey()) { profile.value = value; await contacts.value?.show() }
     }
   })
 }
@@ -32,7 +34,7 @@ function signout() {
     uni.reLaunch({ url: '/pages/user/login' })
   })
 }
-defineExpose({ show: load })
+defineExpose({ show: load, hide: () => contacts.value?.hide() })
 </script>
 <template>
   <view class="page">
@@ -48,6 +50,7 @@ defineExpose({ show: load })
         微信登录
       </button>
     </view>
+    <CustomerContacts ref="contacts" />
     <PageStatus :busy="busy" :error="error" @retry="load" />
     <view v-if="session.user" class="card menu">
       <button @tap="navigate('/pages/user/userInfo')">个人信息</button>
@@ -58,7 +61,7 @@ defineExpose({ show: load })
       <button @tap="navigate('/pages/user/message')">消息</button>
       <button @tap="navigate('/pages/index/category')">校园服务</button>
       <button @tap="navigate('/pages/user/legal')">学校说明</button>
-      <button @tap="navigate('/pages/user/feedback')">意见反馈</button>
+      <button @tap="navigate('/pages/user/feedback')">投诉反馈</button>
       <button :disabled="busy" @tap="signout">退出登录</button>
     </view>
   </view>

@@ -12,7 +12,7 @@ const rows = shallowRef<SchoolResource[]>([])
 const tags = shallowRef<HomeMenuTag[]>([])
 const visible = computed(() =>
   rows.value.filter((r) =>
-    props.kind ? r.kind === props.kind : ['banner', 'qrcode', 'service', 'legal'].includes(r.kind),
+    props.kind ? r.kind === props.kind : ['service', 'legal'].includes(r.kind),
   ),
 )
 const { busy, error, run } = usePage(() => {

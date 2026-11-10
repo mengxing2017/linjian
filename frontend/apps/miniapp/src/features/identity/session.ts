@@ -65,9 +65,14 @@ export async function refreshUser() {
 }
 export async function logout() {
   clearReturnTarget()
+
   try {
     await identityApi.logout()
   } finally {
+    try {
+      const prefix = `linjian:miniapp:group-qrcode:${session.user?.id ?? ''}:`
+      for (const key of uni.getStorageInfoSync().keys) if (key.startsWith(prefix)) uni.removeStorageSync(key)
+    } catch { /* Storage cleanup must not prevent local logout. */ }
     credentials.set('')
     session.ready = true
   }
