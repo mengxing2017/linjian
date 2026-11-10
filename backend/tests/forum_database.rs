@@ -3373,7 +3373,12 @@ async fn post_management_order_status_import_and_live_permissions() {
         .await
         .unwrap();
     assert!(preview.errors.is_empty());
-    sqlx::query("INSERT INTO school_resources(id,school_id,kind,title,active) VALUES($1,$2,'blocked_word','内容二',true)").bind(Uuid::new_v4()).bind(school).execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO blocked_words(id,school_id,word,active) VALUES($1,$2,'内容二',true)")
+        .bind(Uuid::new_v4())
+        .bind(school)
+        .execute(&pool)
+        .await
+        .unwrap();
     let counters_before:(i64,i64,i64,i64)=sqlx::query_as("SELECT (SELECT count(*) FROM posts),(SELECT count(*) FROM forum_outbox),(SELECT count(*) FROM audit_events),(SELECT revision FROM post_order_versions WHERE school_id=$1)").bind(school).fetch_one(&pool).await.unwrap();
     let key = Uuid::new_v4();
     let commit = || CommitPostImport {
@@ -3389,7 +3394,7 @@ async fn post_management_order_status_import_and_live_permissions() {
     );
     let counters_after:(i64,i64,i64,i64)=sqlx::query_as("SELECT (SELECT count(*) FROM posts),(SELECT count(*) FROM forum_outbox),(SELECT count(*) FROM audit_events),(SELECT revision FROM post_order_versions WHERE school_id=$1)").bind(school).fetch_one(&pool).await.unwrap();
     assert_eq!(counters_before, counters_after);
-    sqlx::query("DELETE FROM school_resources WHERE school_id=$1 AND kind='blocked_word'")
+    sqlx::query("DELETE FROM blocked_words WHERE school_id=$1")
         .bind(school)
         .execute(&pool)
         .await
@@ -3859,6 +3864,231 @@ async fn home_menu_scope_import_and_revision_fencing() {
         .await
         .unwrap();
     assert!(repo.home_menu_list(&actor, school, true).await.is_err());
+    pool.close().await;
+    sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
+        .execute(&admin)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
+async fn blocked_words_scope_import_and_order_fencing() {
+    use linjian_api::{
+        business::Error,
+        schools::{
+            domain::blocked_words::{OrderInput, WordInput, WordQuery},
+            south::adapter::postgres::Repository,
+        },
+    };
+    let admin = PgPool::connect(
+        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
+    )
+    .await
+    .unwrap();
+    let schema = format!("forum_words_{}", Uuid::new_v4().simple());
+    let pool = isolated(&admin, &schema).await;
+    database::migrate(&pool).await.unwrap();
+    let app = bootstrap::build_application(pool.clone());
+    let root = app
+        .identity
+        .bootstrap("root", "管理员", "test-password-at-least-12", true)
+        .await
+        .unwrap();
+    let (_, actor) = app
+        .identity
+        .0
+        .session(root, "browser", false)
+        .await
+        .unwrap();
+    let school: Uuid = app.schools.create(&actor, "甲校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let other: Uuid = app.schools.create(&actor, "乙校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let repo = Repository(pool.clone());
+    let input = |word: &str| WordInput {
+        word: word.into(),
+        remark: "说明".into(),
+        active: true,
+        revision: 0,
+    };
+    let local = repo
+        .blocked_save(&actor, Some(school), None, input("校园词"))
+        .await
+        .unwrap();
+    let id: Uuid = local["id"].as_str().unwrap().parse().unwrap();
+    repo.blocked_save(&actor, None, None, input("全局词"))
+        .await
+        .unwrap();
+    assert!(matches!(
+        repo.blocked_save(&actor, Some(school), None, input("校园词")).await,
+        Err(Error::Invalid(message)) if message.contains("已存在")
+    ));
+    assert!(
+        repo.blocked_delete(&actor, Some(other), id, 1)
+            .await
+            .is_err()
+    );
+    let community = linjian_api::community::south::adapter::postgres::Repository(pool.clone());
+    assert!(community.check_words(school, "包含校园词").await.is_err());
+    assert!(community.check_words(other, "包含校园词").await.is_ok());
+    assert!(community.check_words(other, "包含全局词").await.is_err());
+    let preview = repo
+        .blocked_import_preview(
+            &actor,
+            Some(school),
+            "words.csv",
+            "屏蔽词,备注,状态\n导入词,用途,启用\n".as_bytes(),
+        )
+        .await
+        .unwrap();
+    let job: Uuid = preview["id"].as_str().unwrap().parse().unwrap();
+    let digest = preview["digest"].as_str().unwrap();
+    assert!(
+        repo.blocked_import_commit(&actor, Some(other), job, digest)
+            .await
+            .is_err()
+    );
+    let result = repo
+        .blocked_import_commit(&actor, Some(school), job, digest)
+        .await
+        .unwrap();
+    assert_eq!(result["count"], 1);
+    assert_eq!(
+        repo.blocked_import_commit(&actor, Some(school), job, digest)
+            .await
+            .unwrap(),
+        result
+    );
+    let list = repo
+        .blocked_list(
+            &actor,
+            Some(school),
+            &WordQuery {
+                ordering: Some(true),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    let ids: Vec<Uuid> = list["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .rev()
+        .map(|v| v["id"].as_str().unwrap().parse().unwrap())
+        .collect();
+    let revision = list["order_revision"].as_i64().unwrap();
+    repo.blocked_order(
+        &actor,
+        Some(school),
+        OrderInput {
+            ids: ids.clone(),
+            order_revision: revision,
+        },
+    )
+    .await
+    .unwrap();
+    assert!(matches!(
+        repo.blocked_order(
+            &actor,
+            Some(school),
+            OrderInput {
+                ids,
+                order_revision: revision
+            }
+        )
+        .await,
+        Err(Error::Conflict)
+    ));
+    let mut operator = actor.clone();
+    operator.platform_admin = false;
+    operator.grants = vec![linjian_api::business::Grant {
+        school_id: school,
+        role: "operator".into(),
+    }];
+    assert!(
+        repo.blocked_save(&operator, Some(school), None, input("拒绝"))
+            .await
+            .is_err()
+    );
+    let outbox: i64 = sqlx::query_scalar("SELECT count(*) FROM forum_outbox")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(outbox, 0);
+    pool.close().await;
+    sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
+        .execute(&admin)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
+async fn blocked_words_upgrade_preserves_resources_and_rejects_duplicates() {
+    let admin = PgPool::connect(
+        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
+    )
+    .await
+    .unwrap();
+    let schema = format!("forum_words_upgrade_{}", Uuid::new_v4().simple());
+    let pool = isolated(&admin, &schema).await;
+    let migrations = database::MIGRATOR.iter().collect::<Vec<_>>();
+    let target = migrations
+        .iter()
+        .position(|m| m.version == 202611100006)
+        .unwrap();
+    for migration in &migrations[..target] {
+        sqlx::raw_sql(&migration.sql).execute(&pool).await.unwrap();
+    }
+    let account = Uuid::new_v4();
+    let school = Uuid::new_v4();
+    let resource = Uuid::new_v4();
+    let duplicate = Uuid::new_v4();
+    sqlx::query("INSERT INTO accounts(id,username,display_name,password_hash,platform_admin) VALUES($1,'root','管理员','unused',true)").bind(account).execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO schools(id,name) VALUES($1,'学校')")
+        .bind(school)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO school_resources(id,school_id,kind,title,content,active,sort_order) VALUES($1,$2,'blocked_word','词语','旧备注',true,4),($3,$2,'blocked_word','词语','重复',false,0)").bind(resource).bind(school).bind(duplicate).execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO resource_publications(id,resource_id,school_id,actor_id,snapshot) VALUES($1,$2,$3,$4,'{}')").bind(Uuid::new_v4()).bind(resource).bind(school).bind(account).execute(&pool).await.unwrap();
+    assert!(
+        sqlx::raw_sql(&migrations[target].sql)
+            .execute(&pool)
+            .await
+            .is_err()
+    );
+    sqlx::query("DELETE FROM school_resources WHERE id=$1")
+        .bind(duplicate)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::raw_sql(&migrations[target].sql)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let row: (String, String, bool, i32) =
+        sqlx::query_as("SELECT word,remark,active,sort_order FROM blocked_words WHERE id=$1")
+            .bind(resource)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(row, ("词语".into(), "旧备注".into(), true, 4));
+    let history: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM resource_publications WHERE resource_id=$1")
+            .bind(resource)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(history, 1);
     pool.close().await;
     sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
         .execute(&admin)

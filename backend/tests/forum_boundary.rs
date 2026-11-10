@@ -5,6 +5,21 @@ use axum::{
 use linjian_api::{bootstrap, http};
 use tower::ServiceExt;
 #[tokio::test]
+async fn blocked_words_jsonapi_matches_shared_fixture() {
+    use axum::response::IntoResponse;
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../api-contract/fixtures/blocked-words.json"
+    ))
+    .unwrap();
+    let mut catalog = fixture["data"]["attributes"].clone();
+    catalog["id"] = fixture["data"]["id"].clone();
+    let response =
+        linjian_api::http::jsonapi::resource("blocked-word-catalog", catalog).into_response();
+    let actual: serde_json::Value =
+        serde_json::from_slice(&to_bytes(response.into_body(), 8192).await.unwrap()).unwrap();
+    assert_eq!(actual, fixture);
+}
+#[tokio::test]
 async fn routing_has_no_sender_or_shared_session_dependency() {
     let pool = sqlx::postgres::PgPoolOptions::new()
         .connect_lazy("postgresql://unused:unused@127.0.0.1:1/unused")
