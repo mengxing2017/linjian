@@ -25,6 +25,7 @@ pub fn app_router(application: Application) -> Router {
         .merge(crate::identity::north::remote::router())
 .merge(crate::schools::north::remote::router())
 .merge(crate::schools::north::home_menu_remote::router())
+.merge(crate::schools::north::blocked_words_remote::router())
 .merge(crate::schools::north::resource_remote::router())
 .merge(crate::community::north::remote::router())
 .merge(crate::integrations::north::remote::router())
