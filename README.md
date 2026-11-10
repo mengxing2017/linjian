@@ -14,6 +14,8 @@
 
 小程序人工审核后的摘要与短链接准备、投递和恢复配置见 [小程序内容来源推送](docs/miniapp-publication.md)。
 
+运营中心的二维码、广告、客户配置和投诉反馈见 [运营中心](docs/operations.md)。
+
 ## 目录
 
 - `backend/`：独立 API、论坛数据库基线、Outbox 作业、只读快照导出及原子导入工具。
