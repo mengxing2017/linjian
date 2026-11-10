@@ -362,7 +362,7 @@ impl Repository {
             sqlx::query("SELECT id FROM posts WHERE school_id=$1 AND id=$2 AND visibility<>'deleted' AND (author_id=$3 OR $4 OR (audit_status='approved' AND visibility='visible'))")
                 .bind(s).bind(id).bind(a.id).bind(a.can(s,"operator")).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
         }
-        let item=sqlx::query_scalar("INSERT INTO cases(id,school_id,account_id,kind,post_id,content,contact,images) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING to_jsonb(cases)-'handled_at'-'handled_by'").bind(Uuid::now_v7()).bind(s).bind(a.id).bind(v["kind"].as_str()).bind(post).bind(v["content"].as_str()).bind(v["contact"].as_str().unwrap_or("")).bind(v.get("images").cloned().unwrap_or(json!([]))).fetch_one(&mut *tx).await?;
+        let item=sqlx::query_scalar("INSERT INTO cases(id,school_id,account_id,kind,post_id,content,contact,images) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING to_jsonb(cases)-'handled_at'-'handled_by'-'submitted_ip'-'deleted_by'-'submission_key'").bind(Uuid::now_v7()).bind(s).bind(a.id).bind(v["kind"].as_str()).bind(post).bind(v["content"].as_str()).bind(v["contact"].as_str().unwrap_or("")).bind(v.get("images").cloned().unwrap_or(json!([]))).fetch_one(&mut *tx).await?;
         tx.commit().await?;
         Ok(item)
     }

@@ -22,7 +22,7 @@ async fn management(
     id: Uuid,
 ) -> Result<CaseManagementView> {
     let value: Value = sqlx::query_scalar(&format!(
-        "SELECT {}{JOINS} WHERE c.school_id=$1 AND c.id=$2",
+        "SELECT {}{JOINS} WHERE c.deleted_at IS NULL AND c.school_id=$1 AND c.id=$2",
         projection()
     ))
     .bind(school)
@@ -58,10 +58,11 @@ impl Repository {
         let selection = if managing {
             projection()
         } else {
-            "to_jsonb(c)-'handled_at'-'handled_by'".into()
+            "to_jsonb(c)-'handled_at'-'handled_by'-'submitted_ip'-'deleted_by'-'submission_key'"
+                .into()
         };
-        let rows: Vec<Value> = sqlx::query_scalar(&format!("SELECT {selection}{JOINS} WHERE c.school_id=$1 AND ($2 OR c.account_id=$3) AND ($4::text IS NULL OR $4='' OR c.state=$4) AND (c.content ILIKE '%'||$5||'%' OR ($2 AND ({TITLE} ILIKE '%'||$5||'%' OR {REPORTER} ILIKE '%'||$5||'%'))) ORDER BY c.created_at DESC,c.id DESC LIMIT $6 OFFSET $7"))
-            .bind(school).bind(managing).bind(a.id).bind(page.status).bind(search).bind(limit).bind(offset).fetch_all(&self.0).await?;
+        let rows: Vec<Value> = sqlx::query_scalar(&format!("SELECT {selection}{JOINS} WHERE c.deleted_at IS NULL AND ($8::text IS NULL OR c.kind=$8) AND c.school_id=$1 AND ($2 OR c.account_id=$3) AND ($4::text IS NULL OR $4='' OR c.state=$4) AND (c.content ILIKE '%'||$5||'%' OR ($2 AND ({TITLE} ILIKE '%'||$5||'%' OR {REPORTER} ILIKE '%'||$5||'%'))) ORDER BY c.created_at DESC,c.id DESC LIMIT $6 OFFSET $7"))
+            .bind(school).bind(managing).bind(a.id).bind(page.status).bind(search).bind(limit).bind(offset).bind(page.kind).fetch_all(&self.0).await?;
         if managing {
             rows.into_iter()
                 .map(|row| {
@@ -106,7 +107,7 @@ impl Repository {
         }
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, school).await?;
         let previous: Value = sqlx::query_scalar(
-            "SELECT to_jsonb(c) FROM cases c WHERE school_id=$1 AND id=$2 FOR UPDATE",
+            "SELECT to_jsonb(c) FROM cases c WHERE school_id=$1 AND id=$2 AND deleted_at IS NULL FOR UPDATE",
         )
         .bind(school)
         .bind(id)
@@ -117,7 +118,7 @@ impl Repository {
             return Err(Error::Conflict);
         }
         if previous["state"] != input.state.as_str() || previous["resolution"] != input.resolution {
-            sqlx::query("UPDATE cases SET state=$3,resolution=$4,handled_at=clock_timestamp(),handled_by=$5,revision=revision+1 WHERE school_id=$1 AND id=$2")
+            sqlx::query("UPDATE cases SET state=$3,resolution=$4,handled_at=clock_timestamp(),updated_at=clock_timestamp(),handled_by=$5,revision=revision+1 WHERE school_id=$1 AND id=$2")
                 .bind(school).bind(id).bind(input.state.as_str()).bind(&input.resolution).bind(a.id).execute(&mut *tx).await?;
             let current = management(&mut tx, school, id).await?;
             crate::audit::record(&mut tx,a,school,"case.resolve",id,json!({"previous_state":previous["state"],"state":current.record.state,"previous_revision":previous["revision"],"revision":current.record.revision,"previous_handled_at":previous["handled_at"],"handled_at":current.handled_at})).await?;
