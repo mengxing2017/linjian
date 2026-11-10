@@ -1,0 +1,15 @@
+{
+  "data": {
+    "type": "customer-config",
+    "id": "current",
+    "attributes": {
+      "revision": 0,
+      "enabled": false,
+      "business_asset_id": null,
+      "join_asset_id": null,
+      "service_asset_id": null,
+      "fallback_asset_id": null,
+      "note": "添加客服微信后，请备注来意"
+    }
+  }
+}

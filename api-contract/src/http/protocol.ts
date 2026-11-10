@@ -113,6 +113,7 @@ export function resourceType(path: string): string {
   if(parts[2]==='schools' && parts[4]==='post-imports')return 'post-imports';
   if (parts[2] === 'schools' && parts[4] === 'home-menu-tags' && parts[5] === 'order') return 'home-menu-order';
   const kind=parts[2]==='platform'?parts[3]:parts[2]==='schools'?parts[4]:undefined;
+  if(kind && ['group-qrcodes','home-banners','customer-config','feedback','banner-events'].includes(kind))return kind;
   if(kind==='blocked-words')return 'blocked-words';
   if(kind==='blocked-word-imports')return 'blocked-word-imports';
   if(kind && ['resource-previews','resource-publications','resource-qrcodes','source-outbox','home-menu-tags','home-menu-settings','home-menu-imports'].includes(kind))return kind;
