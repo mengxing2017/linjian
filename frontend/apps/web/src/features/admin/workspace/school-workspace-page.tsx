@@ -6,6 +6,7 @@ import { ContentModeration } from './content-moderation'
 import { Members } from './members'
 import { Outbox } from './outbox'
 import { SchoolForm } from './school-profile'
+import { HomeMenu } from './home-menu'
 import { SchoolResources } from './school-resources'
 
 /** Authorized school page dispatch. Access checks and school selection live in WorkspaceShell. */
@@ -20,6 +21,7 @@ export function SchoolWorkspacePage({ view, school, platformAdmin, schoolAdmin, 
 }) {
   switch (view) {
     case 'posts': return <ContentModeration publisherId={publisherId} publisher={publisher} platformAdmin={platformAdmin} school={school} canEditModes={schoolAdmin} refresh={refresh} />
+    case 'home-menu': return <HomeMenu key={school.id} school={school.id} canEdit={schoolAdmin} />
     case 'cases': return <Cases school={school.id} refresh={refresh} />
     case 'resources': return <SchoolResources school={school} canEdit={schoolAdmin} refresh={refresh} />
     case 'audit': return <AuditLog school={school.id} />

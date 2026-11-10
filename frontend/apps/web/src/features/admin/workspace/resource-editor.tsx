@@ -4,7 +4,7 @@ import {Alert,Button,Input,InputNumber,Select,Space,Switch,Upload} from 'antd'
 import {product,workspace,type Row,type ResourceInput,type ResourceAction,type ImageRef,type BusinessPreview,type PublishedResource} from './api'
 import {ResourceCard} from '../../community/resource-card'
 const localDate=(s:string|null)=>s?new Date(new Date(s).getTime()-new Date(s).getTimezoneOffset()*60000).toISOString().slice(0,16):''
-const kinds=[['banner','轮播'],['qrcode','二维码'],['service','客服'],['legal','法律文本'],['tag','标签'],['blocked_word','屏蔽词']] as const
+const kinds=[['banner','轮播'],['qrcode','二维码'],['service','客服'],['legal','法律文本'],['blocked_word','屏蔽词']] as const
 export function ResourceEditor({item,school,onSaved}:{item?:Row;school?:string;onSaved:()=>Promise<unknown>}){
  const initial=item as unknown as PublishedResource|undefined
  const [form,setForm]=useState<ResourceInput>({id:initial?.id,revision:initial?.revision??0,kind:initial?.kind??'banner',title:initial?.title??'',content:initial?.content??'',image_ref:initial?.image_ref??null,action:initial?.action??{kind:'none'},active:initial?.active??true,sort_order:initial?.sort_order??0,starts_at:initial?.starts_at??null,ends_at:initial?.ends_at??null})
