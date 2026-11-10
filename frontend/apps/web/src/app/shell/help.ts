@@ -8,6 +8,8 @@ export const pageHelp: Record<string, string> = {
   'home-menu': 'operator/moderation#display-resources',
   cases: 'operator/moderation',
   resources: 'operator/moderation#display-resources',
+  'blocked-words': 'operator/moderation#display-resources',
+  'platform-blocked-words': 'platform-admin/audit-and-resources',
   'miniapp-users': 'school-admin/settings-and-members#miniapp-users',
   members: 'school-admin/settings-and-members',
   settings: 'school-admin/settings-and-members',

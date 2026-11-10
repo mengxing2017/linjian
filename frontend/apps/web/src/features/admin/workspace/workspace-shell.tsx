@@ -9,6 +9,7 @@ import { SourceBindings, SourceConnections } from '../source-access'
 import { Directory } from './directory'
 import { Accounts, Schools } from './platform'
 import { GlobalResources } from './global-resources'
+import { BlockedWords } from './blocked-words'
 import { SchoolWorkspacePage } from './school-workspace-page'
 import type { User } from './api'
 
@@ -80,6 +81,8 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
           return <Schools schools={q.data ?? []} loading={q.isPending} refresh={refresh} enter={enterSchool} />
         case 'platform-resources':
           return <GlobalResources />
+        case 'platform-blocked-words':
+          return <BlockedWords canEdit />
       }
     }
     if (q.isPending) return <Empty className="empty-state" description="正在加载学校…" />

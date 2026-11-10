@@ -8,3 +8,5 @@ export { client as browserClient } from '@linjian/api-contract/http'
 
 export { requestMultipart } from '@linjian/api-contract/http'
 export type { HomeMenuImport, HomeMenuQuery } from '@linjian/api-contract/home-menu'
+export { createBlockedWordsClient } from '@linjian/api-contract/business'
+export type { BlockedWord, BlockedWordInput, BlockedWordImport } from '@linjian/api-contract/business'

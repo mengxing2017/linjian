@@ -14,7 +14,7 @@ export function GlobalResources() {
       <Alert
         type="info"
         showIcon
-        title="学校有同类启用配置时优先使用学校配置；全局屏蔽词始终生效。"
+        title="学校有同类启用配置时优先使用学校配置。"
       />
       <Card
         className="data-panel"
@@ -38,7 +38,7 @@ export function GlobalResources() {
           pagination={{ pageSize: 10 }}
           scroll={{ x: 700 }}
           columns={[
-            { title: '标题 / 屏蔽词', dataIndex: 'title', render: (v) => label(v) },
+            { title: '标题', dataIndex: 'title', render: (v) => label(v) },
             { title: '类型', dataIndex: 'kind', render: (v) => label(v) },
             {
               title: '状态',

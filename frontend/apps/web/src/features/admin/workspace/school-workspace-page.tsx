@@ -8,6 +8,7 @@ import { Outbox } from './outbox'
 import { SchoolForm } from './school-profile'
 import { HomeMenu } from './home-menu'
 import { SchoolResources } from './school-resources'
+import { BlockedWords } from './blocked-words'
 
 /** Authorized school page dispatch. Access checks and school selection live in WorkspaceShell. */
 export function SchoolWorkspacePage({ view, school, platformAdmin, schoolAdmin, publisher, publisherId, refresh }: {
@@ -24,6 +25,7 @@ export function SchoolWorkspacePage({ view, school, platformAdmin, schoolAdmin, 
     case 'home-menu': return <HomeMenu key={school.id} school={school.id} canEdit={schoolAdmin} />
     case 'cases': return <Cases school={school.id} refresh={refresh} />
     case 'resources': return <SchoolResources school={school} canEdit={schoolAdmin} refresh={refresh} />
+    case 'blocked-words': return <BlockedWords key={school.id} school={school.id} canEdit={schoolAdmin} />
     case 'audit': return <AuditLog school={school.id} />
     case 'source-outbox': return <Outbox school={school.id} />
     case 'members': return <Members school={school} platformAdmin={platformAdmin} refresh={refresh} />
