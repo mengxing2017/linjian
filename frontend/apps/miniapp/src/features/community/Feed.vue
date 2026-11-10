@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { postVisibilityLabel } from './post-status'
 import { shallowRef, ref, computed, watch } from 'vue'
-import { communityApi, type Post, type FeedFilter } from './api'
+import { communityApi, homeMenuApi, type HomeMenu, type Post, type FeedFilter } from './api'
 import { requireSchool, schoolContext } from '../school-context/context'
 import { session } from '../identity/session'
 import { usePage, navigate } from '../../shared/use-page'
@@ -16,7 +16,9 @@ const mode = ref(props.initial ?? 'feed'),
   search = ref(''),
   posts = shallowRef<Post[]>([]),
   page = ref(1),
-  more = ref(false)
+  more = ref(false),
+  menu = shallowRef<HomeMenu>(),
+  selectedTag = ref('')
 watch(
   () => props.initial,
   (value) => {
@@ -28,6 +30,8 @@ const { busy, error, run } = usePage(() => {
   posts.value = []
   page.value = 1
   more.value = false
+  menu.value = undefined
+  selectedTag.value = ''
 })
 function load(reset = true, retryAfterScopeRefresh = true): Promise<void> {
   return run(async (current) => {
@@ -39,6 +43,12 @@ function load(reset = true, retryAfterScopeRefresh = true): Promise<void> {
     const id = schoolContext.id,
       generation = schoolContext.generation,
       user = session.user?.id
+    if (reset) {
+      const loaded = await homeMenuApi.public(id)
+      if (!current() || generation !== schoolContext.generation || id !== schoolContext.id || user !== session.user?.id) return
+      menu.value = loaded
+      if (selectedTag.value && !loaded.tags.some(tag => tag.name === selectedTag.value)) selectedTag.value = ''
+    }
     const next = reset ? 1 : page.value + 1
     const kind: FeedFilter['kind'] =
       mode.value === 'collect' || mode.value === 'following' ? mode.value : undefined
@@ -47,6 +57,7 @@ function load(reset = true, retryAfterScopeRefresh = true): Promise<void> {
       search: search.value,
       mine: mode.value === 'mine',
       kind,
+      tag: selectedTag.value,
     })
     if (
       current() &&
@@ -63,6 +74,11 @@ function load(reset = true, retryAfterScopeRefresh = true): Promise<void> {
 function setMode(value: typeof mode.value) {
   if (busy.value) return
   mode.value = value
+  void load()
+}
+function selectTag(tag: string) {
+  if (busy.value) return
+  selectedTag.value = tag
   void load()
 }
 function detail(post: Post) {
@@ -125,6 +141,13 @@ defineExpose({
       >
         我的发布
       </button>
+    </view>
+    <scroll-view v-if="menu" scroll-x class="row">
+      <button v-if="menu.settings.latest_visible" size="mini" :class="{selected: !selectedTag}" @tap="selectTag('')">{{ menu.settings.latest_label }}</button>
+      <button v-for="tag in menu.tags" :key="tag.id" size="mini" :class="{selected: selectedTag === tag.name}" @tap="selectTag(tag.name)">{{ tag.name }}</button>
+    </scroll-view>
+    <view v-if="menu?.tags.some(tag => tag.menu_status === 'hot')" class="row">
+      <text>热门：</text><button v-for="tag in menu.tags.filter(tag => tag.menu_status === 'hot')" :key="tag.id" size="mini" @tap="selectTag(tag.name)">{{ tag.name }}</button>
     </view>
     <view class="row">
       <input

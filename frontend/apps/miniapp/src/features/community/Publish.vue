@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { communityApi, type Post } from './api'
+import { communityApi, homeMenuApi, type HomeMenuTag, type Post } from './api'
 import { schoolContext, requireSchool, scopeKey, onScopeChange } from '../school-context/context'
 import { session } from '../identity/session'
 import { uploadImage } from '../media/files'
@@ -15,7 +15,9 @@ const title = ref(''),
   images = ref<string[]>([]),
   revision = ref<number>(),
   loaded = ref(''),
-  message = ref('')
+  message = ref(''),
+  candidates = ref<HomeMenuTag[]>([]),
+  selectedCandidates = ref<HomeMenuTag[]>([])
 const { busy, error, run } = usePage(() => {
   title.value = ''
   content.value = ''
@@ -24,6 +26,8 @@ const { busy, error, run } = usePage(() => {
   revision.value = undefined
   loaded.value = ''
   message.value = ''
+  candidates.value = []
+  selectedCandidates.value = []
 })
 const draftKey = () => `linjian:draft:${session.user?.id}:${schoolContext.id}:${props.id ?? 'new'}`
 function saveDraft() {
@@ -50,6 +54,9 @@ function load() {
     if (!(await requireSchool(props.school))) return
     const key = scopeKey()
     if (loaded.value === key) return
+    const menu = await homeMenuApi.public(schoolContext.id)
+    if (key !== scopeKey()) return
+    candidates.value = menu.tags
     let post: Post | undefined
     if (props.id) post = await communityApi.post(schoolContext.id, props.id)
     if (key !== scopeKey()) return
@@ -88,6 +95,11 @@ function load() {
   })
 }
 
+function addTag(tag: HomeMenuTag) {
+  const name = tag.name
+  const current = tags.value.split(/[,，]/).map(v => v.trim()).filter(Boolean)
+  if (!current.includes(name) && current.length < 10) { tags.value = [...current, name].join(','); selectedCandidates.value = [...selectedCandidates.value, tag] }
+}
 function choose() {
   void run(async () => {
     if (!(await requireSchool(props.school))) return
@@ -126,6 +138,7 @@ function submit() {
           .split(/[,，]/)
           .map((v) => v.trim())
           .filter(Boolean),
+        candidate_tag_ids: selectedCandidates.value.filter(tag => tags.value.split(/[,，]/).some(v => v.trim() === tag.name)).map(tag => tag.id),
         revision: revision.value,
       },
       props.id,
@@ -175,6 +188,7 @@ defineExpose({ show: load, hide: saveDraft })
         maxlength="20000"
         placeholder="分享你的校园故事…"
       />
+      <view class="row"><text>可选标签：</text><button v-for="tag in candidates" :key="tag.id" size="mini" @tap="addTag(tag)">{{ tag.name }}</button></view>
       <input v-model="tags" class="input" placeholder="标签，使用逗号分隔" />
       <view class="image-grid">
         <view v-for="(src, i) in images" :key="src">

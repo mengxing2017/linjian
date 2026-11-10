@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, shallowRef } from 'vue'
-import { resourcesApi, type SchoolResource } from './api'
+import type { HomeMenuTag } from '../community/api'
+import { resourcesApi, homeMenuApi, type SchoolResource } from './api'
 import {executeResourceAction,actionLabel} from './actions'
 import { requireSchool, schoolContext, scopeKey } from '../school-context/context'
 import { usePage } from '../../shared/use-page'
@@ -8,6 +9,7 @@ import PageStatus from '../../shared/PageStatus.vue'
 import PrivateImage from '../media/PrivateImage.vue'
 const props = defineProps<{ kind?: 'legal' | 'tag' }>()
 const rows = shallowRef<SchoolResource[]>([])
+const tags = shallowRef<HomeMenuTag[]>([])
 const visible = computed(() =>
   rows.value.filter((r) =>
     props.kind ? r.kind === props.kind : ['banner', 'qrcode', 'service', 'legal'].includes(r.kind),
@@ -15,13 +17,19 @@ const visible = computed(() =>
 )
 const { busy, error, run } = usePage(() => {
   rows.value = []
+  tags.value = []
 })
 function load() {
   return run(async () => {
     if (!(await requireSchool())) return
-    const key = scopeKey(),
-      result = await resourcesApi.list(schoolContext.id)
-    if (key === scopeKey()) rows.value = result
+    const key = scopeKey()
+    if (props.kind === 'tag') {
+      const result = await homeMenuApi.public(schoolContext.id)
+      if (key === scopeKey()) tags.value = result.tags
+    } else {
+      const result = await resourcesApi.list(schoolContext.id)
+      if (key === scopeKey()) rows.value = result
+    }
   })
 }
 function activate(item: SchoolResource) {
@@ -35,6 +43,7 @@ defineExpose({ show: load })
     <text class="heading">
       {{ props.kind === 'legal' ? '学校说明' : props.kind === 'tag' ? '校园标签' : '校园服务' }}
     </text>
+    <view v-for="tag in tags" :key="tag.id" class="card"><text class="title">{{ tag.name }}</text></view>
     <view v-for="item in visible" :key="item.id" class="card">
       <text class="title">{{ item.title }}</text>
       <text class="body">{{ item.content }}</text>
@@ -45,6 +54,6 @@ defineExpose({ show: load })
       />
       <button v-if="actionLabel(item.action)" size="mini" :disabled="busy" @tap="activate(item)">{{actionLabel(item.action)}}</button>
     </view>
-    <PageStatus :busy="busy" :error="error" :empty="!visible.length" @retry="load" />
+    <PageStatus :busy="busy" :error="error" :empty="props.kind === 'tag' ? !tags.length : !visible.length" @retry="load" />
   </view>
 </template>
