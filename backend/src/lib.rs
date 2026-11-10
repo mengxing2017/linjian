@@ -21,3 +21,5 @@ pub mod source_access;
 pub mod content_publication;
 
 pub mod miniapp_users;
+
+pub mod operations;
