@@ -24,6 +24,8 @@ pub const TABLES: &[&str] = &[
     "media_assets",
     "operational_media",
     "resource_publications",
+    "customer_config",
+    "banner_metric_events",
     "audit_events",
     "legacy_id_map",
     "legacy_aliases",
