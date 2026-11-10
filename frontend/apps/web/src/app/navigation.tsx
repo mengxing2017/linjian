@@ -12,9 +12,10 @@ import {
   UsergroupAddOutlined,
 } from '@ant-design/icons'
 
-export type NavigationDomain = 'forum' | 'school' | 'source' | 'administration'
+export type NavigationDomain = 'forum' | 'operations' | 'school' | 'source' | 'administration'
 export const navigationDomains = [
   { key: 'forum', label: '论坛功能' },
+  { key: 'operations', label: '运营中心' },
   { key: 'school', label: '学校管理' },
   { key: 'source', label: '来源推送' },
   { key: 'administration', label: '系统管理' },
@@ -30,6 +31,7 @@ export interface NavigationItem {
   hidden?: boolean
 }
 export const navigation: NavigationItem[] = [
+
   {
     key: 'posts',
     icon: <FileSearchOutlined />,
@@ -43,8 +45,8 @@ export const navigation: NavigationItem[] = [
   {
     key: 'cases',
     icon: <AlertOutlined />,
-    label: '举报与反馈',
-    description: '处理用户举报与反馈，保留处置记录。',
+    label: '举报管理',
+    description: '处理用户举报，保留处置记录。',
     domain: 'forum',
     scope: 'school',
     capability: 'school.read',
@@ -69,6 +71,10 @@ export const navigation: NavigationItem[] = [
   },
   { key: 'blocked-words', icon: <FilterOutlined />, label: '屏蔽词管理', description: '管理本校及平台内容屏蔽词。', domain: 'forum', scope: 'school', capability: 'school.read' },
   { key: 'platform-blocked-words', icon: <FilterOutlined />, label: '平台屏蔽词管理', description: '管理所有学校共用的屏蔽词。', domain: 'forum', scope: 'global', capability: 'global.manage' },
+  { key: 'group-qrcodes', label: '群二维码', description: '管理群二维码及展示时机。', domain: 'operations', scope: 'selectable', capability: 'resources.read', icon: <AppstoreOutlined /> },
+  { key: 'home-banners', label: '首页广告位', description: '管理首页广告及曝光点击统计。', domain: 'operations', scope: 'selectable', capability: 'resources.read', icon: <AppstoreOutlined /> },
+  { key: 'customer-config', label: '客户配置', description: '配置平台合作、加盟与客服二维码。', domain: 'operations', scope: 'global', capability: 'global.manage', icon: <SettingOutlined /> },
+  { key: 'feedback', label: '投诉反馈', description: '查询与删除用户投诉反馈。', domain: 'operations', scope: 'school', capability: 'school.read', icon: <AlertOutlined /> },
   {
     key: 'schools',
     icon: <BankOutlined />,

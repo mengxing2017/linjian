@@ -51,7 +51,7 @@ it('shows role-appropriate navigation and routes business selections', () => {
     'page',
   )
   expect(screen.queryByRole('menuitem', { name: '评论审核' })).toBeNull()
-  fireEvent.click(screen.getByRole('menuitem', { name: '举报与反馈' }))
+  fireEvent.click(screen.getByRole('menuitem', { name: '举报管理' }))
   expect(onNavigate).toHaveBeenCalledWith('cases')
   expect(screen.queryByRole('menuitem', {name:'手机设备'})).toBeNull()
 

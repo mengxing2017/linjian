@@ -8,6 +8,7 @@ import { MiniappUsers } from '../miniapp-users'
 import { SourceBindings, SourceConnections } from '../source-access'
 import { Directory } from './directory'
 import { Accounts, Schools } from './platform'
+import { OperationResources, CustomerConfiguration, OperationFeedback } from '../operations'
 import { GlobalResources } from './global-resources'
 import { BlockedWords } from './blocked-words'
 import { SchoolWorkspacePage } from './school-workspace-page'
@@ -26,7 +27,7 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
   const knownPage = navigation.find(n => n.key === requestedTab)
   const tab = requestedTab
   const denied = !allowedKeys.includes(tab)
-  const globalScope = knownPage?.scope === 'global' || (knownPage?.scope === 'selectable' && user.platform_admin && params.get('scope') !== 'school')
+  const globalScope = knownPage?.scope === 'global'
   const navigate = (key: string) =>
     setParams((previous) => {
       const next = new URLSearchParams(previous)
@@ -40,6 +41,20 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
     await cache.invalidateQueries({ queryKey: ['business'] })
     await cache.invalidateQueries({ queryKey: ['directory'] })
     await cache.invalidateQueries({ queryKey: ['linjian', 'school-management'] })
+  }
+  const legacyKind = params.get('kind') ?? params.get('subview')
+  if ((requestedTab === 'resources' || requestedTab === 'platform-resources') && (legacyKind === 'banner' || legacyKind === 'qrcode')) {
+    const next = new URLSearchParams(params)
+    next.set('view', legacyKind === 'banner' ? 'home-banners' : 'group-qrcodes')
+    next.delete('kind'); next.delete('subview')
+    if (requestedTab === 'platform-resources') next.set('scope','platform')
+    return <Navigate to={{search:`?${next}`}} replace />
+  }
+  if (requestedTab === 'cases' && legacyKind === 'feedback') {
+    const next = new URLSearchParams(params)
+    next.set('view','feedback'); next.delete('kind'); next.delete('subview')
+    if (params.get('id')) next.set('feedback',params.get('id')!)
+    return <Navigate to={{search:`?${next}`}} replace />
   }
   if (requestedTab === 'comments') {
     const next = new URLSearchParams(params)
@@ -62,6 +77,9 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
         <>请核对当前学校与角色，或从导航选择已授权功能。<Button onClick={fallback}>返回可用功能</Button></>
       } />
     }
+    if (tab === 'customer-config' && user.platform_admin) return <CustomerConfiguration />
+    if (tab === 'group-qrcodes' || tab === 'home-banners') return <OperationResources key={`${school?.id}:${tab}`} module={tab} school={school?.id} platformAdmin={user.platform_admin} schoolAdmin={user.platform_admin || role === 'admin'} />
+    if (tab === 'feedback' && school) return <OperationFeedback key={school.id} school={school.id} canDelete={user.platform_admin || role === 'admin'} />
     if (tab === 'miniapp-users') {
       return <MiniappUsers key={school?.id ?? 'no-school'} school={school?.id}
         platformAdmin={user.platform_admin} schoolAdmin={role === 'admin'} schools={q.data ?? []} />
