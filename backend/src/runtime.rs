@@ -159,9 +159,12 @@ async fn serve_inner(
             tokio::time::sleep(std::time::Duration::from_secs(5)).await;
         }
     });
-    let result = axum::serve(listener, http::app_router(application))
-        .with_graceful_shutdown(shutdown_signal())
-        .await;
+    let result = axum::serve(
+        listener,
+        http::app_router(application).into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await;
     outbox_task.abort();
     let _ = outbox_task.await;
     artwork_worker.abort();
