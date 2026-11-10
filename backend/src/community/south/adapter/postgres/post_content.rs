@@ -13,6 +13,16 @@ pub(super) async fn validate(
     v: &PostInput,
 ) -> Result<()> {
     v.validate(s)?;
+    let mut selected = std::collections::HashSet::new();
+    for id in &v.candidate_tag_ids {
+        require(selected.insert(id), "候选标签重复")?;
+        let name: String = sqlx::query_scalar("SELECT name FROM home_menu_tags WHERE school_id=$1 AND id=$2 AND deleted_at IS NULL AND source_type='admin' AND enable_status='enabled' AND menu_status IN ('shown','hot') FOR SHARE")
+            .bind(s).bind(id).fetch_optional(&mut **tx).await?.ok_or_else(|| Error::Invalid("候选标签已失效，请重新选择".into()))?;
+        require(
+            v.tags.iter().any(|tag| tag.trim() == name),
+            "候选标签与提交名称不一致",
+        )?;
+    }
     for path in &v.images {
         let id = path
             .rsplit('/')

@@ -10,6 +10,8 @@ pub struct PostInput {
     pub images: Vec<String>,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub candidate_tag_ids: Vec<Uuid>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub revision: Option<i64>,
 }
@@ -18,7 +20,7 @@ impl PostInput {
         text(&self.title, 1, 200)?;
         text(&self.content, 1, 20000)?;
         require(
-            self.images.len() <= 9 && self.tags.len() <= 10,
+            self.images.len() <= 9 && self.tags.len() <= 10 && self.candidate_tag_ids.len() <= 10,
             "图片或标签过多",
         )?;
         for image in &self.images {

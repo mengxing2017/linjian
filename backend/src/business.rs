@@ -99,6 +99,7 @@ pub struct Page {
     pub visibility: Option<String>,
     pub mine: Option<bool>,
     pub kind: Option<String>,
+    pub tag: Option<String>,
 }
 impl Page {
     /// Fetch one extra row to determine the next-page state without guessing totals.
