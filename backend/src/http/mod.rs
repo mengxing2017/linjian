@@ -24,6 +24,7 @@ pub fn app_router(application: Application) -> Router {
         .route("/api/v1/system", get(remote::system_info))
         .merge(crate::identity::north::remote::router())
 .merge(crate::schools::north::remote::router())
+.merge(crate::schools::north::home_menu_remote::router())
 .merge(crate::schools::north::resource_remote::router())
 .merge(crate::community::north::remote::router())
 .merge(crate::integrations::north::remote::router())
