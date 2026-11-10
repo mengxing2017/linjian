@@ -13,7 +13,7 @@ fn invalid(message: &str) -> Error {
     Error::Invalid(message.into())
 }
 const MAX_EXPANDED: u64 = 24 * 1024 * 1024;
-fn coordinate(value: &[u8]) -> Result<()> {
+fn coordinate_limit(value: &[u8], max_rows: usize, max_cols: usize) -> Result<()> {
     let mut col = 0usize;
     let mut row = 0usize;
     for &b in value {
@@ -28,11 +28,11 @@ fn coordinate(value: &[u8]) -> Result<()> {
         }
     }
     require(
-        (1..=4).contains(&col) && (1..=MAX_ROWS + 1).contains(&row),
+        (1..=max_cols).contains(&col) && (1..=max_rows + 1).contains(&row),
         "工作表最多 201 行、4 列",
     )
 }
-fn preflight_xlsx(bytes: &[u8]) -> Result<()> {
+fn preflight_xlsx(bytes: &[u8], max_rows: usize, max_cols: usize) -> Result<()> {
     let mut zip = zip::ZipArchive::new(Cursor::new(bytes)).map_err(|_| invalid("XLSX 文件无效"))?;
     require(zip.len() <= 128, "工作簿文件数量超限")?;
     let mut total = 0u64;
@@ -69,7 +69,11 @@ fn preflight_xlsx(bytes: &[u8]) -> Result<()> {
                                 let attr = attr.map_err(|_| invalid("工作表范围无效"))?;
                                 if attr.key.as_ref() == "ref" {
                                     for coordinate_value in attr.value.split(':') {
-                                        coordinate(coordinate_value.as_bytes())?;
+                                        coordinate_limit(
+                                            coordinate_value.as_bytes(),
+                                            max_rows,
+                                            max_cols,
+                                        )?;
                                     }
                                 }
                             }
@@ -81,7 +85,7 @@ fn preflight_xlsx(bytes: &[u8]) -> Result<()> {
                                     require(
                                         attr.value
                                             .parse::<usize>()
-                                            .is_ok_and(|r| r > 0 && r <= MAX_ROWS + 1),
+                                            .is_ok_and(|r| r > 0 && r <= max_rows + 1),
                                         "工作表行数超限",
                                     )?;
                                 }
@@ -89,13 +93,13 @@ fn preflight_xlsx(bytes: &[u8]) -> Result<()> {
                         }
                         if e.local_name().as_ref() == "c" {
                             cells += 1;
-                            require(cells <= (MAX_ROWS + 1) * 4, "工作表单元格数量超限")?;
+                            require(cells <= (max_rows + 1) * max_cols, "工作表单元格数量超限")?;
                             let mut has_coordinate = false;
                             for attr in e.attributes() {
                                 let attr = attr.map_err(|_| invalid("工作表坐标无效"))?;
                                 if attr.key.as_ref() == "r" {
                                     has_coordinate = true;
-                                    coordinate(attr.value.as_bytes())?;
+                                    coordinate_limit(attr.value.as_bytes(), max_rows, max_cols)?;
                                 }
                             }
                             require(has_coordinate, "工作表单元格缺少坐标")?;
@@ -112,7 +116,7 @@ fn preflight_xlsx(bytes: &[u8]) -> Result<()> {
     }
     Ok(())
 }
-fn preflight_xls(bytes: &[u8]) -> Result<()> {
+fn preflight_xls(bytes: &[u8], max_rows: usize, max_cols: usize) -> Result<()> {
     let mut cfb =
         cfb::CompoundFile::open(Cursor::new(bytes)).map_err(|_| invalid("XLS 文件无效"))?;
     require(
@@ -153,14 +157,14 @@ fn preflight_xls(bytes: &[u8]) -> Result<()> {
         }
         if code == 0x0200 && (10..14).contains(&len) {
             require(
-                u16at(2) <= MAX_ROWS + 1 && u16at(6) <= 4,
+                u16at(2) <= max_rows + 1 && u16at(6) <= max_cols,
                 "工作表最多 201 行、4 列",
             )?;
         }
         if code == 0x0200 && len >= 14 {
             let rows = u32::from_le_bytes(data[4..8].try_into().unwrap()) as usize;
             require(
-                rows <= MAX_ROWS + 1 && u16at(10) <= 4,
+                rows <= max_rows + 1 && u16at(10) <= max_cols,
                 "工作表最多 201 行、4 列",
             )?;
         }
@@ -170,24 +174,26 @@ fn preflight_xls(bytes: &[u8]) -> Result<()> {
         ) && len >= 4
         {
             require(
-                u16at(0) < MAX_ROWS + 1 && u16at(2) < 4,
+                u16at(0) < max_rows + 1 && u16at(2) < max_cols,
                 "工作表最多 201 行、4 列",
             )?;
             if matches!(code, 0x00bd | 0x00be) {
-                require(len >= 6 && u16at(len - 2) < 4, "工作表列数超限")?;
+                require(len >= 6 && u16at(len - 2) < max_cols, "工作表列数超限")?;
             }
             require(code != 0x0006, "导入不接受公式，请先粘贴为纯文本")?;
         }
     }
     Ok(())
 }
-pub fn parse(
+pub(crate) fn read_table(
     name: &str,
     bytes: &[u8],
-    school: Uuid,
-) -> Result<(Vec<ImportRow>, Vec<ImportRowError>)> {
+    max_bytes: usize,
+    max_rows: usize,
+    max_cols: usize,
+) -> Result<(Vec<Vec<String>>, Vec<usize>)> {
     require(
-        !bytes.is_empty() && bytes.len() <= MAX_BYTES,
+        !bytes.is_empty() && bytes.len() <= max_bytes,
         "文件须为 5 MiB 以内的非空文件",
     )?;
     let extension = name.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
@@ -199,9 +205,9 @@ pub fn parse(
             .from_reader(bytes);
         let mut rows = Vec::new();
         for record in reader.records() {
-            require(rows.len() <= MAX_ROWS, "最多导入 200 条帖子")?;
+            require(rows.len() <= max_rows, "最多导入 200 条帖子")?;
             let record = record.map_err(|_| invalid("CSV 必须使用 UTF-8 编码，且各行列数一致"))?;
-            require(record.len() <= 4, "最多四列")?;
+            require(record.len() <= max_cols, "最多四列")?;
             line_numbers.push(
                 record
                     .position()
@@ -213,8 +219,8 @@ pub fn parse(
         rows
     } else {
         match extension.as_str() {
-            "xlsx" => preflight_xlsx(bytes)?,
-            "xls" => preflight_xls(bytes)?,
+            "xlsx" => preflight_xlsx(bytes, max_rows, max_cols)?,
+            "xls" => preflight_xls(bytes, max_rows, max_cols)?,
             _ => return Err(invalid("仅支持 CSV、XLS、XLSX")),
         }
         let mut workbook = calamine::open_workbook_auto_from_rs(Cursor::new(bytes))
@@ -226,7 +232,7 @@ pub fn parse(
             .map_err(|_| invalid("工作表解析失败"))?;
         require(range.start() == Some((0, 0)), "表头须从 A1 单元格开始")?;
         require(
-            range.height() <= MAX_ROWS + 1 && range.width() <= 4,
+            range.height() <= max_rows + 1 && range.width() <= max_cols,
             "工作表最多 201 行、4 列",
         )?;
         range
@@ -242,6 +248,14 @@ pub fn parse(
             })
             .collect()
     };
+    Ok((table, line_numbers))
+}
+pub fn parse(
+    name: &str,
+    bytes: &[u8],
+    school: Uuid,
+) -> Result<(Vec<ImportRow>, Vec<ImportRowError>)> {
+    let (table, line_numbers) = read_table(name, bytes, MAX_BYTES, MAX_ROWS, 4)?;
     require(
         table.len() > 1 && table.len() <= MAX_ROWS + 1,
         "需包含表头和 1 至 200 条帖子",
@@ -289,6 +303,7 @@ pub fn parse(
                 content: cell("正文").into(),
                 tags: array("标签名称")?,
                 images: array("图集")?,
+                candidate_tag_ids: Vec::new(),
                 revision: None,
             };
             require(
@@ -335,8 +350,8 @@ mod tests {
     }
     #[test]
     fn spreadsheet_coordinates_are_bounded() {
-        assert!(coordinate(b"D201").is_ok());
-        assert!(coordinate(b"XFD1048576").is_err());
+        assert!(coordinate_limit(b"D201", MAX_ROWS, 4).is_ok());
+        assert!(coordinate_limit(b"XFD1048576", MAX_ROWS, 4).is_err());
         assert!(parse("a.xls", b"broken", Uuid::nil()).is_err());
         assert!(parse("a.xlsm", b"broken", Uuid::nil()).is_err());
     }
