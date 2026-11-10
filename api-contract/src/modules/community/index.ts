@@ -7,6 +7,7 @@ export interface PostInput {
   content: string
   images: string[]
   tags: string[]
+  candidate_tag_ids?: string[]
   revision?: number
 }
 export interface Comment extends Row {
@@ -36,6 +37,7 @@ export interface FeedFilter {
   search?: string
   mine?: boolean
   kind?: 'collect' | 'following'
+  tag?: string
 }
 export type SchoolResource = import('../product-workflows/client').PublishedResource
 export function pageQuery(page = 1) {
@@ -46,7 +48,7 @@ export function createCommunityClient(client: Client) {
   const part = encodeURIComponent
   return {
     posts(s: string, filter: FeedFilter = {}, signal?: Cancellation) {
-      const query = `${pageQuery(filter.page)}&search=${part(filter.search ?? '')}&mine=${!!filter.mine}${filter.kind ? `&kind=${filter.kind}` : ''}`
+      const query = `${pageQuery(filter.page)}&search=${part(filter.search ?? '')}&mine=${!!filter.mine}${filter.kind ? `&kind=${filter.kind}` : ''}&tag=${part(filter.tag ?? '')}`
       return client.requestCollection<Post>(scope(s, 'posts') + '?' + query, signal)
     },
     post: (s: string, id: string, signal?: Cancellation) =>
