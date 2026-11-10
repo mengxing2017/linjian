@@ -2774,6 +2774,10 @@ async fn case_management_projection_handling_and_upgrade() {
         .unwrap()
         .is_none()
     );
+    // The current application requires all later forward-only schema extensions.
+    for migration in &migrations[target + 1..] {
+        sqlx::raw_sql(&migration.sql).execute(&pool).await.unwrap();
+    }
     sqlx::query("INSERT INTO miniapp_users(account_id,nickname) VALUES($1,'提交人昵称')")
         .bind(root)
         .execute(&pool)
@@ -4089,6 +4093,434 @@ async fn blocked_words_upgrade_preserves_resources_and_rejects_duplicates() {
             .await
             .unwrap();
     assert_eq!(history, 1);
+    pool.close().await;
+    sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
+        .execute(&admin)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
+async fn operations_scope_metrics_configuration_and_feedback_deletion() {
+    use linjian_api::operations::{
+        domain::Query,
+        north::local::Service,
+        south::{adapter::postgres::Repository, port::Command},
+    };
+    let admin = PgPool::connect(
+        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
+    )
+    .await
+    .unwrap();
+    let schema = format!("forum_operations_{}", Uuid::new_v4().simple());
+    let pool = isolated(&admin, &schema).await;
+    database::migrate(&pool).await.unwrap();
+    let app = bootstrap::build_application(pool.clone());
+    let root = app
+        .identity
+        .bootstrap("root", "管理员", "test-password-at-least-12", true)
+        .await
+        .unwrap();
+    let (token, actor) = app
+        .identity
+        .0
+        .session(root, "browser", false)
+        .await
+        .unwrap();
+    let s: Uuid = app.schools.create(&actor, "运营学校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let other: Uuid = app.schools.create(&actor, "其他学校").await.unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let media = linjian_api::schools::north::resources::Service(
+        linjian_api::schools::south::adapter::postgres::Repository(pool.clone()),
+    );
+    let mut png = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::new_rgb8(2, 2)
+        .write_to(&mut png, image::ImageFormat::Png)
+        .unwrap();
+    let asset = media
+        .upload(&actor, Some(s), png.get_ref().clone())
+        .await
+        .unwrap();
+    let global = media
+        .upload(&actor, None, png.get_ref().clone())
+        .await
+        .unwrap();
+    let ops = Service(Repository(pool.clone()));
+    let input = |image: Value, title: &str| {
+        serde_json::from_value(json!({"revision":0,"title":title,"content":"说明","image_ref":image,"action":{"kind":"none"},"active":true,"sort_order":0,"starts_at":null,"ends_at":null,"popup_strategy":"daily","popup_interval_days":1})).unwrap()
+    };
+    let banner = ops
+        .execute(
+            &actor,
+            Some(s),
+            Command::Save {
+                kind: "banner".into(),
+                id: None,
+                input: input(asset["image_ref"].clone(), "校园广告"),
+            },
+        )
+        .await
+        .unwrap();
+    let id: Uuid = banner["id"].as_str().unwrap().parse().unwrap();
+    let direct = ops
+        .execute(
+            &actor,
+            Some(s),
+            Command::Get {
+                kind: "banner".into(),
+                id,
+            },
+        )
+        .await
+        .unwrap();
+    assert!(
+        direct["image_url"]
+            .as_str()
+            .unwrap()
+            .contains("/operations-images/")
+    );
+    let platform = ops
+        .execute(
+            &actor,
+            None,
+            Command::Save {
+                kind: "banner".into(),
+                id: None,
+                input: input(global["image_ref"].clone(), "平台广告"),
+            },
+        )
+        .await
+        .unwrap();
+    let qr = ops
+        .execute(
+            &actor,
+            None,
+            Command::Save {
+                kind: "qrcode".into(),
+                id: None,
+                input: input(global["image_ref"].clone(), "平台群"),
+            },
+        )
+        .await
+        .unwrap();
+    assert!(
+        ops.execute(
+            &actor,
+            Some(other),
+            Command::Save {
+                kind: "banner".into(),
+                id: None,
+                input: input(asset["image_ref"].clone(), "跨校图片")
+            }
+        )
+        .await
+        .is_err()
+    );
+    let display = ops
+        .execute(&actor, Some(s), Command::Display)
+        .await
+        .unwrap();
+    assert_eq!(display["banners"].as_array().unwrap().len(), 2);
+    assert_eq!(display["banners"][0]["id"], banner["id"]);
+    assert_eq!(display["banners"][1]["id"], platform["id"]);
+    assert_eq!(display["qrcode"]["id"], qr["id"]);
+    let event_id = Uuid::new_v4();
+    let cycle = Uuid::new_v4();
+    let ev = |event_id, event_type: &str| {
+        serde_json::from_value(json!({"event_id":event_id,"resource_id":id,"event_type":event_type,"display_cycle":cycle,"occurred_at":chrono::Utc::now()})).unwrap()
+    };
+    ops.execute(&actor, Some(s), Command::Event(ev(event_id, "view")))
+        .await
+        .unwrap();
+    ops.execute(&actor, Some(s), Command::Event(ev(event_id, "view")))
+        .await
+        .unwrap();
+    ops.execute(&actor, Some(s), Command::Event(ev(Uuid::new_v4(), "view")))
+        .await
+        .unwrap();
+    let click = Uuid::new_v4();
+    let (a, b) = tokio::join!(
+        ops.execute(&actor, Some(s), Command::Event(ev(click, "click"))),
+        ops.execute(&actor, Some(s), Command::Event(ev(click, "click")))
+    );
+    a.unwrap();
+    b.unwrap();
+    let counts: (i64, i64, i64) =
+        sqlx::query_as("SELECT views,clicks,revision FROM school_resources WHERE id=$1")
+            .bind(id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(counts, (1, 1, 1));
+    assert!(
+        ops.execute(
+            &actor,
+            Some(other),
+            Command::Event(ev(Uuid::new_v4(), "view"))
+        )
+        .await
+        .is_err()
+    );
+    // A browser operator can read both scopes but cannot change resources or customer settings.
+    let uid = app
+        .identity
+        .bootstrap("operator", "运营", "test-password-at-least-12", false)
+        .await
+        .unwrap();
+    app.schools
+        .0
+        .grant(&actor, s, uid, "operator")
+        .await
+        .unwrap();
+    let (_, operator) = app.identity.0.session(uid, "browser", false).await.unwrap();
+    assert!(
+        ops.execute(
+            &operator,
+            Some(s),
+            Command::List {
+                kind: "banner".into(),
+                q: Query::default()
+            }
+        )
+        .await
+        .is_ok()
+    );
+    assert!(
+        ops.execute(
+            &operator,
+            Some(s),
+            Command::List {
+                kind: "banner".into(),
+                q: Query {
+                    defaults: true,
+                    ..Default::default()
+                }
+            }
+        )
+        .await
+        .is_ok()
+    );
+    assert!(
+        ops.execute(
+            &operator,
+            Some(s),
+            Command::Delete {
+                kind: "banner".into(),
+                id,
+                revision: 1
+            }
+        )
+        .await
+        .is_err()
+    );
+    assert!(
+        ops.execute(&operator, None, Command::Customer)
+            .await
+            .is_err()
+    );
+    let cfg=serde_json::from_value(json!({"revision":0,"enabled":true,"business_asset_id":null,"join_asset_id":null,"service_asset_id":null,"fallback_asset_id":global["id"],"note":""})).unwrap();
+    ops.execute(&actor, None, Command::SaveCustomer(cfg))
+        .await
+        .unwrap();
+    let display = ops
+        .execute(&actor, Some(s), Command::Display)
+        .await
+        .unwrap();
+    assert_eq!(display["customer"]["enabled"], true);
+    assert!(
+        display["customer"]["business"]
+            .as_str()
+            .unwrap()
+            .contains("/customer-images/business?revision=")
+    );
+    sqlx::query("UPDATE operational_media SET created_at=now()-interval '9 days'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    linjian_api::schools::south::adapter::postgres::Repository(pool.clone())
+        .cleanup_artwork()
+        .await
+        .unwrap();
+    assert!(
+        ops.execute(&actor, Some(s), Command::CustomerMedia("business".into()))
+            .await
+            .is_ok()
+    );
+    let image = app.media.put(&actor, s, png.into_inner()).await.unwrap();
+    let submission = Uuid::new_v4();
+    let feedback = || {
+        serde_json::from_value(json!({"feedback_type":"bug_report","content":"页面问题","contact":"微信联系","images":[image],"submission_key":submission})).unwrap()
+    };
+    let f = ops
+        .execute(
+            &actor,
+            Some(s),
+            Command::Submit {
+                input: feedback(),
+                ip: Some("127.0.0.1".into()),
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        ops.execute(
+            &actor,
+            Some(s),
+            Command::Submit {
+                input: feedback(),
+                ip: None
+            }
+        )
+        .await
+        .unwrap()["id"],
+        f["id"]
+    );
+    let fid: Uuid = f["id"].as_str().unwrap().parse().unwrap();
+    let detail = ops
+        .execute(&operator, Some(s), Command::FeedbackGet(fid))
+        .await
+        .unwrap();
+    assert_eq!(detail["submitted_ip"], "127.0.0.1");
+    assert_eq!(detail["feedback_type"], "bug_report");
+    assert!(
+        ops.execute(
+            &operator,
+            Some(s),
+            Command::FeedbackDelete {
+                id: fid,
+                revision: 1
+            }
+        )
+        .await
+        .is_err()
+    );
+    assert!(
+        ops.execute(
+            &actor,
+            Some(other),
+            Command::FeedbackDelete {
+                id: fid,
+                revision: 1
+            }
+        )
+        .await
+        .is_err()
+    );
+    ops.execute(
+        &actor,
+        Some(s),
+        Command::FeedbackDelete {
+            id: fid,
+            revision: 1,
+        },
+    )
+    .await
+    .unwrap();
+    assert!(
+        ops.execute(&actor, Some(s), Command::FeedbackGet(fid))
+            .await
+            .is_err()
+    );
+    assert!(
+        app.community
+            .cases(&actor, s, Default::default())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        app.community
+            .resolve(
+                &actor,
+                s,
+                fid,
+                serde_json::from_value(
+                    json!({"revision":2,"state":"resolved","resolution":"不应复活"})
+                )
+                .unwrap()
+            )
+            .await
+            .is_err()
+    );
+    ops.execute(
+        &actor,
+        Some(s),
+        Command::Delete {
+            kind: "banner".into(),
+            id,
+            revision: 1,
+        },
+    )
+    .await
+    .unwrap();
+    assert!(
+        ops.execute(&actor, Some(s), Command::Event(ev(Uuid::new_v4(), "view")))
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM forum_outbox")
+            .fetch_one(&pool)
+            .await
+            .unwrap(),
+        0
+    );
+    // HTTP verifies the JSON:API boundary plus Origin/CSRF, not just repository methods.
+    let router = linjian_api::http::app_router(app);
+    let path = format!("/api/v1/schools/{s}/group-qrcodes");
+    let res = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(&path)
+                .header("cookie", format!("linjian_session={token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    for path in [
+        "/api/v1/platform/group-qrcodes",
+        "/api/v1/platform/home-banners",
+        "/api/v1/platform/customer-config",
+    ] {
+        let res = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .header("cookie", format!("linjian_session={token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK, "{path}");
+    }
+    let res = router
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(&path)
+                .header("cookie", format!("linjian_session={token}"))
+                .header("content-type", "application/vnd.api+json")
+                .body(Body::from(
+                    json!({"data":{"type":"group-qrcodes","attributes":{}}}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::FORBIDDEN);
     pool.close().await;
     sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
         .execute(&admin)
