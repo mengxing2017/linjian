@@ -2,7 +2,7 @@
 
 独立校园论坛，使用 Rust + Axum + PostgreSQL、React Web 和 uni-app Vue 3 微信小程序。论坛业务来自原项目，代码和依赖已复制到本仓库，原项目保持不变。
 
-本项目包含：帖子与评论、点赞收藏关注、通知、举报反馈、媒体、审核、展示资源与屏蔽词、平台默认展示配置、学校管理、学校设置、学校成员与权限、小程序用户管理、登录账号管理及平台管理员管理。整个 `frontend/apps/miniapp/` 均为本项目的论坛客户端；文件对应清单见 [小程序迁移清单](docs/miniapp-migration-manifest.json)。
+本项目包含：帖子与评论、点赞收藏关注、通知、举报反馈、媒体、审核、展示资源与屏蔽词、平台默认展示配置、学校管理、学校设置、学校成员与权限、小程序用户管理、登录账号管理及平台管理员管理。整个 `frontend/apps/miniapp/` 均为本项目的论坛客户端。
 
 不包含微信群发送、手机设备、目标群或官方群发任务。论坛通过持久 Outbox 提供来源事件，发送运营仍在独立转发项目中预览并人工确认。
 
@@ -78,4 +78,4 @@ LINJIAN_POSTGRES_BIN=/path/to/postgresql17/bin python3 tools/test_migrations.py
 
 Outbox 在帖子事务中生成事件，后台每 5 秒扫描，失败指数退避并持久保留。接收端未就绪时将 `LINJIAN_WEKEEPER_ORIGIN`、`LINJIAN_WEKEEPER_KEY_ID`、`LINJIAN_WEKEEPER_SECRET` 全部留空，论坛正常运行。填写三项并重建 API 后，在“WeKeeper 连接”验证配置、绑定学校路由；secret 只保存在后端部署配置，不入库，不需要本地加密主密钥。详见 [WeKeeper 部署配置](docs/runbooks/wekeeper-configuration.md)。接入后在管理后台“来源发件记录”查看收件与发送摘要、重试原事件。来源密钥不等于发送授权。
 
-协议、请求头及跨语言签名向量见 [来源推送协议](docs/references/source-protocol.md)。实现与尚待实际环境验证的事项见 [迁移状态](docs/migration-status.md)。
+协议、请求头及跨语言签名向量见 [来源推送协议](docs/references/source-protocol.md)。
