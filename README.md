@@ -26,6 +26,8 @@
 
 ## 本地开发
 
+预览文档：运行 `make docs-install`、`make docs`，访问 <http://127.0.0.1:22598/docs/>；仅需 Node.js 和 pnpm，无需启动业务服务。
+
 环境版本由现有 `devbox.json` 固定。运行：
 
 ```sh

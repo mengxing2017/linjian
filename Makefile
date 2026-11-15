@@ -1,5 +1,14 @@
 .PHONY: install check check-web check-backend check-miniapp test-unit test-integration fmt api-dev dev-embedded web-dev miniapp-dev compose-config
+.PHONY: docs-install docs docs-build docs-preview
 .PHONY: compose-up
+docs-install:
+	pnpm --dir docs install --frozen-lockfile
+docs:
+	pnpm --dir docs dev
+docs-build:
+	pnpm --dir docs build
+docs-preview:
+	pnpm --dir docs preview
 install:
 	pnpm --dir api-contract install --frozen-lockfile
 	pnpm --dir frontend install --frozen-lockfile
