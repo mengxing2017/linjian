@@ -1,6 +1,6 @@
 # 操作审计
 
-状态：已实现并在 bootstrap/http 装配。运行和验收见 根 README.md 与 docs/migration.md。
+状态：已实现并在 bootstrap/http 装配。运行和验收见 根 README.md 与 docs/runbooks/migration.md。
 
 职责：身份、学校、操作对象、结果及请求关联的不可变操作记录。
 

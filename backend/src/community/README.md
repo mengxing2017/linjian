@@ -1,6 +1,6 @@
 # 社区业务
 
-状态：已实现并在 bootstrap/http 装配。运行和验收见 根 README.md 与 docs/migration.md。
+状态：已实现并在 bootstrap/http 装配。运行和验收见 根 README.md 与 docs/runbooks/migration.md。
 
 职责：帖子、评论、互动、关注与站内通知。
 

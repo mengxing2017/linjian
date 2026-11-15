@@ -1,6 +1,6 @@
 # 媒体存储
 
-状态：已实现并在 bootstrap/http 装配。运行和验收见 根 README.md 与 docs/migration.md。
+状态：已实现并在 bootstrap/http 装配。运行和验收见 根 README.md 与 docs/runbooks/migration.md。
 
 职责：受控图片上传、文件检查、访问与存储生命周期。
 

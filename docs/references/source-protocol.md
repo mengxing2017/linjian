@@ -12,7 +12,7 @@ WeKeeper 发布 POST `/api/v2/source-authentications`、POST `/api/v2/source-rou
 
 规范字符串依次为版本、key_id、大写方法、完整外部路径、Unix 秒、nonce、幂等键、原文 SHA-256 小写十六进制，以 LF 分隔且无尾 LF。HMAC-SHA256 签名输出小写十六进制。GET 正文为零字节，幂等头为原 event_id；认证和范围检查使用独立请求 UUID。请求时间绝对偏差不超过 300 秒。每次尝试生成新 nonce，重试不改变原文、事件身份或路由。
 
-平台管理员在只读连接页面点击“验证连接”会验证部署配置中的调用方凭据，保存的提示能力只在 60 秒内用于界面提示；每个真实请求仍由 WeKeeper 按当前凭据及授权校验。HTTPS origin 禁止用户信息、query、fragment，所有请求禁止自动重定向。secret 仅从后端配置读取用于签名，不在数据库保存，也不使用本实例加密主密钥；普通读取接口不回显。部署步骤见 [WeKeeper 配置](wekeeper-configuration.md)。
+平台管理员在只读连接页面点击“验证连接”会验证部署配置中的调用方凭据，保存的提示能力只在 60 秒内用于界面提示；每个真实请求仍由 WeKeeper 按当前凭据及授权校验。HTTPS origin 禁止用户信息、query、fragment，所有请求禁止自动重定向。secret 仅从后端配置读取用于签名，不在数据库保存，也不使用本实例加密主密钥；普通读取接口不回显。部署步骤见 [WeKeeper 配置](../runbooks/wekeeper-configuration.md)。
 
 每所学校仅有一条当前消息路由；一个 Linjian 实例只对应一个由后端配置指定的 WeKeeper；各校共用此配置，只维护独立 route_id 与启停状态，无需选择连接。保存配置更新原绑定，停用仍保留该唯一记录。业务事务按学校绑定冻结连接版本、公开内容 origin、来源、路由、正文和摘要。正文有意义变更产生新 event_id 与单调 sequence；浏览、点赞和计数不产生事件。停用学校产生内容撤回，上游不维护学校对象。
 

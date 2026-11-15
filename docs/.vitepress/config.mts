@@ -8,31 +8,36 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: '首页', link: '/' },
-      { text: 'Docker 构建与启动', link: '/docker-images' },
+      { text: 'Docker 构建与启动', link: '/runbooks/docker-images' },
     ],
     sidebar: [
       {
-        text: '启动与配置',
+        text: '部署与运维',
         items: [
-          { text: 'Docker 构建与启动', link: '/docker-images' },
-          { text: '来源连接配置', link: '/wekeeper-configuration' },
+          { text: 'Docker 构建与启动', link: '/runbooks/docker-images' },
+          { text: '来源连接配置', link: '/runbooks/wekeeper-configuration' },
+          { text: '数据迁移', link: '/runbooks/migration' },
         ],
       },
       {
         text: '功能说明',
         items: [
-          { text: '学校信息与主题', link: '/school-profiles' },
-          { text: '小程序用户与登录', link: '/miniapp-users' },
-          { text: '内容全文审核', link: '/content-review' },
-          { text: '小程序内容来源推送', link: '/miniapp-publication' },
-          { text: '运营中心', link: '/operations' },
+          { text: '学校信息与主题', link: '/guide/school-profiles' },
+          { text: '小程序用户与登录', link: '/guide/miniapp-users' },
+          { text: '内容全文审核', link: '/guide/content-review' },
+          { text: '小程序内容来源推送', link: '/guide/miniapp-publication' },
+          { text: '运营中心', link: '/guide/operations' },
         ],
       },
       {
         text: '开发参考',
         items: [
-          { text: '来源推送协议', link: '/source-protocol' },
-          { text: '数据迁移', link: '/migration' },
+          { text: '来源推送协议', link: '/references/source-protocol' },
+        ],
+      },
+      {
+        text: '架构决策',
+        items: [
           { text: '独立论坛架构', link: '/adr/0001-independent-forum' },
         ],
       },

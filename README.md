@@ -6,15 +6,15 @@
 
 不包含微信群发送、手机设备、目标群或官方群发任务。论坛通过持久 Outbox 提供来源事件，发送运营仍在独立转发项目中预览并人工确认。
 
-小程序注册、学校用户管理、封禁与权限隔离见 [小程序用户管理与登录](docs/miniapp-users.md)。
+小程序注册、学校用户管理、封禁与权限隔离见 [小程序用户管理与登录](docs/guide/miniapp-users.md)。
 
-学校资料、正常/隐藏状态、品牌图片和小程序三色主题见 [学校信息与主题配置](docs/school-profiles.md)。
+学校资料、正常/隐藏状态、品牌图片和小程序三色主题见 [学校信息与主题配置](docs/guide/school-profiles.md)。
 
-内容审核字段、全文展示与版本冲突处理见 [内容全文审核](docs/content-review.md)。
+内容审核字段、全文展示与版本冲突处理见 [内容全文审核](docs/guide/content-review.md)。
 
-小程序人工审核后的摘要与短链接准备、投递和恢复配置见 [小程序内容来源推送](docs/miniapp-publication.md)。
+小程序人工审核后的摘要与短链接准备、投递和恢复配置见 [小程序内容来源推送](docs/guide/miniapp-publication.md)。
 
-运营中心的二维码、广告、客户配置和投诉反馈见 [运营中心](docs/operations.md)。
+运营中心的二维码、广告、客户配置和投诉反馈见 [运营中心](docs/guide/operations.md)。
 
 ## 目录
 
@@ -22,7 +22,7 @@
 - `frontend/apps/web/`：社区及论坛管理后台。
 - `frontend/apps/miniapp/`：完整微信小程序，独立构建并发布到微信平台。
 - `api-contract/`：本仓库的 `@linjian/api-contract`，含平台中立 client 和共享 fixture。
-- `docs/`：架构、迁移、接入协议与验证记录。
+- `docs/`：按 `runbooks/`（部署运维）、`guide/`（功能使用）、`references/`（开发参考）、`adr/`（架构决策）分类。
 
 ## 本地开发
 
@@ -64,7 +64,7 @@ LINJIAN_POSTGRES_BIN=/path/to/postgresql17/bin python3 tools/test_migrations.py
 
 ## 部署
 
-从配置到登录后台的完整步骤见 [Docker 构建与启动](docs/docker-images.md)。
+从配置到登录后台的完整步骤见 [Docker 构建与启动](docs/runbooks/docker-images.md)。
 
 复制 `env.example` 到 `.env`，配置独立域名、数据库密码和平台应用凭据。执行 `docker compose --env-file .env config --quiet` 核对配置，再构建部署。Compose 只有 `web`、`api`、`postgres`，独立卷名称以 `linjian` 为前缀。Web 镜像仅构建 contract 和 Web，小程序不进入服务镜像。
 
@@ -74,8 +74,8 @@ LINJIAN_POSTGRES_BIN=/path/to/postgresql17/bin python3 tools/test_migrations.py
 
 ## 迁移与推送
 
-[迁移操作说明](docs/migration.md)提供快照导出、空库导入、媒体和权限核对、最终切换及回退步骤。快照包含密码哈希和媒体，文件权限为 0600，不能提交到仓库。
+[迁移操作说明](docs/runbooks/migration.md)提供快照导出、空库导入、媒体和权限核对、最终切换及回退步骤。快照包含密码哈希和媒体，文件权限为 0600，不能提交到仓库。
 
-Outbox 在帖子事务中生成事件，后台每 5 秒扫描，失败指数退避并持久保留。接收端未就绪时将 `LINJIAN_WEKEEPER_ORIGIN`、`LINJIAN_WEKEEPER_KEY_ID`、`LINJIAN_WEKEEPER_SECRET` 全部留空，论坛正常运行。填写三项并重建 API 后，在“WeKeeper 连接”验证配置、绑定学校路由；secret 只保存在后端部署配置，不入库，不需要本地加密主密钥。详见 [WeKeeper 部署配置](docs/wekeeper-configuration.md)。接入后在管理后台“来源发件记录”查看收件与发送摘要、重试原事件。来源密钥不等于发送授权。
+Outbox 在帖子事务中生成事件，后台每 5 秒扫描，失败指数退避并持久保留。接收端未就绪时将 `LINJIAN_WEKEEPER_ORIGIN`、`LINJIAN_WEKEEPER_KEY_ID`、`LINJIAN_WEKEEPER_SECRET` 全部留空，论坛正常运行。填写三项并重建 API 后，在“WeKeeper 连接”验证配置、绑定学校路由；secret 只保存在后端部署配置，不入库，不需要本地加密主密钥。详见 [WeKeeper 部署配置](docs/runbooks/wekeeper-configuration.md)。接入后在管理后台“来源发件记录”查看收件与发送摘要、重试原事件。来源密钥不等于发送授权。
 
-协议、请求头及跨语言签名向量见 [来源推送协议](docs/source-protocol.md)。实现与尚待实际环境验证的事项见 [迁移状态](docs/migration-status.md)。
+协议、请求头及跨语言签名向量见 [来源推送协议](docs/references/source-protocol.md)。实现与尚待实际环境验证的事项见 [迁移状态](docs/migration-status.md)。
