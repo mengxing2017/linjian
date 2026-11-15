@@ -62,6 +62,8 @@ LINJIAN_POSTGRES_BIN=/path/to/postgresql17/bin python3 tools/test_migrations.py
 
 ## 部署
 
+从配置到登录后台的完整步骤见 [Docker 构建与启动](docs/docker-images.md)。
+
 复制 `env.example` 到 `.env`，配置独立域名、数据库密码和平台应用凭据。执行 `docker compose --env-file .env config --quiet` 核对配置，再构建部署。Compose 只有 `web`、`api`、`postgres`，独立卷名称以 `linjian` 为前缀。Web 镜像仅构建 contract 和 Web，小程序不进入服务镜像。
 
 生产部署由 HTTPS 域名终止访问；LINJIAN_PUBLIC_ORIGIN 必须与实际浏览器 Origin 一致。默认宿主机端口为 8091/8444，可由现有反向代理转发或显式设置为域名对应的 80/443。API 和 PostgreSQL 不映射公共宿主机端口。

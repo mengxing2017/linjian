@@ -1,4 +1,5 @@
 .PHONY: install check check-web check-backend check-miniapp test-unit test-integration fmt api-dev dev-embedded web-dev miniapp-dev compose-config
+.PHONY: compose-up
 install:
 	pnpm --dir api-contract install --frozen-lockfile
 	pnpm --dir frontend install --frozen-lockfile
@@ -36,3 +37,7 @@ miniapp-dev:
 	pnpm --dir frontend dev:miniapp
 compose-config:
 	docker compose --env-file .env config --quiet
+compose-up:
+	docker compose --env-file .env config --quiet
+	docker compose --env-file .env build --pull
+	docker compose --env-file .env up -d --no-build --wait --wait-timeout 180

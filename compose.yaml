@@ -1,7 +1,7 @@
 name: linjian
 services:
   postgres:
-    image: postgres:17-bookworm
+    image: ${LINJIAN_POSTGRES_IMAGE:-postgres:17-bookworm}
     environment:
       POSTGRES_DB: linjian
       POSTGRES_USER: linjian
@@ -15,6 +15,7 @@ services:
       retries: 20
     restart: unless-stopped
   api:
+    image: ${LINJIAN_API_IMAGE:-linjian-api:local}
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -51,14 +52,15 @@ services:
       retries: 10
     restart: unless-stopped
   web:
+    image: ${LINJIAN_WEB_IMAGE:-linjian-web:local}
     build:
       context: .
       dockerfile: frontend/Dockerfile
     environment:
       LINJIAN_WEB_LISTEN: ${LINJIAN_WEB_LISTEN:-:80}
     ports:
-      - ${LINJIAN_HTTP_PORT:-8091}:80
-      - ${LINJIAN_HTTPS_PORT:-8444}:443
+      - ${LINJIAN_WEB_BIND_HOST:-0.0.0.0}:${LINJIAN_HTTP_PORT:-8091}:80
+      - ${LINJIAN_WEB_BIND_HOST:-0.0.0.0}:${LINJIAN_HTTPS_PORT:-8444}:443
     volumes:
       - caddy-data:/data
       - caddy-config:/config
