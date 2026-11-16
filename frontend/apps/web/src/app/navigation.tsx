@@ -69,7 +69,7 @@ export const navigation: NavigationItem[] = [
     scope: 'global',
     capability: 'global.manage',
   },
-  { key: 'blocked-words', icon: <FilterOutlined />, label: '屏蔽词管理', description: '管理本校及平台内容屏蔽词。', domain: 'forum', scope: 'school', capability: 'school.read' },
+  { key: 'blocked-words', icon: <FilterOutlined />, label: '学校屏蔽词管理', description: '维护本校屏蔽词，查看对本校生效的平台规则。', domain: 'forum', scope: 'school', capability: 'school.read' },
   { key: 'platform-blocked-words', icon: <FilterOutlined />, label: '平台屏蔽词管理', description: '管理所有学校共用的屏蔽词。', domain: 'forum', scope: 'global', capability: 'global.manage' },
   { key: 'group-qrcodes', label: '群二维码', description: '管理群二维码及展示时机。', domain: 'operations', scope: 'selectable', capability: 'resources.read', icon: <AppstoreOutlined /> },
   { key: 'home-banners', label: '首页广告位', description: '管理首页广告及曝光点击统计。', domain: 'operations', scope: 'selectable', capability: 'resources.read', icon: <AppstoreOutlined /> },

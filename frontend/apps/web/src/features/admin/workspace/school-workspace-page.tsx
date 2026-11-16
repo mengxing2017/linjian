@@ -25,7 +25,7 @@ export function SchoolWorkspacePage({ view, school, platformAdmin, schoolAdmin, 
     case 'home-menu': return <HomeMenu key={school.id} school={school.id} canEdit={schoolAdmin} />
     case 'cases': return <Cases school={school.id} refresh={refresh} />
     case 'resources': return <SchoolResources school={school} canEdit={schoolAdmin} refresh={refresh} />
-    case 'blocked-words': return <BlockedWords key={school.id} school={school.id} canEdit={schoolAdmin} />
+    case 'blocked-words': return <BlockedWords key={school.id} school={school.id} schoolName={school.name} canEdit={schoolAdmin} platformAdmin={platformAdmin} />
     case 'audit': return <AuditLog school={school.id} />
     case 'source-outbox': return <Outbox school={school.id} />
     case 'members': return <Members school={school} platformAdmin={platformAdmin} refresh={refresh} />

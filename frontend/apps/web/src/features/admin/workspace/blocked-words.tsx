@@ -1,9 +1,14 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Alert, Button, Card, Input, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Upload } from 'antd'
 import { browserClient, createBlockedWordsClient, requestMultipart, type BlockedWord, type BlockedWordImport } from './api'
 
-export function BlockedWords({ school, canEdit }: { school?: string; canEdit: boolean }) {
+export function BlockedWords({ school, schoolName, canEdit, platformAdmin = false }: { school?: string; schoolName?: string; canEdit: boolean; platformAdmin?: boolean }) {
+  const [params] = useSearchParams()
+  const platformParams = new URLSearchParams(params)
+  platformParams.set('view', 'platform-blocked-words')
+  platformParams.delete('subview')
   const api = createBlockedWordsClient(browserClient)
   const [global, setGlobal] = useState(false)
   const [search, setSearch] = useState('')
@@ -26,9 +31,12 @@ export function BlockedWords({ school, canEdit }: { school?: string; canEdit: bo
     void run(() => api.order(school, ids, q.data!.order_revision))
   }
   return <section>
-    <Alert showIcon type="info" title="启用的本校和平台屏蔽词共同生效，命中时不能发布。" />
+    <Alert showIcon type="info" title={school
+      ? '本校启用词条与平台启用词条共同生效，命中时不能发布。本校配置不能覆盖平台规则。'
+      : '平台屏蔽词启用后对所有学校生效，命中时不能发布。'} />
+    {school && global && platformAdmin && <Link to={{ search: `?${platformParams}` }}>前往平台屏蔽词管理</Link>}
     {(error || q.error) && <Alert type="error" title={error || q.error?.message} />}
-    <Card title="屏蔽词管理" extra={editable && <Space><Upload accept=".csv,.xlsx" showUploadList={false} beforeUpload={file=>{void run(async()=>setPreview(await requestMultipart<BlockedWordImport>(`${school?`/api/v1/schools/${encodeURIComponent(school)}`:'/api/v1/platform'}/blocked-word-imports`,file)));return false}}><Button>导入</Button></Upload><Button onClick={()=>{const url=URL.createObjectURL(new Blob(['\ufeff屏蔽词,备注,状态\r\n'],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='blocked-words-template.csv';a.click();URL.revokeObjectURL(url)}}>下载模板</Button><Button type="primary" onClick={() => edit()}>添加屏蔽词</Button></Space>}>
+    <Card title={school ? (global ? '平台屏蔽词（只读）' : `学校屏蔽词 · ${schoolName ?? school}`) : '平台屏蔽词管理'} extra={editable && <Space><Upload accept=".csv,.xlsx" showUploadList={false} beforeUpload={file=>{void run(async()=>setPreview(await requestMultipart<BlockedWordImport>(`${school?`/api/v1/schools/${encodeURIComponent(school)}`:'/api/v1/platform'}/blocked-word-imports`,file)));return false}}><Button>导入</Button></Upload><Button onClick={()=>{const url=URL.createObjectURL(new Blob(['\ufeff屏蔽词,备注,状态\r\n'],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='blocked-words-template.csv';a.click();URL.revokeObjectURL(url)}}>下载模板</Button><Button type="primary" onClick={() => edit()}>添加屏蔽词</Button></Space>}>
       <Space wrap>
         {school && <Select aria-label="范围" value={global ? 'global' : 'school'} onChange={v => {setGlobal(v === 'global');setPage(1);setOrdering(false)}} options={[{value:'school',label:'本校词条'},{value:'global',label:'平台词条（只读）'}]} />}
         <Input aria-label="查询屏蔽词" placeholder="屏蔽词或备注" disabled={ordering} value={search} onChange={e => {setSearch(e.target.value);setPage(1)}} />
