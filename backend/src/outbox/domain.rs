@@ -21,7 +21,7 @@ pub struct SourceEvent {
     pub detail_url: Option<String>,
 }
 impl SourceEvent {
-    pub fn document(mut self, origin: &str) -> Result<String> {
+    pub fn document(self) -> Result<String> {
         require(
             self.schema_version == 1 && self.sequence > 0,
             "事件版本无效",
@@ -40,18 +40,6 @@ impl SourceEvent {
                 "缺少正文",
             )?;
         }
-        let origin =
-            url::Url::parse(origin).map_err(|_| Error::Invalid("论坛公开地址无效".into()))?;
-        require(
-            origin.scheme() == "https" && origin.host_str().is_some(),
-            "推送详情地址必须使用 HTTPS",
-        )?;
-        self.detail_url = Some(format!(
-            "{}/community/{}/posts/{}",
-            origin.origin().ascii_serialization(),
-            self.external_organization_id,
-            self.external_content_id
-        ));
         serde_json::to_string(&serde_json::json!({"data":{"type":"source-events","id":self.event_id,"attributes":self}})).map_err(|_| Error::Unavailable)
     }
 }
@@ -108,7 +96,7 @@ mod tests {
         ))
         .unwrap();
         let event: SourceEvent = serde_json::from_value(fixture["event"].clone()).unwrap();
-        let body = event.document(fixture["origin"].as_str().unwrap()).unwrap();
+        let body = event.document().unwrap();
         assert_eq!(body, fixture["body"].as_str().unwrap());
         let canonical = canonical(
             "fixture-key",
@@ -137,9 +125,14 @@ mod tests {
         .unwrap();
         let mut event: SourceEvent = serde_json::from_value(fixture["event"].clone()).unwrap();
         event.schema_version = 2;
-        assert!(event.document("https://forum.example.com").is_err());
-        let event: SourceEvent = serde_json::from_value(fixture["event"].clone()).unwrap();
-        assert!(event.document("http://forum.example.com").is_err());
+        assert!(event.document().is_err());
+        let mut event: SourceEvent = serde_json::from_value(fixture["event"].clone()).unwrap();
+        event.detail_url = Some("opaque content link".into());
+        let body: serde_json::Value = serde_json::from_str(&event.document().unwrap()).unwrap();
+        assert_eq!(
+            body["data"]["attributes"]["detail_url"],
+            "opaque content link"
+        );
         assert_eq!(retry_seconds(0), 5);
         assert_eq!(retry_seconds(1), 10);
         assert_eq!(retry_seconds(i32::MAX), 3600);

@@ -197,17 +197,35 @@ impl Event {
                 && self
                     .content
                     .as_ref()
-                    .is_none_or(|v| v.chars().count() <= 100_000)
-                && self.detail_url.len() <= 2048,
+                    .is_none_or(|v| v.chars().count() <= 100_000),
             "invalid_request",
         )?;
-        origin(&self.detail_url)?;
         Ok(())
     }
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn source_payload_does_not_validate_content_urls() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../api-contract/fixtures/source-v2.json"
+        ))
+        .unwrap();
+        let doc: serde_json::Value =
+            serde_json::from_str(fixture["vectors"][0]["body"].as_str().unwrap()).unwrap();
+        let mut event: Event = serde_json::from_value(doc["data"]["attributes"].clone()).unwrap();
+        for link in [
+            "http://localhost:5173/posts/1",
+            "#小程序://Linjian/详情",
+            "https://example.com/path?t=1",
+            "",
+            "opaque content",
+        ] {
+            event.detail_url = link.into();
+            event.validate().unwrap();
+        }
+    }
     #[test]
     fn published_vectors() {
         let fixtures: serde_json::Value = serde_json::from_str(include_str!(

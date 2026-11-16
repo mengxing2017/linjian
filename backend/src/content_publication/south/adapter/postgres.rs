@@ -11,6 +11,14 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct Repository(pub PgPool);
 impl Repository {
+    pub async fn publish_environment(&self) -> Result<()> {
+        sqlx::query("UPDATE forum_publication_configuration SET public_origin=$1 WHERE singleton")
+            .bind(crate::bootstrap::Options::default().public_origin)
+            .execute(&self.0)
+            .await?;
+        Ok(())
+    }
+
     pub async fn retry(&self, a: &Actor, school: Uuid, id: Uuid, input: Retry) -> Result<()> {
         if !a.browser || !a.can(school, "operator") {
             return Err(Error::NotFound);

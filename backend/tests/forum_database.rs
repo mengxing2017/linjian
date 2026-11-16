@@ -811,7 +811,7 @@ async fn reviewed_miniapp_publication_freezing_and_fencing() {
     let version = Uuid::new_v4();
     let source = Uuid::new_v4();
     sqlx::query("INSERT INTO source_connections(id,name,source_id,origin,key_id,checked_at) VALUES($1,'test',$2,'https://keeper.example.com','test-key',now())").bind(connection).bind(source).execute(&pool).await.unwrap();
-    sqlx::query("INSERT INTO source_connection_versions(id,connection_id,revision,source_id,origin,public_origin) VALUES($1,$2,1,$3,'https://keeper.example.com','https://forum.example.com')").bind(version).bind(connection).bind(source).execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO source_connection_versions(id,connection_id,revision,source_id,origin) VALUES($1,$2,1,$3,'https://keeper.example.com')").bind(version).bind(connection).bind(source).execute(&pool).await.unwrap();
     sqlx::query("UPDATE source_active_configuration SET connection_id=$1")
         .bind(connection)
         .execute(&pool)
@@ -998,10 +998,7 @@ async fn reviewed_miniapp_publication_freezing_and_fencing() {
         body["data"]["attributes"]["content"],
         "第一行 第二行 😀\n查看详情：#小程序://Linjian/发布测试"
     );
-    assert_eq!(
-        body["data"]["attributes"]["detail_url"],
-        format!("https://forum.example.com/community/{school}/posts/{post}")
-    );
+    assert_eq!(body["data"]["attributes"]["detail_url"], link.value);
     store
         .finish(
             &work,
@@ -4526,4 +4523,172 @@ async fn operations_scope_metrics_configuration_and_feedback_deletion() {
         .execute(&admin)
         .await
         .unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
+async fn source_authentication_is_independent_of_content_addresses() {
+    use linjian_api::source_access::{
+        configuration::ConnectionConfig, domain::encode, north::local::BindingInput,
+        south::adapter::postgres::Repository,
+    };
+    let admin = PgPool::connect(
+        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
+    )
+    .await
+    .unwrap();
+    let schema = format!("forum_auth_decoupled_{}", Uuid::new_v4().simple());
+    let pool = isolated(&admin, &schema).await;
+    let migrations = database::MIGRATOR.iter().collect::<Vec<_>>();
+    let target = migrations
+        .iter()
+        .position(|m| m.version == 202611160001)
+        .unwrap();
+    for migration in &migrations[..target] {
+        sqlx::raw_sql(&migration.sql).execute(&pool).await.unwrap();
+    }
+    let app = bootstrap::build_application(pool.clone());
+    let root = app
+        .identity
+        .bootstrap("root", "管理员", "test-password-at-least-12", true)
+        .await
+        .unwrap();
+    let (_, actor) = app
+        .identity
+        .0
+        .session(root, "browser", false)
+        .await
+        .unwrap();
+    let school: Uuid = app
+        .schools
+        .create(&actor, "连接独立性测试校")
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let connection = Uuid::new_v4();
+    let version = Uuid::new_v4();
+    let source = Uuid::new_v4();
+    let post = Uuid::new_v4();
+    sqlx::query("INSERT INTO source_connections(id,name,source_id,origin,key_id,checked_at) VALUES($1,'test',$2,'https://keeper.example.com','test-key',now())").bind(connection).bind(source).execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO source_connection_versions(id,connection_id,revision,source_id,origin,public_origin) VALUES($1,$2,1,$3,'https://keeper.example.com','https://original.example.com')").bind(version).bind(connection).bind(source).execute(&pool).await.unwrap();
+    sqlx::query("UPDATE source_active_configuration SET connection_id=$1")
+        .bind(connection)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let repo = Repository(pool.clone());
+    repo.bind(
+        &actor,
+        school,
+        connection,
+        BindingInput {
+            route_id: "route-a".into(),
+            active: true,
+        },
+        0,
+        1,
+    )
+    .await
+    .unwrap();
+    sqlx::query("INSERT INTO posts(id,school_id,author_id,title,content,audit_status) VALUES($1,$2,$3,'原始标题','原始内容','approved')").bind(post).bind(school).bind(root).execute(&pool).await.unwrap();
+    let original: Value =
+        sqlx::query_scalar("SELECT to_jsonb(o) FROM forum_outbox o WHERE post_id=$1")
+            .bind(post)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    let old_version: Value =
+        sqlx::query_scalar("SELECT to_jsonb(v) FROM source_connection_versions v WHERE id=$1")
+            .bind(version)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    for migration in &migrations[target..] {
+        sqlx::raw_sql(&migration.sql).execute(&pool).await.unwrap();
+    }
+    assert_eq!(
+        old_version,
+        sqlx::query_scalar::<_, Value>(
+            "SELECT to_jsonb(v) FROM source_connection_versions v WHERE id=$1"
+        )
+        .bind(version)
+        .fetch_one(&pool)
+        .await
+        .unwrap()
+    );
+    let config = || {
+        ConnectionConfig::parse(
+            "https://keeper.example.com".into(),
+            "test-key".into(),
+            encode(&[42; 32]),
+        )
+        .unwrap()
+        .unwrap()
+    };
+    // No browser/public address is passed to credential persistence, even when content is local or opaque.
+    for (index, content_address) in ["http://localhost:5173", "opaque content address", ""]
+        .into_iter()
+        .enumerate()
+    {
+        sqlx::query("UPDATE forum_publication_configuration SET public_origin=$1")
+            .bind(content_address)
+            .execute(&pool)
+            .await
+            .unwrap();
+        let saved = repo
+            .save(&actor, config(), source, json!({"source_id":source}))
+            .await
+            .unwrap();
+        assert_eq!(saved["id"], connection.to_string());
+        assert!(sqlx::query_scalar::<_, bool>("SELECT public_origin IS NULL FROM source_connection_versions WHERE connection_id=$1 ORDER BY revision DESC LIMIT 1").bind(connection).fetch_one(&pool).await.unwrap());
+        sqlx::query("UPDATE posts SET content=$2 WHERE id=$1")
+            .bind(post)
+            .bind(format!("新内容 {index}"))
+            .execute(&pool)
+            .await
+            .unwrap();
+        let latest: Value = sqlx::query_scalar(
+            "SELECT payload FROM forum_outbox WHERE post_id=$1 ORDER BY sequence DESC LIMIT 1",
+        )
+        .bind(post)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(
+            latest["detail_url"],
+            format!("{content_address}/community/{school}/posts/{post}")
+        );
+        let event: linjian_api::source_access::domain::Event =
+            serde_json::from_value(latest).unwrap();
+        event.validate().unwrap();
+    }
+    assert_eq!(
+        original["request_body"],
+        sqlx::query_scalar::<_, Value>(
+            "SELECT to_jsonb(request_body) FROM forum_outbox WHERE id=$1"
+        )
+        .bind(original["id"].as_str().unwrap().parse::<Uuid>().unwrap())
+        .fetch_one(&pool)
+        .await
+        .unwrap()
+    );
+    assert_eq!(
+        original["body_sha256"],
+        sqlx::query_scalar::<_, Value>(
+            "SELECT to_jsonb(body_sha256) FROM forum_outbox WHERE id=$1"
+        )
+        .bind(original["id"].as_str().unwrap().parse::<Uuid>().unwrap())
+        .fetch_one(&pool)
+        .await
+        .unwrap()
+    );
+    pool.close().await;
+    sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
+        .execute(&admin)
+        .await
+        .unwrap();
+    admin.close().await;
 }

@@ -40,6 +40,9 @@ async fn serve_inner(
         .unwrap_or_else(|_| "true".into())
         .parse::<bool>()?;
     database::migrate(&pool).await?;
+    crate::content_publication::south::adapter::postgres::Repository(pool.clone())
+        .publish_environment()
+        .await?;
     crate::source_access::south::adapter::postgres::Repository(pool.clone())
         .publish_environment()
         .await

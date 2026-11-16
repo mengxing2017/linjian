@@ -77,14 +77,8 @@ impl Repository {
             Uuid::now_v7()
         };
         let rev:i64=sqlx::query_scalar("INSERT INTO source_connections(id,name,source_id,origin,key_id,checked_at,expires_at,capability) VALUES($1,'WeKeeper',$2,$3,$4,now(),now()+interval '60 seconds',$5) ON CONFLICT(id) DO UPDATE SET checked_at=now(),expires_at=now()+interval '60 seconds',capability=$5,revision=source_connections.revision+1,updated_at=now() RETURNING revision").bind(id).bind(source).bind(&config.origin).bind(&config.key_id).bind(cap).fetch_one(&mut *tx).await?;
-        let public =
-            std::env::var("LINJIAN_PUBLIC_ORIGIN").map_err(|_| Fault("public_origin_invalid"))?;
-        let public = origin(&public)
-            .map_err(|_| Fault("public_origin_invalid"))?
-            .origin()
-            .ascii_serialization();
         let version = Uuid::now_v7();
-        sqlx::query("INSERT INTO source_connection_versions(id,connection_id,revision,source_id,origin,public_origin,key_id) VALUES($1,$2,$3,$4,$5,$6,$7)").bind(version).bind(id).bind(rev).bind(source).bind(&config.origin).bind(public).bind(&config.key_id).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO source_connection_versions(id,connection_id,revision,source_id,origin,key_id) VALUES($1,$2,$3,$4,$5,$6)").bind(version).bind(id).bind(rev).bind(source).bind(&config.origin).bind(&config.key_id).execute(&mut *tx).await?;
         sqlx::query("UPDATE school_source_bindings SET connection_version=$2,revision=revision+1,updated_at=now() WHERE connection_id=$1").bind(id).bind(version).execute(&mut *tx).await?;
         sqlx::query("UPDATE source_active_configuration SET connection_id=$1,updated_at=now() WHERE singleton").bind(id).execute(&mut *tx).await?;
         sqlx::query("UPDATE forum_outbox o SET blocked_reason=NULL,blocked_at=NULL,next_attempt_at=now(),delivery_state=CASE WHEN receipt_id IS NULL THEN 'ready' ELSE 'tracking_receipt' END FROM source_connection_versions v WHERE o.connection_version=v.id AND v.origin=$1 AND v.key_id=$2 AND v.source_id=$3 AND o.schema_version=2 AND o.lease_token IS NULL AND o.blocked_reason IN ('authentication_failed','credential_unavailable','source_disabled','wekeeper_not_configured')").bind(&config.origin).bind(&config.key_id).bind(source).execute(&mut *tx).await?;

@@ -7,12 +7,13 @@ pub struct ConnectionConfig {
 }
 impl ConnectionConfig {
     pub fn from_env() -> Result<Option<Self>> {
-        Self::read(|name| std::env::var(name).unwrap_or_default())
+        Self::parse(
+            std::env::var("LINJIAN_WEKEEPER_ORIGIN").unwrap_or_default(),
+            std::env::var("LINJIAN_WEKEEPER_KEY_ID").unwrap_or_default(),
+            std::env::var("LINJIAN_WEKEEPER_SECRET").unwrap_or_default(),
+        )
     }
-    fn read(get: impl Fn(&str) -> String) -> Result<Option<Self>> {
-        let base = get("LINJIAN_WEKEEPER_ORIGIN");
-        let key = get("LINJIAN_WEKEEPER_KEY_ID");
-        let material = get("LINJIAN_WEKEEPER_SECRET");
+    pub fn parse(base: String, key: String, material: String) -> Result<Option<Self>> {
         if base.is_empty() && key.is_empty() && material.is_empty() {
             return Ok(None);
         }
@@ -45,15 +46,7 @@ impl ConnectionConfig {
 mod tests {
     use super::*;
     fn config(base: &str, key: &str, material: &str) -> Result<Option<ConnectionConfig>> {
-        ConnectionConfig::read(|name| {
-            match name {
-                "LINJIAN_WEKEEPER_ORIGIN" => base,
-                "LINJIAN_WEKEEPER_KEY_ID" => key,
-                "LINJIAN_WEKEEPER_SECRET" => material,
-                _ => unreachable!(),
-            }
-            .into()
-        })
+        ConnectionConfig::parse(base.into(), key.into(), material.into())
     }
     #[test]
     fn empty_disables_and_partial_configuration_is_rejected() {
