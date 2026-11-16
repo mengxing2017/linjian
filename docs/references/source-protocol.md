@@ -14,16 +14,14 @@ WeKeeper 发布 POST `/api/v2/source-authentications`、POST `/api/v2/source-rou
 
 平台管理员在只读连接页面点击“验证连接”会验证部署配置中的调用方凭据，保存的提示能力只在 60 秒内用于界面提示；每个真实请求仍由 WeKeeper 按当前凭据及授权校验。HTTPS origin 禁止用户信息、query、fragment，所有请求禁止自动重定向。secret 仅从后端配置读取用于签名，不在数据库保存，也不使用本实例加密主密钥；普通读取接口不回显。部署步骤见 [WeKeeper 配置](../runbooks/wekeeper-configuration.md)。
 
-每所学校仅有一条当前消息路由；一个 Linjian 实例只对应一个由后端配置指定的 WeKeeper；各校共用此配置，只维护独立 route_id 与启停状态，无需选择连接。保存配置更新原绑定，停用仍保留该唯一记录。业务事务按学校绑定冻结连接版本、公开内容 origin、来源、路由、正文和摘要。正文有意义变更产生新 event_id 与单调 sequence；浏览、点赞和计数不产生事件。停用学校产生内容撤回，上游不维护学校对象。
+每所学校仅有一条当前消息路由；一个 Linjian 实例只对应后端配置指定的 WeKeeper，各校维护独立 route_id 与启停状态。帖子事务中保存审核快照与来源意图；本项目内容发布领域构造完整消息并冻结请求字节，学校、帖子 ID、修订与 sequence 只留在本地。
 
-同 `(source_id,event_id)` 同文重试返回原 receipt；不同原文冲突。收到合法 JSON:API 回执才记录 receipt_id。received 继续查询；applied 不代表发送成功，无发送摘要能力时停止轮询，有待处理摘要时最多低频同步一天；ignored_stale/rejected 停止无效重投。429、网络及服务错误退避；鉴权、授权、结构或版本问题保留事件并阻塞等待恢复。重试操作不会清空原 receipt_id 或生成新事件。
+事件 attributes 仅包含 event_id、schema_version=2、route_id、event_type=content.upsert、occurred_at、content。禁止发送 title、detail_url、external_content_id、version、sequence 或学校、通道、群、设备字段。content 为本项目生成的“摘要 + 换行 + 原始链接”，不单独增加标题或“查看详情：”；无链接入口只发送摘要。摘要最多 20 个 Unicode 标量，超过时取前 18 字加“……”，空格、标点与省略号计入上限。完整正文最多 200 个 Unicode 标量，先预留完整链接与换行预算，不能截断链接。mp://、#小程序:// 等内容链接原样保存，来源层不进行 URL 校验。
 
-来源或 key 停用、删除后新请求均拒绝。移除路由关联禁止该 key 继续提交或读取该路由回执。路由暂停禁止新消息但有效关联仍可查历史。既有任务按上游原任务规则处理，凭据删除不隐式撤回内容。
+首次受理返回 202，相同事件、相同请求字节幂等重投返回 200；不同原文冲突。回执只有 event_id、status=received、received_at，匹配事件与回执身份后本地记为 accepted，结束来源投递，不周期性查询内部处理或发送结果。响应丢失且没有 receipt_id 时使用同一身份、同一请求字节重投。GET 回执只核对受理事实。
 
-## v1 历史兼容
+下架、停用学校、路由改绑只取消未尝试的本地消息，不发送 content.withdrawn，不撤回已受理消息，不批量向新路由重发历史内容。暂停绑定保留未交付积压；已经尝试但响应未知的请求保留原身份以便幂等核对。浏览、点赞、计数和重复审核不推送。
 
-v1 DTO、规范签名函数及 `source-event-v1.json` fixture 保留供识别和迁移验证，签名仍使用原有文本 secret 字节。v1 包含 external_organization_id，不能原地加入 v2 route_id。
+content_empty、content_too_long、forbidden_field、unsupported_event_type 等明确错误码保留用于诊断；429、网络和服务错误退避，鉴权或配置错误阻塞等待修复。确定性内容错误不能通过重试改写冻结字节。受理不表示实际发送成功，本项目不维护上游发送状态。
 
-当前 worker 只投递 v2；已有 v1 行保留原 ID、正文和 receipt，标记 legacy_version_blocked，不默认转投 v2。没有已核实可用的 v1 服务时须保留队列并制定显式迁移安排，不能在重试中改正文或生成新 ID 隐藏冲突。旧全局来源环境变量不自动变成动态 v2 连接。
-
-调用方向：所有认证、路由检查、事件推送和回执查询均由 Linjian 主动请求上游 WeKeeper。WeKeeper 不回调 Linjian，不探测其在线状态，不配置下游可信网址或路径前缀。事件 detail_url 仅为消息内容链接，不作为回调目标。链接由内容发布流程提供，来源推送不校验其 URL 格式，也不判断发送资格；连接页面不配置论坛详情地址，验证凭据不依赖 LINJIAN_PUBLIC_ORIGIN。
+所有认证、路由检查、消息提交和回执查询均由 Linjian 主动请求上游。WeKeeper 不回调或探测 Linjian，不配置下游可信网址或内容路径。连接认证不依赖 LINJIAN_PUBLIC_ORIGIN；浏览器 Origin/CSRF 校验继续独立生效。

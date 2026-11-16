@@ -1,24 +1,32 @@
 # 小程序审核内容来源推送
 
-小程序帖子遵循本校 `post_audit_mode`：人工模式待审，自动模式通过基础校验后自动通过。自动通过写入无人工审核人的系统决定及策略版本，与人工通过共用不可变发布快照。管理后台展示标题、完整内容、学校、用户昵称和创建时间；审核详情独立读取当前全文及附件，通过时提交 `review_digest` 和帖子修订。版本冲突后必须重新加载全文核对，不自动批准新版本。审核页面不展示或依赖来源摘要。通过后，后端针对已锁定全文生成 `plain-v1` 来源摘要（最多 120 个 Unicode 标量，含截断省略号），并将审核快照、帖子状态与 Outbox 准备意图在同一数据库事务提交。审核页面操作说明见 [全文审核](content-review.md)。
+小程序帖子遵循本校 `post_audit_mode`：人工模式待审，自动模式通过基础校验后自动通过。自动通过写入无人工审核人的系统决定及策略版本，与人工通过共用不可变发布快照。管理后台展示标题、完整内容、学校、用户昵称和创建时间；审核详情独立读取当前全文及附件，通过时提交 `review_digest` 和帖子修订。版本冲突后必须重新加载全文核对，不自动批准新版本。审核页面不展示或依赖来源摘要。通过后，后端针对已锁定全文生成 `plain-v1` 来源摘要（最多 20 个 Unicode 标量，超过时取前 18 字加“……”，空格与标点计入），并将审核快照、帖子状态与 Outbox 准备意图在同一数据库事务提交。审核页面操作说明见 [全文审核](content-review.md)。
 
 准备 worker 在事务外调用微信，将正式版 `pages/index/detail?school=<uuid>&id=<uuid>` 生成链接；默认 Short Link，非永久、按官方策略 30 天。可显式配置 URL Link（1–30 天），没有自动降级。微信权限、配额或网络故障保留准备状态，不阻断论坛发帖或撤回。
 
-链接就绪后冻结 v2 请求：`title` 为审核标题，`content` 为“摘要 + 换行 + 查看详情：+ 微信原始链接”，`detail_url` 使用同一个微信原始链接，由内容发布流程提供，来源推送不校验链接 URL 或发送资格。之后投递重试保持相同事件 ID、sequence 和请求字节。准备期间编辑、撤审、下架、停校会使旧机会失效；浏览、点赞等不创建推送。
+链接就绪后，由本项目构造“摘要 + 一个换行 + 微信原始链接”，例如：
 
-## 配置和升级
+```text
+之前有人说军训是 1.10 开始 训……
+mp://Ltxhoqe18kEGxlD
+```
+
+mp:// 和 #小程序:// 都作为小程序链接原样保留，不添加标题行或“查看详情：”。完整消息最多 200 个 Unicode 标量，先预留完整链接与换行，再裁剪摘要；链接本身不截断。链接过长保留准备记录并显示原因。
+
+请求只包含 event_id、schema_version、route_id、event_type、occurred_at、content。收到合法 received 回执即完成来源投递，不继续等待素材处理或发送状态。受理不等于真实发送成功。准备期间编辑、撤审、下架、停校会取消未交付消息；已经请求但结果未知的消息保持原身份核对，不承诺撤回。浏览、点赞等不创建推送。
+
+## 配置
 
 `env.example` 和 Compose 包含全部选项。`LINJIAN_WX_APP_ID`、`LINJIAN_WX_SECRET` 是本项目后端小程序凭据，与登录交换共用凭据但不共用 session/token。stable_token 独立按凭据摘要缓存，带刷新租约和 generation 保护；缓存含敏感令牌，数据库及备份须保持现有访问权限。
 
-- `LINJIAN_MINIAPP_SOURCE_ENABLED=true`：false 暂停链接准备，意图仍保留，来源投递及撤回继续运行。
+- `LINJIAN_MINIAPP_SOURCE_ENABLED=true`：false 暂停链接准备，意图仍保留，既有来源投递继续运行；不产生上游撤回。
 - `LINJIAN_MINIAPP_LINK_TYPE=short_link`：可显式为 url_link。
 - `LINJIAN_MINIAPP_SHORT_LINK_PERMANENT=false`：永久模式须由部署者显式启用并确认微信额度。
 - `LINJIAN_MINIAPP_URL_LINK_DAYS=30`：1–30。
 - `LINJIAN_MINIAPP_LINK_MIN_REMAINING_SECONDS=86400`：必须正数且小于所选有效期。
 - `LINJIAN_MINIAPP_PREPARATION_CONCURRENCY=2`：每实例 1–16，跨实例通过数据库租约互斥。
 
-来源发布基线为 `202611090002_miniapp_publication.sql`，双模式新增 forward-only migration `202611090005_moderation_modes.sql`。存量帖子保留 legacy 全文投影，不批量生成新机会。需协调发布配套后端、Web、contract、小程序，避免旧进程将新帖子写成 legacy。禁止回退到不认识新投影和状态的旧二进制。
-
+来源消息统一使用完整正文协议，由独立基线与后续 forward-only migration 初始化。Web 和小程序共用消息构造器，均保存审核快照；Web 无链接入口只生成摘要，小程序入口等待微信链接。
 未配置微信时论坛可启动，准备进入 `miniapp_not_configured`。配置补齐并重启后恢复该状态；已知 AppID 不允许偷偷切换为另一个 AppID。审核时的策略固定在快照；审核时 AppID 空缺则首次有配置时固定。其他永久失败修复后在来源发件记录选择“重试内容准备”，必须填写原因并携带准备修订；冻结后使用“重试同一事件”。两种恢复均保留事件身份。
 
 首次投递前链接若已不足最小剩余时间，事件阻塞为 `link_expired_before_delivery`，不能修改冻结链接或直接重试；重新撤审、人工通过形成新机会。已经尝试投递的事件按原字节继续确认回执，不能重拼可能已被接收的请求。
@@ -31,8 +39,6 @@
 
 执行 `make check-web`、`make check-miniapp`、`devbox run -- make check-backend`。显式隔离数据库执行 `make test-integration`；也可使用 `LINJIAN_POSTGRES_BIN=/path/to/postgresql17/bin devbox run -- python3 tools/test_database.py` 自动建临时数据库。测试不调用真实微信或转发平台。
 
-## 双模式升级注意事项
+## 审核模式
 
-先迁移，再协调发布 API、contract、Web 与小程序，隔离旧 API 写流量。已有学校 `post_audit_mode=auto` 将对小程序帖子真正生效，发布前盘点并交接；不批量改写历史审核状态或生成历史推送。模式切换与投稿沿用学校行锁串行，自动决定保留当时策略版本；之后切回人工不会使旧已批准快照失效。
-
-正文编辑先使旧证据失效，再按当前模式生成新批准证据及来源机会，所有步骤同事务；无内容变化保存不推送。自动批准不改变 created_via/source_projection，也不恢复隐藏内容。出现问题可将学校切回 manual，后续投稿进入人工审核，数据库只作 forward-only 修复，不回退到仅认识人工证据的旧 API。
+学校策略切换与投稿沿用学校行锁串行，自动决定保留当时策略版本；切回人工不会使旧批准证据失效。正文编辑先使旧证据失效，再按当前模式生成批准证据与来源意图，全部同事务完成；无内容变化保存不推送。
