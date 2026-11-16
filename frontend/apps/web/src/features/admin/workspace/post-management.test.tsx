@@ -172,7 +172,10 @@ it('keeps advanced filters collapsed and preserves search when resetting them', 
   fireEvent.change(screen.getByRole('searchbox', { name: '搜索' }), { target: { value: '校园' } })
   fireEvent.click(screen.getByRole('button', { name: /筛选/ }))
   fireEvent.change(await screen.findByRole('textbox', { name: '标签名称' }), { target: { value: '生活' } })
-  fireEvent.change(screen.getByLabelText('创建起始时间'), { target: { value: '2026-11-10T08:00' } })
+  const createdFrom = screen.getByLabelText('创建起始时间')
+  fireEvent.focus(createdFrom)
+  fireEvent.change(createdFrom, { target: { value: '2026-11-10 08:00' } })
+  fireEvent.keyDown(createdFrom, { key: 'Enter', keyCode: 13 })
   await waitFor(() => expect(workspace.postManagement.list).toHaveBeenLastCalledWith(
     'school', expect.objectContaining({ search: '校园', tag: '生活', created_from: new Date('2026-11-10T08:00').toISOString(), page: 1 }), expect.any(AbortSignal),
   ))

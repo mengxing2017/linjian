@@ -1,3 +1,4 @@
+import { LocalDateTimePicker } from '../../../shared/date-picker'
 import { PaginationControls } from '../../../shared/pagination-controls'
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -17,8 +18,8 @@ export function OperationFeedback({ school, canDelete }: { school: string; canDe
     <Input aria-label="反馈用户查询" placeholder="用户昵称或ID" value={filters.user ?? ''} onChange={e => change({ user: e.target.value })} />
     <Select aria-label="反馈类型筛选" value={filters.feedback_type ?? ''} options={[{ value: '', label: '全部反馈类型' }, ...Object.entries(types).map(([value, label]) => ({ value, label }))]} onChange={feedback_type => change({ feedback_type })} />
     <Select aria-label="处理状态筛选" value={filters.status ?? ''} options={[{ value: '', label: '全部处理状态' }, ...Object.entries(states).map(([value, label]) => ({ value, label }))]} onChange={status => change({ status })} />
-    <label>提交时间自<Input type="datetime-local" onChange={e => change({ starts_at: e.target.value ? new Date(e.target.value).toISOString() : undefined })} /></label>
-    <label>提交时间至<Input type="datetime-local" onChange={e => change({ ends_at: e.target.value ? new Date(e.target.value).toISOString() : undefined })} /></label>
+    <label>提交时间自<LocalDateTimePicker onChange={value => change({ starts_at: value ? new Date(value).toISOString() : undefined })} /></label>
+    <label>提交时间至<LocalDateTimePicker onChange={value => change({ ends_at: value ? new Date(value).toISOString() : undefined })} /></label>
     <Button onClick={() => setFilters({ page: 1, size: 20 })}>重置筛选</Button><Button onClick={() => void q.refetch()}>刷新</Button>
   </Space>{(error || q.error) && <Alert type="error" title={error || q.error?.message} />}
     <Table<Feedback> rowKey="id" loading={q.isFetching} dataSource={q.data?.items} pagination={false} scroll={{ x: 1800 }} columns={[

@@ -64,3 +64,23 @@ it('requires a reason and submits the user revision when banning within the scho
     expect(miniappUsers.status).toHaveBeenCalledWith('school-1', user, 'banned', '违反学校规则'),
   )
 })
+
+it('keeps registration date filters in Shanghai day boundaries and clears them', async () => {
+  mount(false)
+  await screen.findByText('校园注册用户')
+  for (const [label, value] of [['注册开始日期', '2026-12-15'], ['注册结束日期', '2026-12-16']]) {
+    const input = screen.getByLabelText(label)
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value } })
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 13 })
+  }
+  await waitFor(() => expect(miniappUsers.list).toHaveBeenLastCalledWith('school-1', {
+    page: 1,
+    created_from: '2026-12-15T00:00:00+08:00',
+    created_to: '2026-12-16T23:59:59.999+08:00',
+  }, expect.any(AbortSignal)))
+  for (const clear of screen.getAllByRole('button', { name: '清除' })) fireEvent.click(clear)
+  await waitFor(() => expect(miniappUsers.list).toHaveBeenLastCalledWith('school-1', {
+    page: 1, created_from: undefined, created_to: undefined,
+  }, expect.any(AbortSignal)))
+})

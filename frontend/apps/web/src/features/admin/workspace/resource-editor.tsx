@@ -1,3 +1,4 @@
+import { LocalDateTimePicker } from '../../../shared/date-picker'
 import {useState} from 'react'
 import {useQuery} from '@tanstack/react-query'
 import {Alert,Button,Input,InputNumber,Select,Space,Switch,Upload} from 'antd'
@@ -35,8 +36,8 @@ export function ResourceEditor({item,school,onSaved}:{item?:Row;school?:string;o
  {action.kind==='copy_text'&&<Input.TextArea aria-label="复制内容" value={action.text} onChange={e=>change({action:{...action,text:e.target.value}})}/>}
  </>}
  <label>排序<InputNumber value={form.sort_order} onChange={v=>change({sort_order:Number(v)})}/></label>
- <label>生效时间<Input type="datetime-local" value={localDate(form.starts_at)} onChange={e=>change({starts_at:e.target.value?new Date(e.target.value).toISOString():null})}/></label>
- <label>失效时间<Input type="datetime-local" value={localDate(form.ends_at)} onChange={e=>change({ends_at:e.target.value?new Date(e.target.value).toISOString():null})}/></label>
+ <label>生效时间<LocalDateTimePicker value={localDate(form.starts_at)} onChange={value=>change({starts_at:value?new Date(value).toISOString():null})}/></label>
+ <label>失效时间<LocalDateTimePicker value={localDate(form.ends_at)} onChange={value=>change({ends_at:value?new Date(value).toISOString():null})}/></label>
  <label>启用<Switch checked={form.active} onChange={active=>change({active})}/></label>
  <Button type="primary" loading={busy} onClick={()=>void run(async()=>setPreview(await product.resources.preview(school,form)))}>预览</Button>
  </>:<>

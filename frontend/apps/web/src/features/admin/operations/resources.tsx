@@ -1,3 +1,4 @@
+import { LocalDateTimePicker } from '../../../shared/date-picker'
 import { PaginationControls } from '../../../shared/pagination-controls'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -25,8 +26,8 @@ export function OperationResources({ school, platformAdmin, schoolAdmin, module 
       <Input.Search aria-label="名称查询" placeholder="按名称查询" value={filters.search ?? ''} onChange={e => change({ search: e.target.value })} />
       <Select aria-label="状态筛选" value={filters.status ?? ''} options={[{ value: '', label: '全部状态' }, { value: 'normal', label: '正常' }, { value: 'hidden', label: '隐藏' }]} onChange={status => change({ status })} />
       {module === 'group-qrcodes' ? <Select aria-label="展示时机筛选" value={filters.strategy ?? ''} options={[{ value: '', label: '全部展示时机' }, ...Object.entries(strategyLabels).map(([value, label]) => ({ value, label }))]} onChange={strategy => change({ strategy })} /> : <Select aria-label="跳转类型筛选" value={filters.action ?? ''} options={[{ value: '', label: '全部跳转类型' }, ...Object.entries(actionLabels).map(([value, label]) => ({ value, label }))]} onChange={action => change({ action })} />}
-      <label>开始时间自<Input type="datetime-local" value={localDate(filters.starts_at ?? null)} onChange={e => change({ starts_at: e.target.value ? new Date(e.target.value).toISOString() : undefined })} /></label>
-      <label>结束时间至<Input type="datetime-local" value={localDate(filters.ends_at ?? null)} onChange={e => change({ ends_at: e.target.value ? new Date(e.target.value).toISOString() : undefined })} /></label>
+      <label>开始时间自<LocalDateTimePicker value={localDate(filters.starts_at ?? null)} onChange={value => change({ starts_at: value ? new Date(value).toISOString() : undefined })} /></label>
+      <label>结束时间至<LocalDateTimePicker value={localDate(filters.ends_at ?? null)} onChange={value => change({ ends_at: value ? new Date(value).toISOString() : undefined })} /></label>
       <Button onClick={() => setFilters({ page: 1, size: 20 })}>重置筛选</Button><Button onClick={() => void q.refetch()}>刷新</Button>
       {canEdit && <Button type="primary" onClick={() => { setEditing(undefined); setOpen(true) }}>添加{title}</Button>}
     </Space>
@@ -75,8 +76,8 @@ function OperationEditor({ school, module, item, readOnly, onSaved }: { school?:
         {!['none', 'internal_page'].includes(action.kind) && <p>目标内容：{target(action)}；可保留此历史配置或明确更换。</p>}
       </>}
       <label>状态 <Switch checked={form.active} checkedChildren="正常" unCheckedChildren="隐藏" onChange={active => change({ active })} /></label>
-      <label>开始展示时间<Input type="datetime-local" value={localDate(form.starts_at)} onChange={e => change({ starts_at: e.target.value ? new Date(e.target.value).toISOString() : null })} /></label>
-      <label>结束展示时间<Input type="datetime-local" value={localDate(form.ends_at)} onChange={e => change({ ends_at: e.target.value ? new Date(e.target.value).toISOString() : null })} /></label>
+      <label>开始展示时间<LocalDateTimePicker disabled={readOnly || busy} value={localDate(form.starts_at)} onChange={value => change({ starts_at: value ? new Date(value).toISOString() : null })} /></label>
+      <label>结束展示时间<LocalDateTimePicker disabled={readOnly || busy} value={localDate(form.ends_at)} onChange={value => change({ ends_at: value ? new Date(value).toISOString() : null })} /></label>
       <label>展示顺序（值大优先）<InputNumber precision={0} value={form.sort_order} onChange={v => change({ sort_order: Number(v) })} /></label>
     </Space></fieldset>
     {!readOnly && <>{preview ? <Alert type="info" title={`确认保存：${form.title}`} description={`${form.active ? '正常' : '隐藏'}；${time(form.starts_at)} 至 ${time(form.ends_at)}；${qr ? strategyLabels[form.popup_strategy] : target(action)}`} /> : null}<Button disabled={busy} onClick={() => { try { validate(); setError(''); setPreview(true) } catch (e) { setError((e as Error).message) } }}>预览</Button><Button type="primary" disabled={!preview} loading={busy} onClick={() => { setBusy(true); setError(''); void api.save(school, module, form, item?.id).then(onSaved).catch(e => setError(e instanceof Error ? e.message : '保存失败')).finally(() => setBusy(false)) }}>确认保存</Button></>}

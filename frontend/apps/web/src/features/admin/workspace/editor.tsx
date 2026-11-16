@@ -1,7 +1,8 @@
+import { DatePicker } from '../../../shared/date-picker'
 import dayjs from 'dayjs'
 import { parseDate } from '../../../shared/format-date'
 import { useId, useState } from 'react'
-import { Alert, Button, ColorPicker, DatePicker, Form, Input, InputNumber, Select } from 'antd'
+import { Alert, Button, ColorPicker, Form, Input, InputNumber, Select } from 'antd'
 
 interface Field {
   name: string

@@ -317,11 +317,13 @@ a:focus-visible {
 .pagination-actions {
   margin-inline-start: auto;
 }
-.navigation-button {
+.navigation-button,
+.ant-picker-header > button {
   min-width: 32px;
   text-align: center;
 }
-.navigation-button:focus-visible {
+.navigation-button:focus-visible,
+.ant-picker-header > button:focus-visible {
   outline: 2px solid var(--ant-color-primary, #1677ff);
   outline-offset: 2px;
 }

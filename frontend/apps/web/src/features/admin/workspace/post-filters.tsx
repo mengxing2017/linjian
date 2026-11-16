@@ -1,3 +1,4 @@
+import { LocalDateTimePicker } from '../../../shared/date-picker'
 import { FilterOutlined } from '@ant-design/icons'
 import { Button, Input, Popover, Select, Space } from 'antd'
 import type { PostManagementFilter } from './api'
@@ -79,24 +80,22 @@ export function PostFilters({
               />
               <label>
                 创建起始时间{' '}
-                <Input
-                  type="datetime-local"
+                <LocalDateTimePicker
                   value={localDate(filter.created_from)}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     change({
-                      created_from: e.target.value ? new Date(e.target.value).toISOString() : undefined,
+                      created_from: value ? new Date(value).toISOString() : undefined,
                     })
                   }
                 />
               </label>
               <label>
                 创建结束时间{' '}
-                <Input
-                  type="datetime-local"
+                <LocalDateTimePicker
                   value={localDate(filter.created_to)}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     change({
-                      created_to: e.target.value ? new Date(e.target.value).toISOString() : undefined,
+                      created_to: value ? new Date(value).toISOString() : undefined,
                     })
                   }
                 />

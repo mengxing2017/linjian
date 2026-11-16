@@ -1,3 +1,5 @@
+import dayjs from 'dayjs'
+import { DatePicker } from '../../../shared/date-picker'
 import { UserAvatar } from './user-avatar'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -131,23 +133,21 @@ export function MiniappUsers({
           ]}
           onChange={(status) => change({ status })}
         />
-        <Input
+        <DatePicker
           aria-label="注册开始日期"
-          type="date"
-          onChange={(e) =>
-            change({
-              created_from: e.target.value ? e.target.value + 'T00:00:00+08:00' : undefined,
-            })
-          }
+          format="YYYY-MM-DD"
+          value={filters.created_from ? dayjs(filters.created_from.slice(0, 10)) : null}
+          onChange={date => change({
+            created_from: date ? date.format('YYYY-MM-DD') + 'T00:00:00+08:00' : undefined,
+          })}
         />
-        <Input
+        <DatePicker
           aria-label="注册结束日期"
-          type="date"
-          onChange={(e) =>
-            change({
-              created_to: e.target.value ? e.target.value + 'T23:59:59.999+08:00' : undefined,
-            })
-          }
+          format="YYYY-MM-DD"
+          value={filters.created_to ? dayjs(filters.created_to.slice(0, 10)) : null}
+          onChange={date => change({
+            created_to: date ? date.format('YYYY-MM-DD') + 'T23:59:59.999+08:00' : undefined,
+          })}
         />
         <Button onClick={() => void q.refetch()} disabled={!enabled}>
           刷新用户
