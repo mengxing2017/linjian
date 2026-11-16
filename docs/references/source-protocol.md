@@ -26,4 +26,4 @@ v1 DTO、规范签名函数及 `source-event-v1.json` fixture 保留供识别和
 
 当前 worker 只投递 v2；已有 v1 行保留原 ID、正文和 receipt，标记 legacy_version_blocked，不默认转投 v2。没有已核实可用的 v1 服务时须保留队列并制定显式迁移安排，不能在重试中改正文或生成新 ID 隐藏冲突。旧全局来源环境变量不自动变成动态 v2 连接。
 
-调用方向：所有认证、路由检查、事件推送和回执查询均由 Linjian 主动请求上游 WeKeeper。WeKeeper 不回调 Linjian，不探测其在线状态，不配置下游可信网址或路径前缀。事件 detail_url 仅为消息内容链接，不作为回调目标。
+调用方向：所有认证、路由检查、事件推送和回执查询均由 Linjian 主动请求上游 WeKeeper。WeKeeper 不回调 Linjian，不探测其在线状态，不配置下游可信网址或路径前缀。事件 detail_url 仅为消息内容链接，不作为回调目标。链接由内容发布流程提供，来源推送不校验其 URL 格式，也不判断发送资格；连接页面不配置论坛详情地址，验证凭据不依赖 LINJIAN_PUBLIC_ORIGIN。
