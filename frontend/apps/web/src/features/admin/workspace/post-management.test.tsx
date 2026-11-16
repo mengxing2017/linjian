@@ -80,7 +80,6 @@ it('shows the ten business columns in order and separates creation privileges fr
   mount()
   await screen.findAllByText('公开昵称')
   expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual([
-    '',
     '标题',
     '学校',
     '昵称',

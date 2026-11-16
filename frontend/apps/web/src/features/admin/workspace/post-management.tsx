@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Input, Modal, Popconfirm, Space, Table } from 'antd'
+import { Alert, Button, Input, Modal, Space, Table } from 'antd'
 import { workspace, type PostManagementFilter, type PostManagementView } from './api'
 import { PaginationControls } from '../../../shared/pagination-controls'
 import { postColumns } from './post-columns'
@@ -32,7 +32,6 @@ export function PostManagement({
     [orderConflict, setOrderConflict] = useState(false)
   const [offline, setOffline] = useState<PostManagementView>(),
     [reason, setReason] = useState('')
-  const [selectedRowId, setSelectedRowId] = useState('')
   const dragged = useRef('')
   const cache = useQueryClient()
   const q = useQuery({
@@ -43,11 +42,9 @@ export function PostManagement({
   })
   const page = filter.page ?? 1
   const rows = draft ?? q.data?.items ?? []
-  const selectedRow = rows.find((row) => row.id === selectedRowId)
   function change(patch: Partial<PostManagementFilter>) {
     setFilter((old) => ({ ...old, ...patch, page: 1 }))
     setSelected('')
-    setSelectedRowId('')
     setDraft(undefined)
     setError('')
   }
@@ -94,7 +91,6 @@ export function PostManagement({
     setOrderConflict(false)
     setSorting(true)
     setSelected('')
-    setSelectedRowId('')
     setError('')
   }
   async function saveOrder() {
@@ -160,26 +156,6 @@ export function PostManagement({
                   <Button onClick={() => setImporting(true)}>导入</Button>
                 </>
               )}
-              <Button
-                disabled={disabled || !selectedRow}
-                onClick={() => selectedRow && setEditor(selectedRow.id)}
-              >
-                编辑
-              </Button>
-              <Popconfirm
-                title="确认删除选中的帖子？删除后无法恢复。"
-                disabled={!selectedRow}
-                onConfirm={() =>
-                  selectedRow &&
-                  act(() =>
-                    workspace.postManagement.delete(school, selectedRow.id, selectedRow.revision),
-                  )
-                }
-              >
-                <Button danger disabled={disabled || !selectedRow}>
-                  删除
-                </Button>
-              </Popconfirm>
               <Button disabled={disabled} onClick={() => beginSort(false)}>
                 普通排序
               </Button>
@@ -206,15 +182,6 @@ export function PostManagement({
         </Button>
       </div>
       <Table<PostManagementView>
-        rowSelection={
-          sorting
-            ? undefined
-            : {
-                type: 'radio',
-                selectedRowKeys: selectedRowId ? [selectedRowId] : [],
-                onChange: (keys) => setSelectedRowId(String(keys[0] ?? '')),
-              }
-        }
         rowKey="id"
         pagination={false}
         loading={q.isFetching || busy}
@@ -282,7 +249,6 @@ export function PostManagement({
         more={q.data?.page?.has_more}
         busy={disabled || !!draft || orderConflict}
         change={(value) => {
-          setSelectedRowId('')
           setFilter((old) => ({ ...old, page: value }))
           setDraft(undefined)
         }}
