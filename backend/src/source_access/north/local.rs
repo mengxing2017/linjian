@@ -153,6 +153,7 @@ pub fn authenticated_caller(capability: &Value) -> Result<Uuid> {
         .and_then(|v| v.parse().ok())
         .ok_or(Fault("protocol_error"))
 }
+#[tracing::instrument(skip_all, fields(path), err(Debug))]
 pub async fn check(
     origin: &str,
     key: &str,
@@ -164,7 +165,14 @@ pub async fn check(
     let doc = json!({"data":{"type":if path.ends_with("source-authentications"){"source-authentications"}else{"source-route-checks"},"id":id,"attributes":{"route_id":route}}});
     let body = serde_json::to_vec(&doc).map_err(|_| Fault("invalid_request"))?;
     let response = request(origin, key, secret_text, "POST", path, id, &body).await?;
-    ensure(response.status().is_success(), "authentication_failed")?;
+    if !response.status().is_success() {
+        tracing::warn!(
+            upstream_status = response.status().as_u16(),
+            request_id = %id,
+            "WeKeeper rejected source verification request"
+        );
+        return Err(Fault("authentication_failed"));
+    }
     ensure(
         response
             .headers()
@@ -212,7 +220,10 @@ pub async fn request(
         .timeout(std::time::Duration::from_secs(10))
         .redirect(reqwest::redirect::Policy::none())
         .build()
-        .map_err(|_| Fault("temporarily_unavailable"))?
+        .map_err(|_| {
+            tracing::error!("failed to build WeKeeper HTTP client");
+            Fault("temporarily_unavailable")
+        })?
         .request(
             if method == "POST" {
                 reqwest::Method::POST
@@ -232,7 +243,19 @@ pub async fn request(
         .body(body.to_vec())
         .send()
         .await
-        .map_err(|_| Fault("temporarily_unavailable"))
+        .map_err(|error| {
+            // Never log the raw error, request headers, signature or response body.
+            tracing::warn!(
+                path,
+                request_id = %id,
+                timeout = error.is_timeout(),
+                connect = error.is_connect(),
+                request = error.is_request(),
+                body = error.is_body(),
+                "WeKeeper HTTP request failed"
+            );
+            Fault("temporarily_unavailable")
+        })
 }
 
 #[cfg(test)]

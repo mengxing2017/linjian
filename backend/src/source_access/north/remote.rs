@@ -27,7 +27,36 @@ impl IntoResponse for Fault {
             "revision_required" => 428,
             _ => 400,
         };
-        (axum::http::StatusCode::from_u16(status).unwrap(),[("content-type",MEDIA_TYPE)],Json(json!({"errors":[{"status":status.to_string(),"code":self.0,"title":match self.0 { "revision_conflict"=>"配置已被其他操作更新，请刷新后重新保存", "revision_required"=>"保存学校路由需要当前修订 If-Match", "wekeeper_connection_unverified"=>"请先验证全局 WeKeeper 连接", "route_already_bound"=>"该消息路由已绑定其他学校", "wekeeper_not_configured"=>"请在部署配置中填写 WeKeeper 地址、key_id 和 secret", "wekeeper_configuration_incomplete"=>"WeKeeper 地址、key_id 和 secret 必须同时配置", "wekeeper_origin_invalid"=>"WeKeeper 地址必须为规范的 HTTPS 域名地址", "wekeeper_key_id_invalid"=>"WeKeeper key_id 格式不正确", "wekeeper_secret_invalid"=>"WeKeeper secret 格式不正确", _=>"来源连接操作失败" }}]}))).into_response()
+        let title = match self.0 {
+            "revision_conflict" => "配置已被其他操作更新，请刷新后重新保存",
+            "revision_required" => "保存学校路由需要当前修订 If-Match",
+            "wekeeper_connection_unverified" => "请先验证全局 WeKeeper 连接",
+            "route_already_bound" => "该消息路由已绑定其他学校",
+            "wekeeper_not_configured" => "请在部署配置中填写 WeKeeper 地址、key_id 和 secret",
+            "wekeeper_configuration_incomplete" => "WeKeeper 地址、key_id 和 secret 必须同时配置",
+            "wekeeper_origin_invalid" => "WeKeeper 地址必须为规范的 HTTPS 域名地址",
+            "wekeeper_key_id_invalid" => "WeKeeper key_id 格式不正确",
+            "wekeeper_secret_invalid" => "WeKeeper secret 格式不正确",
+            "authentication_failed" => {
+                "WeKeeper 拒绝了验证请求，请检查调用方凭据、授权和两端时钟，并查看 API 日志中的上游状态码"
+            }
+            "temporarily_unavailable" => {
+                "来源连接服务暂时不可用，请查看 API 日志并检查网络、TLS 和数据库后重试"
+            }
+            "protocol_error" => {
+                "WeKeeper 响应格式不符合来源 v2 协议，请检查服务地址、反向代理和上游版本"
+            }
+            "unsupported_version" => "WeKeeper 不支持所需的来源 v2 协议，请检查上游版本",
+            "route_unavailable" => "WeKeeper 消息路由不可用，请检查路由 ID、启用状态和调用方授权",
+            "credential_unavailable" => "当前部署凭据与原连接不匹配，请检查 WeKeeper 地址和 key_id",
+            _ => "来源连接操作失败",
+        };
+        (
+            axum::http::StatusCode::from_u16(status).unwrap(),
+            [("content-type", MEDIA_TYPE)],
+            Json(json!({"errors":[{"status":status.to_string(),"code":self.0,"title":title}]})),
+        )
+            .into_response()
     }
 }
 async fn list(State(a): State<Application>, actor: Actor) -> Result<Response> {
@@ -39,6 +68,7 @@ async fn list(State(a): State<Application>, actor: Actor) -> Result<Response> {
     )
     .into_response())
 }
+#[tracing::instrument(skip_all, fields(operation = "verify_wekeeper_connection"), err(Debug))]
 async fn save(State(a): State<Application>, actor: Actor, input: Input) -> Result<Response> {
     let v = input
         .decode::<ConnectionInput>("source-connections")
@@ -105,6 +135,31 @@ fn expected_revision(headers: &HeaderMap) -> Result<i64> {
 #[cfg(test)]
 mod revision_tests {
     use super::*;
+    #[tokio::test]
+    async fn verification_errors_preserve_codes_and_explain_recovery() {
+        for (code, status, hint) in [
+            ("authentication_failed", 400, "调用方凭据"),
+            ("temporarily_unavailable", 503, "API 日志"),
+            ("protocol_error", 400, "来源 v2 协议"),
+            ("unsupported_version", 400, "上游版本"),
+        ] {
+            let response = Fault(code).into_response();
+            assert_eq!(response.status().as_u16(), status);
+            assert_eq!(response.headers()["content-type"], MEDIA_TYPE);
+            let body = axum::body::to_bytes(response.into_body(), 8192)
+                .await
+                .unwrap();
+            let document: serde_json::Value = serde_json::from_slice(&body).unwrap();
+            assert_eq!(document["errors"][0]["code"], code);
+            assert!(
+                document["errors"][0]["title"]
+                    .as_str()
+                    .unwrap()
+                    .contains(hint)
+            );
+        }
+    }
+
     #[test]
     fn binding_writes_require_a_quoted_nonnegative_revision() {
         let mut headers = HeaderMap::new();
