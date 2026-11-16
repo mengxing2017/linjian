@@ -9,8 +9,8 @@ it('requires a recovery reason and retains event identity on retry failure',asyn
  vi.mocked(workspace.list).mockResolvedValue({items:[{id:'event-1',post_id:'post-1',sequence:2,event_type:'content.upsert',attempts:1,delivery_state:'blocked',recoverable:true,receipt_status:'received',receipt_summary:{sending:null},created_at:'2026-11-08T00:00:00Z'}]})
  vi.mocked(workspace.replaySource).mockRejectedValue(new Error('重试暂不可用'))
  render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><Outbox school="school-1"/></QueryClientProvider>)
- expect(await screen.findByText('已收件')).toBeTruthy()
- expect(screen.getByText('暂无发送结果')).toBeTruthy()
+ expect(await screen.findByText('已受理')).toBeTruthy()
+ expect(screen.queryByText('发送摘要')).toBeNull()
  fireEvent.click(screen.getByRole('button',{name:'重试同一事件'}))
  const schedule=screen.getByRole('button',{name:'重新调度原事件'}) as HTMLButtonElement
  expect(schedule.disabled).toBe(true)
@@ -21,9 +21,9 @@ it('requires a recovery reason and retains event identity on retry failure',asyn
  expect(workspace.replaySource).toHaveBeenCalledTimes(1)
 })
 it('does not offer recovery for a terminal event',async()=>{
- vi.mocked(workspace.list).mockResolvedValue({items:[{id:'event-2',recoverable:false,receipt_status:'rejected'}]})
+ vi.mocked(workspace.list).mockResolvedValue({items:[{id:'event-2',recoverable:false,receipt_status:'received',delivery_state:'accepted'}]})
  render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><Outbox school="school-1"/></QueryClientProvider>)
- await screen.findByText('收件被拒绝')
+ await screen.findAllByText('已受理')
  expect((screen.getByRole('button',{name:'重试同一事件'}) as HTMLButtonElement).disabled).toBe(true)
 })
 

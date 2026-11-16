@@ -4,12 +4,7 @@ import { Alert, Button, Descriptions, Input, Modal, Select, Space, Table } from 
 import { workspace, type Row } from './api'
 import { formatDate } from '../../../shared/format-date'
 import { PaginationControls } from '../../../shared/pagination-controls'
-const states: Record<string, string> = {
-  received: '已收件',
-  applied: '素材已更新',
-  ignored_stale: '旧版本已忽略',
-  rejected: '收件被拒绝',
-}
+const states: Record<string, string> = { received: '已受理' }
 const localStates: Record<string, string> = {
   waiting_binding: '待绑定',
   waiting_configuration: '待配置',
@@ -19,9 +14,8 @@ const localStates: Record<string, string> = {
   in_flight: '请求中',
   retry_wait: '等待重试',
   blocked: '已阻塞',
-  tracking_receipt: '同步回执',
-  settled: '回执处理结束',
-  superseded: '已由后续变更替代',
+  accepted: '已受理',
+  cancelled: '已取消',
 }
 const preparationStates: Record<string, string> = {
   pending: '待准备',
@@ -80,7 +74,7 @@ export function Outbox({ school }: { school: string }) {
   }
   return (
     <Space orientation="vertical" style={{ width: '100%' }}>
-      <p>收件表示 WeKeeper 已持久受理，素材更新不等于已经发送。发送结果以回执摘要为准。</p>
+      <p>已受理表示 WeKeeper 已持久接收来源消息，不代表实际发送成功。</p>
       {(error || q.error) && <Alert type="error" title={error || q.error?.message} />}
       <Space>
         <Button onClick={() => void q.refetch()} loading={q.isFetching}>
@@ -128,7 +122,7 @@ export function Outbox({ school }: { school: string }) {
           {
             title: '变更',
             dataIndex: 'event_type',
-            render: (v) => (v === 'content.upsert' ? '发布 / 编辑' : '撤回'),
+            render: () => '发布 / 编辑',
           },
           {
             title: '内容准备',
@@ -150,16 +144,6 @@ export function Outbox({ school }: { school: string }) {
           { title: '原路由', dataIndex: 'route_id' },
           { title: '阻塞原因', dataIndex: 'blocked_reason', render: (v) => v ?? '—' },
           { title: '最近问题', dataIndex: 'last_error', render: (v) => v ?? '—' },
-          {
-            title: '发送摘要',
-            dataIndex: 'receipt_summary',
-            render: (v) => {
-              const summary = v && typeof v === 'object' && !Array.isArray(v) ? v.sending : null
-              return summary && typeof summary === 'object' && !Array.isArray(summary)
-                ? `待处理 ${summary.pending ?? 0} · 已发送 ${summary.sent ?? 0} · 失败 ${summary.failed ?? 0} · 待核对 ${summary.unknown ?? 0}`
-                : '暂无发送结果'
-            },
-          },
           { title: '创建时间', dataIndex: 'created_at', render: (v) => formatDate(v) },
           {
             title: '操作',
@@ -274,9 +258,16 @@ export function Outbox({ school }: { school: string }) {
                 ]}
               />
             )}
+            {detail.data.message && (
+              <>
+                <p>完整来源消息（{detail.data.message.characters} / 200 字符）</p>
+                <p className="text-content">{detail.data.message.content}</p>
+                <p>构造版本：{detail.data.message.version}</p>
+              </>
+            )}
             {detail.data.publication && (
               <>
-                <p>来源摘要：{detail.data.publication.summary}</p>
+                <p>来源摘要（最多 20 字，链接生成前为草稿）：{detail.data.publication.summary}</p>
                 <p>摘要规则：{detail.data.publication.summary_algorithm}</p>
                 <p>审核修订：{detail.data.publication.approved_post_revision}</p>
                 <p>链接类型：{detail.data.publication.link_type ?? '待生成'}</p>
