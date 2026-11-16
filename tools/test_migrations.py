@@ -17,8 +17,7 @@ def main():
     pg = Path(args.bin_dir).resolve()
     files = sorted(Path('backend/migrations').glob('*.sql'))
     sql = '\n'.join(p.read_text() for p in files)
-    sql += Path('backend/tests/forum_migrations.sql').read_text()
-    sql += Path('backend/tests/dynamic_source.sql').read_text()
+    sql += Path('backend/tests/source_messages.sql').read_text()
     # -j terminates an input unit on a blank line. Send one SQL statement per
     # unit, preserving dollar-quoted function bodies and explicit transactions.
     sql = re.sub(r'\n\s*\n', '\n', sql)

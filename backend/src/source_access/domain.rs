@@ -27,13 +27,8 @@ pub struct Event {
     pub schema_version: u32,
     pub route_id: String,
     pub event_type: String,
-    pub external_content_id: String,
-    pub version: String,
-    pub sequence: i64,
     pub occurred_at: chrono::DateTime<chrono::Utc>,
-    pub title: Option<String>,
-    pub content: Option<String>,
-    pub detail_url: String,
+    pub content: String,
 }
 #[derive(Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -167,39 +162,13 @@ pub fn identifier(value: &str) -> bool {
 impl Event {
     pub fn validate(&self) -> Result<()> {
         ensure(self.schema_version == 2, "unsupported_version")?;
+        ensure(identifier(&self.route_id), "invalid_request")?;
         ensure(
-            identifier(&self.route_id)
-                && !self.external_content_id.is_empty()
-                && self.external_content_id.len() <= 256
-                && !self.version.is_empty()
-                && self.version.len() <= 256
-                && (1..=9_007_199_254_740_991).contains(&self.sequence),
-            "invalid_request",
+            self.event_type == "content.upsert",
+            "unsupported_event_type",
         )?;
-        ensure(
-            matches!(
-                self.event_type.as_str(),
-                "content.upsert" | "content.withdrawn"
-            ),
-            "invalid_request",
-        )?;
-        if self.event_type == "content.upsert" {
-            ensure(
-                self.title.as_ref().is_some_and(|v| !v.trim().is_empty())
-                    && self.content.as_ref().is_some_and(|v| !v.trim().is_empty()),
-                "invalid_request",
-            )?;
-        } else {
-            ensure(self.content.is_none(), "invalid_request")?;
-        }
-        ensure(
-            self.title.as_ref().is_none_or(|v| v.chars().count() <= 512)
-                && self
-                    .content
-                    .as_ref()
-                    .is_none_or(|v| v.chars().count() <= 100_000),
-            "invalid_request",
-        )?;
+        ensure(!self.content.trim().is_empty(), "content_empty")?;
+        ensure(self.content.chars().count() <= 200, "content_too_long")?;
         Ok(())
     }
 }
@@ -208,23 +177,29 @@ mod tests {
     use super::*;
     #[test]
     fn source_payload_does_not_validate_content_urls() {
-        let fixture: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../api-contract/fixtures/source-v2.json"
-        ))
-        .unwrap();
-        let doc: serde_json::Value =
-            serde_json::from_str(fixture["vectors"][0]["body"].as_str().unwrap()).unwrap();
-        let mut event: Event = serde_json::from_value(doc["data"]["attributes"].clone()).unwrap();
+        let mut event = Event {
+            event_id: Uuid::nil(),
+            schema_version: 2,
+            route_id: "route-1".into(),
+            event_type: "content.upsert".into(),
+            occurred_at: chrono::Utc::now(),
+            content: String::new(),
+        };
         for link in [
-            "http://localhost:5173/posts/1",
+            "mp://aHXgY7WQcLjmxYB",
             "#小程序://Linjian/详情",
-            "https://example.com/path?t=1",
-            "",
-            "opaque content",
+            "http://localhost:5173/posts/1",
+            "https://example.com/path?t=1#part",
         ] {
-            event.detail_url = link.into();
+            event.content = format!("摘要\n{link}");
             event.validate().unwrap();
         }
+        event.content = "字".repeat(200);
+        event.validate().unwrap();
+        event.content.push('😀');
+        assert_eq!(event.validate().unwrap_err().0, "content_too_long");
+        event.content = " \n".into();
+        assert_eq!(event.validate().unwrap_err().0, "content_empty");
     }
     #[test]
     fn published_vectors() {
@@ -275,11 +250,16 @@ mod boundary_tests {
     #[test]
     fn strict_envelope_forbids_execution_and_school_fields() {
         let id = Uuid::nil();
-        let attributes = json!({"event_id":id,"schema_version":2,"route_id":"route-1","event_type":"content.upsert","external_content_id":"post","version":"1","sequence":1,"occurred_at":"2026-11-08T00:00:00Z","title":"中文","content":"正文","detail_url":"https://forum.example.com/community/a/posts/1"});
+        let attributes = json!({"event_id":id,"schema_version":2,"route_id":"route-1","event_type":"content.upsert","occurred_at":"2026-11-08T00:00:00Z","content":"正文"});
         let doc = json!({"data":{"type":"source-events","id":id,"attributes":attributes}});
         let valid: Document<Event> = serde_json::from_value(doc.clone()).unwrap();
         valid.data.attributes.validate().unwrap();
         for field in [
+            "title",
+            "detail_url",
+            "external_content_id",
+            "version",
+            "sequence",
             "school_id",
             "school_name",
             "external_organization_id",

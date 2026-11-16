@@ -78,7 +78,7 @@ pub(super) async fn snapshot(
     actor: Option<Uuid>,
     policy_revision: Option<i64>,
 ) -> Result<Option<Uuid>> {
-    if current["source_projection"] != "miniapp_summary_v1" {
+    if current["source_projection"] != "message_v1" {
         return Ok(None);
     }
     let preview = domain::preview(current)?;

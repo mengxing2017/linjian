@@ -19,6 +19,7 @@ pub const TABLES: &[&str] = &[
     "follows",
     "notifications",
     "moderation_events",
+    "forum_publication_snapshots",
     "cases",
     "school_resources",
     "media_assets",
@@ -125,9 +126,18 @@ pub async fn import(pool: &PgPool, snapshot: &Snapshot, same_wechat_app: bool) -
     sqlx::query("SET CONSTRAINTS ALL DEFERRED")
         .execute(&mut *tx)
         .await?;
-    sqlx::query("ALTER TABLE posts DISABLE TRIGGER forum_post_outbox")
-        .execute(&mut *tx)
-        .await?;
+    // Restore immutable review evidence without applying today's live authorization policy.
+    // This offline operation already requires an empty target and an exact snapshot digest.
+    for (table, trigger) in [
+        ("posts", "forum_post_outbox"),
+        ("posts", "forum_post_publication_guard"),
+        ("moderation_events", "forum_decision_guard"),
+        ("forum_publication_snapshots", "forum_new_snapshot_guard"),
+    ] {
+        sqlx::query(&format!("ALTER TABLE {table} DISABLE TRIGGER {trigger}"))
+            .execute(&mut *tx)
+            .await?;
+    }
     for table in TABLES {
         let columns:Vec<String>=sqlx::query("SELECT column_name FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=$1 AND is_generated='NEVER' ORDER BY ordinal_position").bind(table).fetch_all(&mut *tx).await?.iter().map(|r|r.get("column_name")).collect();
         // Table/column names are introspected, never taken from the snapshot.
@@ -140,10 +150,21 @@ pub async fn import(pool: &PgPool, snapshot: &Snapshot, same_wechat_app: bool) -
             sqlx::query(&format!("INSERT INTO {table}({quoted}) SELECT {quoted} FROM jsonb_populate_record(NULL::{table},$1)")).bind(row).execute(&mut *tx).await?;
         }
     }
-    sqlx::query("ALTER TABLE posts ENABLE TRIGGER forum_post_outbox")
+    // Validate the restored cyclic references before altering trigger configuration.
+    sqlx::query("SET CONSTRAINTS ALL IMMEDIATE")
         .execute(&mut *tx)
         .await?;
-    // Importing history does not enqueue it. Future edits/withdrawals continue at a stable version.
+    for (table, trigger) in [
+        ("posts", "forum_post_outbox"),
+        ("posts", "forum_post_publication_guard"),
+        ("moderation_events", "forum_decision_guard"),
+        ("forum_publication_snapshots", "forum_new_snapshot_guard"),
+    ] {
+        sqlx::query(&format!("ALTER TABLE {table} ENABLE TRIGGER {trigger}"))
+            .execute(&mut *tx)
+            .await?;
+    }
+    // Importing history does not enqueue it. Future content revisions continue at a stable version.
     sqlx::query("INSERT INTO forum_source_versions(school_id,post_id,sequence,available,delivery_intent) SELECT p.school_id,p.id,greatest(p.revision,1),p.audit_status='approved' AND p.visibility='visible' AND s.active,false FROM posts p JOIN schools s ON s.id=p.school_id").execute(&mut *tx).await?;
     sqlx::query("SELECT setval('legacy_public_id',greatest(1000000000000,coalesce((SELECT max(public_id) FROM legacy_aliases),0)),true)").execute(&mut *tx).await?;
     let mut actual = BTreeMap::new();

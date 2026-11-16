@@ -5,6 +5,7 @@ use serde_json::{Value, json};
 use uuid::Uuid;
 
 pub const ALGORITHM: &str = "plain-v1";
+pub const MESSAGE_VERSION: &str = "summary-20-v1";
 /// Current editors and readers use plain text. Never guess HTML from angle brackets.
 pub fn summary(content: &str, title: &str) -> String {
     let clean = |s: &str| {
@@ -19,11 +20,50 @@ pub fn summary(content: &str, title: &str) -> String {
     if value.is_empty() {
         value = clean(title);
     }
-    if value.chars().count() > 120 {
-        value = value.chars().take(119).chain(['…']).collect();
+    if value.chars().count() > 20 {
+        value = value.chars().take(18).chain(['…', '…']).collect();
     }
     value
 }
+/// Build the source body locally; links are opaque content and never truncated.
+pub fn message(
+    content: &str,
+    title: &str,
+    link: Option<&str>,
+) -> std::result::Result<String, Failure> {
+    let clean = |value: &str| {
+        value
+            .chars()
+            .filter(|c| !c.is_control() || c.is_whitespace())
+            .collect::<String>()
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+    };
+    let mut source = clean(content);
+    if source.is_empty() {
+        source = clean(title);
+    }
+    if source.is_empty() {
+        return Err(Failure::blocked("content_empty"));
+    }
+    let reserved = link.map_or(0, |v| v.chars().count() + 1);
+    let budget = 200usize.saturating_sub(reserved).min(20);
+    let truncated = source.chars().count() > budget;
+    if budget == 0 || (truncated && budget < 3) {
+        return Err(Failure::blocked("message_link_too_long"));
+    }
+    let text = if truncated {
+        source.chars().take(budget - 2).collect::<String>() + "……"
+    } else {
+        source
+    };
+    Ok(match link {
+        Some(link) => format!("{text}\n{link}"),
+        None => text,
+    })
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Policy {
@@ -125,9 +165,7 @@ pub fn preview(post: &Value) -> Result<Preview> {
     let title = post["title"].as_str().unwrap_or("");
     let content = post["content"].as_str().unwrap_or("");
     let summary = summary(content, title);
-    let projection = post["source_projection"]
-        .as_str()
-        .unwrap_or("legacy_full_v2");
+    let projection = post["source_projection"].as_str().unwrap_or("message_v1");
     let revision = post["revision"].as_i64().ok_or(Error::Conflict)?;
     let content_revision = post["content_revision"].as_i64().unwrap_or(1);
     let digest = hash(
@@ -163,6 +201,10 @@ pub struct Preparation {
     pub school: Uuid,
     pub post: Uuid,
     pub title: String,
+    pub content: String,
+    pub needs_link: bool,
+    pub occurred_at: DateTime<Utc>,
+    pub route_id: String,
     pub policy: Policy,
     pub attempts: i32,
 }
@@ -225,10 +267,49 @@ mod tests {
         assert_eq!(summary(" a\r\n\t b\u{0000} ", "title"), "a b");
         assert_eq!(summary(" \t ", " 标题 "), "标题");
         assert_eq!(summary("<b>原文</b> **保留**", ""), "<b>原文</b> **保留**");
-        assert_eq!(summary(&"😀".repeat(120), "").chars().count(), 120);
+        assert_eq!(summary(&"😀".repeat(20), "").chars().count(), 20);
         assert_eq!(
-            summary(&"😀".repeat(121), ""),
-            format!("{}…", "😀".repeat(119))
+            summary(&"😀".repeat(21), ""),
+            format!("{}……", "😀".repeat(18))
+        );
+    }
+    #[test]
+    fn complete_messages_use_twenty_scalar_summaries_and_opaque_links() {
+        for text in [
+            "之前有人说军训是 1.10 开始 训……",
+            "谁有裁纸刀和钢尺 借我用一晚 照片要……",
+            "出个瑜伽垫 紫色的 加厚那种。开学跟……",
+            "同班女生说想练人像 让我给她当模特 ……",
+        ] {
+            assert_eq!(text.chars().count(), 20);
+            assert_eq!(
+                message(text, "ignored", Some("mp://aHXgY7WQcLjmxYB")).unwrap(),
+                format!("{text}\nmp://aHXgY7WQcLjmxYB")
+            );
+        }
+        for count in [18, 19, 20] {
+            let text = "😀".repeat(count);
+            assert_eq!(message(&text, "", None).unwrap(), text);
+        }
+        assert_eq!(
+            message(&"😀".repeat(21), "", None).unwrap(),
+            "😀".repeat(18) + "……"
+        );
+        assert_eq!(message(" \n", "标题", None).unwrap(), "标题");
+        assert_eq!(message(" ", "", None).unwrap_err().code, "content_empty");
+        let link = "x".repeat(196);
+        let text = message("abcdef", "", Some(&link)).unwrap();
+        assert_eq!(text, format!("a……\n{link}"));
+        assert_eq!(text.chars().count(), 200);
+        assert_eq!(
+            message("abcdef", "", Some(&"x".repeat(197)))
+                .unwrap_err()
+                .code,
+            "message_link_too_long"
+        );
+        assert_eq!(
+            message("abc", "", Some("https://example.com/?q=1#part")).unwrap(),
+            "abc\nhttps://example.com/?q=1#part"
         );
     }
     #[test]

@@ -235,6 +235,7 @@ pub async fn request(
         .header("content-type", MEDIA_TYPE)
         .header("accept", MEDIA_TYPE)
         .header("x-source-version", "2")
+        .header("x-request-id", id.to_string())
         .header("x-source-key-id", key)
         .header("x-source-timestamp", timestamp)
         .header("x-source-nonce", nonce)

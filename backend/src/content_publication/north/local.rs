@@ -24,7 +24,13 @@ impl Worker {
         let Some(work) = self.store.claim().await? else {
             return Ok(false);
         };
-        let result = if work.policy.app_id.is_empty() {
+        let result = if !work.needs_link {
+            Ok(crate::content_publication::domain::Link {
+                value: String::new(),
+                generated_at: chrono::Utc::now(),
+                expires_at: None,
+            })
+        } else if work.policy.app_id.is_empty() {
             Err(Failure::blocked("miniapp_not_configured"))
         } else if let Some(link) = self.store.cached_link(&work).await? {
             Ok(link)

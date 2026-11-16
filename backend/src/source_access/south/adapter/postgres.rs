@@ -81,7 +81,7 @@ impl Repository {
         sqlx::query("INSERT INTO source_connection_versions(id,connection_id,revision,source_id,origin,key_id) VALUES($1,$2,$3,$4,$5,$6)").bind(version).bind(id).bind(rev).bind(source).bind(&config.origin).bind(&config.key_id).execute(&mut *tx).await?;
         sqlx::query("UPDATE school_source_bindings SET connection_version=$2,revision=revision+1,updated_at=now() WHERE connection_id=$1").bind(id).bind(version).execute(&mut *tx).await?;
         sqlx::query("UPDATE source_active_configuration SET connection_id=$1,updated_at=now() WHERE singleton").bind(id).execute(&mut *tx).await?;
-        sqlx::query("UPDATE forum_outbox o SET blocked_reason=NULL,blocked_at=NULL,next_attempt_at=now(),delivery_state=CASE WHEN receipt_id IS NULL THEN 'ready' ELSE 'tracking_receipt' END FROM source_connection_versions v WHERE o.connection_version=v.id AND v.origin=$1 AND v.key_id=$2 AND v.source_id=$3 AND o.schema_version=2 AND o.lease_token IS NULL AND o.blocked_reason IN ('authentication_failed','credential_unavailable','source_disabled','wekeeper_not_configured')").bind(&config.origin).bind(&config.key_id).bind(source).execute(&mut *tx).await?;
+        sqlx::query("UPDATE forum_outbox o SET blocked_reason=NULL,blocked_at=NULL,next_attempt_at=now(),delivery_state='ready' FROM source_connection_versions v WHERE o.connection_version=v.id AND v.origin=$1 AND v.key_id=$2 AND v.source_id=$3 AND o.schema_version=2 AND o.lease_token IS NULL AND o.blocked_reason IN ('authentication_failed','credential_unavailable','source_disabled','wekeeper_not_configured')").bind(&config.origin).bind(&config.key_id).bind(source).execute(&mut *tx).await?;
         crate::audit::record(
             &mut tx,
             a,
@@ -103,11 +103,7 @@ impl Repository {
         .bind(school)
         .fetch_optional(&self.0)
         .await?;
-        let mut backlog: std::collections::BTreeMap<String,i64> = sqlx::query("SELECT CASE WHEN o.delivery_state IN ('ready','retry_wait') AND o.receipt_id IS NULL AND o.payload->>'event_type'='content.upsert' AND b.active=false THEN 'paused' ELSE o.delivery_state END AS delivery_state,count(*) AS count FROM forum_outbox o LEFT JOIN school_source_bindings b ON b.school_id=o.school_id WHERE o.school_id=$1 AND o.delivery_state NOT IN ('settled','superseded') GROUP BY 1").bind(school).fetch_all(&self.0).await?.iter().map(|r| (r.get("delivery_state"),r.get("count"))).collect();
-        let jobs:i64=sqlx::query_scalar("SELECT count(*) FROM source_reconciliation_jobs WHERE school_id=$1 AND completed_at IS NULL").bind(school).fetch_one(&self.0).await?;
-        if jobs > 0 {
-            backlog.insert("withdrawal_jobs".into(), jobs);
-        }
+        let backlog: std::collections::BTreeMap<String,i64> = sqlx::query("SELECT CASE WHEN o.attempts=0 AND o.delivery_state IN ('ready','retry_wait') AND o.receipt_id IS NULL AND o.payload->>'event_type'='content.upsert' AND b.active=false THEN 'paused' ELSE o.delivery_state END AS delivery_state,count(*) AS count FROM forum_outbox o LEFT JOIN school_source_bindings b ON b.school_id=o.school_id WHERE o.school_id=$1 AND o.delivery_state NOT IN ('accepted','cancelled') GROUP BY 1").bind(school).fetch_all(&self.0).await?.iter().map(|r| (r.get("delivery_state"),r.get("count"))).collect();
         Ok(SchoolRouteSettings {
             backlog,
             binding: row.map(|row| SchoolRoute {

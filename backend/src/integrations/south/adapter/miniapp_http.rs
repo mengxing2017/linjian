@@ -176,16 +176,7 @@ impl MiniappLinkProvider for Client {
                     if link.chars().any(|c| c.is_control()) {
                         return Err(Failure::blocked("invalid_response"));
                     }
-                    let valid = if field == "link" {
-                        link.starts_with("#小程序://")
-                    } else {
-                        url::Url::parse(link).is_ok_and(|u| {
-                            u.scheme() == "https"
-                                && u.host_str().is_some()
-                                && u.username().is_empty()
-                                && u.password().is_none()
-                        })
-                    };
+                    let valid = valid_provider_link(field, link);
                     if !valid {
                         return Err(Failure::blocked("invalid_response"));
                     }
@@ -209,5 +200,51 @@ impl MiniappLinkProvider for Client {
             }
         }
         Err(Failure::blocked("token_invalid"))
+    }
+}
+
+fn valid_provider_link(field: &str, link: &str) -> bool {
+    if link.chars().any(|c| c.is_control()) || link.chars().count() > 4096 {
+        return false;
+    }
+    if field == "link" {
+        ["mp://", "#小程序://"].iter().any(|prefix| {
+            link.strip_prefix(prefix)
+                .is_some_and(|suffix| !suffix.trim().is_empty())
+        })
+    } else {
+        url::Url::parse(link).is_ok_and(|u| {
+            u.scheme() == "https"
+                && u.host_str().is_some()
+                && u.username().is_empty()
+                && u.password().is_none()
+        })
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::valid_provider_link;
+    #[test]
+    fn wechat_short_links_accept_both_native_forms_without_rewriting() {
+        for link in [
+            "mp://Ltxhoqe18kEGxlD",
+            "mp://aHXgY7WQcLjmxYB",
+            "#小程序://Linjian/示例",
+        ] {
+            assert!(valid_provider_link("link", link));
+        }
+        for link in [
+            "mp://",
+            "#小程序://",
+            "mp://a\n",
+            "https://example.com",
+            "opaque",
+        ] {
+            assert!(!valid_provider_link("link", link));
+        }
+        assert!(valid_provider_link(
+            "url_link",
+            "https://example.com/?q=1#part"
+        ));
     }
 }

@@ -11,14 +11,6 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct Repository(pub PgPool);
 impl Repository {
-    pub async fn publish_environment(&self) -> Result<()> {
-        sqlx::query("UPDATE forum_publication_configuration SET public_origin=$1 WHERE singleton")
-            .bind(crate::bootstrap::Options::default().public_origin)
-            .execute(&self.0)
-            .await?;
-        Ok(())
-    }
-
     pub async fn retry(&self, a: &Actor, school: Uuid, id: Uuid, input: Retry) -> Result<()> {
         if !a.browser || !a.can(school, "operator") {
             return Err(Error::NotFound);
@@ -72,21 +64,18 @@ impl PreparationStore for Repository {
             .unwrap_or_else(|_| "true".into())
             .parse::<bool>()
             .map_err(|_| Error::Invalid("小程序来源开关配置无效".into()))?;
-        if !enabled {
-            return Ok(None);
-        }
         let current = Policy::from_env()?;
         let configured = !current.app_id.is_empty()
             && std::env::var("LINJIAN_WX_SECRET").is_ok_and(|v| !v.is_empty());
         let mut tx = self.0.begin().await?;
         // Never lock posts after schools: content writers already own the post lock.
-        let school:Option<Uuid>=sqlx::query_scalar("SELECT s.id FROM schools s JOIN school_source_bindings b ON b.school_id=s.id WHERE s.active AND b.active AND EXISTS(SELECT 1 FROM forum_outbox o JOIN forum_publication_preparations p ON p.event_id=o.id JOIN forum_publication_snapshots snap ON snap.id=p.snapshot_id WHERE o.school_id=s.id AND o.connection_version IS NOT NULL AND o.request_body IS NULL AND o.delivery_state='preparing_content' AND ((p.state IN ('pending','retry_wait') AND p.next_attempt_at<=now()) OR (p.state='generating' AND p.lease_until<now()) OR (p.state='blocked' AND p.last_error_code='miniapp_not_configured' AND $1 AND p.next_attempt_at<=now()))) ORDER BY (SELECT min(p.next_attempt_at) FROM forum_publication_preparations p JOIN forum_outbox o ON o.id=p.event_id WHERE o.school_id=s.id AND o.delivery_state='preparing_content'),s.id FOR UPDATE OF s SKIP LOCKED LIMIT 1")
-            .bind(configured).fetch_optional(&mut *tx).await?;
+        let school:Option<Uuid>=sqlx::query_scalar("SELECT s.id FROM schools s JOIN school_source_bindings b ON b.school_id=s.id WHERE s.active AND b.active AND EXISTS(SELECT 1 FROM forum_outbox o JOIN forum_publication_preparations p ON p.event_id=o.id JOIN forum_publication_snapshots snap ON snap.id=p.snapshot_id WHERE o.school_id=s.id AND o.connection_version IS NOT NULL AND o.request_body IS NULL AND o.delivery_state='preparing_content' AND ($2 OR EXISTS(SELECT 1 FROM posts WHERE id=o.post_id AND created_via<>'miniapp')) AND ((p.state IN ('pending','retry_wait') AND p.next_attempt_at<=now()) OR (p.state='generating' AND p.lease_until<now()) OR (p.state='blocked' AND p.last_error_code='miniapp_not_configured' AND $1 AND p.next_attempt_at<=now()))) ORDER BY (SELECT min(p.next_attempt_at) FROM forum_publication_preparations p JOIN forum_outbox o ON o.id=p.event_id WHERE o.school_id=s.id AND o.delivery_state='preparing_content'),s.id FOR UPDATE OF s SKIP LOCKED LIMIT 1")
+            .bind(configured).bind(enabled).fetch_optional(&mut *tx).await?;
         let Some(school) = school else {
             return Ok(None);
         };
-        let row=sqlx::query("SELECT o.id,o.post_id,snap.title,snap.link_policy,p.resolved_policy,p.attempts FROM forum_outbox o JOIN forum_publication_preparations p ON p.event_id=o.id JOIN forum_publication_snapshots snap ON snap.id=p.snapshot_id WHERE o.school_id=$1 AND o.connection_version IS NOT NULL AND o.request_body IS NULL AND o.delivery_state='preparing_content' AND ((p.state IN ('pending','retry_wait') AND p.next_attempt_at<=now()) OR (p.state='generating' AND p.lease_until<now()) OR (p.state='blocked' AND p.last_error_code='miniapp_not_configured' AND $2 AND p.next_attempt_at<=now())) ORDER BY p.next_attempt_at,o.created_at,o.id FOR UPDATE OF o,p SKIP LOCKED LIMIT 1")
-            .bind(school).bind(configured).fetch_optional(&mut *tx).await?;
+        let row=sqlx::query("SELECT o.id,o.post_id,snap.title,snap.content,posts.created_via,o.payload->>'occurred_at' AS occurred_at,o.route_id,snap.link_policy,p.resolved_policy,p.attempts FROM forum_outbox o JOIN forum_publication_preparations p ON p.event_id=o.id JOIN forum_publication_snapshots snap ON snap.id=p.snapshot_id JOIN posts ON posts.id=o.post_id WHERE o.school_id=$1 AND o.connection_version IS NOT NULL AND o.request_body IS NULL AND o.delivery_state='preparing_content' AND ($3 OR posts.created_via<>'miniapp') AND ((p.state IN ('pending','retry_wait') AND p.next_attempt_at<=now()) OR (p.state='generating' AND p.lease_until<now()) OR (p.state='blocked' AND p.last_error_code='miniapp_not_configured' AND $2 AND p.next_attempt_at<=now())) ORDER BY p.next_attempt_at,o.created_at,o.id FOR UPDATE OF o,p SKIP LOCKED LIMIT 1")
+            .bind(school).bind(configured).bind(enabled).fetch_optional(&mut *tx).await?;
         let Some(row) = row else { return Ok(None) };
         let id: Uuid = row.get("id");
         let valid: bool = sqlx::query_scalar("SELECT forum_publication_is_current($1)")
@@ -94,7 +83,7 @@ impl PreparationStore for Repository {
             .fetch_one(&mut *tx)
             .await?;
         if !valid {
-            sqlx::query("UPDATE forum_outbox SET delivery_state='superseded' WHERE id=$1")
+            sqlx::query("UPDATE forum_outbox SET delivery_state='cancelled' WHERE id=$1")
                 .bind(id)
                 .execute(&mut *tx)
                 .await?;
@@ -125,6 +114,13 @@ impl PreparationStore for Repository {
             school,
             post: row.get("post_id"),
             title: row.get("title"),
+            content: row.get("content"),
+            needs_link: row.get::<String, _>("created_via") == "miniapp",
+            occurred_at: row
+                .get::<String, _>("occurred_at")
+                .parse()
+                .map_err(|_| Error::Conflict)?,
+            route_id: row.get("route_id"),
             policy,
             attempts: row.get::<i32, _>("attempts") + 1,
         };
@@ -141,31 +137,64 @@ impl PreparationStore for Repository {
             .bind(w.school)
             .fetch_one(&mut *tx)
             .await?;
-        let owned:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM forum_publication_preparations p JOIN forum_outbox o ON o.id=p.event_id WHERE p.event_id=$1 AND p.lease_token=$2 AND p.lease_until>now() AND p.state='generating' AND o.request_body IS NULL AND o.delivery_state<>'superseded')")
+        let owned:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM forum_publication_preparations p JOIN forum_outbox o ON o.id=p.event_id WHERE p.event_id=$1 AND p.lease_token=$2 AND p.lease_until>now() AND p.state='generating' AND o.request_body IS NULL AND o.delivery_state<>'cancelled')")
             .bind(w.id).bind(w.token).fetch_one(&mut *tx).await?;
         if !owned {
             return Ok(());
         }
-        match result {
-            Ok(link) => {
-                if link.value.is_empty()
+        let result = result.and_then(|link| {
+            if w.needs_link
+                && (link.value.is_empty()
                     || link.value.chars().count() > 4096
-                    || link.value.chars().any(|c| c.is_control())
-                {
-                    return Err(Error::Invalid("小程序链接响应无效".into()));
-                }
-                let cache_key = w.policy.cache_key(w.school, w.post, &w.title);
-                let existing:Option<Uuid>=sqlx::query_scalar("SELECT id FROM miniapp_link_assets WHERE cache_key=$1 AND link=$2 AND (expires_at IS NULL OR expires_at>now()+make_interval(secs=>$3)) ORDER BY generated_at DESC LIMIT 1")
+                    || link.value.chars().any(|c| c.is_control()))
+            {
+                return Err(Failure::blocked("invalid_link_response"));
+            }
+            let content = crate::content_publication::domain::message(
+                &w.content,
+                &w.title,
+                w.needs_link.then_some(link.value.as_str()),
+            )?;
+            let event = crate::source_access::domain::Event {
+                event_id: w.id,
+                schema_version: 2,
+                route_id: w.route_id.clone(),
+                event_type: "content.upsert".into(),
+                occurred_at: w.occurred_at,
+                content,
+            };
+            event.validate().map_err(|e| Failure::blocked(e.0))?;
+            let body = serde_json::to_string(&crate::source_access::domain::Document {
+                data: crate::source_access::domain::Resource {
+                    kind: "source-events".into(),
+                    id: w.id,
+                    attributes: event,
+                },
+            })
+            .map_err(|_| Failure::blocked("invalid_request"))?;
+            Ok((link, body))
+        });
+        match result {
+            Ok((link, body)) => {
+                let asset = if w.needs_link {
+                    let cache_key = w.policy.cache_key(w.school, w.post, &w.title);
+                    let existing:Option<Uuid>=sqlx::query_scalar("SELECT id FROM miniapp_link_assets WHERE cache_key=$1 AND link=$2 AND (expires_at IS NULL OR expires_at>now()+make_interval(secs=>$3)) ORDER BY generated_at DESC LIMIT 1")
                     .bind(&cache_key).bind(&link.value).bind(w.policy.min_remaining as f64).fetch_optional(&mut *tx).await?;
-                let asset = existing.unwrap_or_else(Uuid::now_v7);
-                if existing.is_none() {
-                    sqlx::query("INSERT INTO miniapp_link_assets(id,cache_key,app_id,policy,page_path,canonical_query,page_title,link_type,permanent,link,generated_at,expires_at) VALUES($1,$2,$3,$4,'pages/index/detail',$5,$6,$7,$8,$9,$10,$11)")
+                    let asset = existing.unwrap_or_else(Uuid::now_v7);
+                    if existing.is_none() {
+                        sqlx::query("INSERT INTO miniapp_link_assets(id,cache_key,app_id,policy,page_path,canonical_query,page_title,link_type,permanent,link,generated_at,expires_at) VALUES($1,$2,$3,$4,'pages/index/detail',$5,$6,$7,$8,$9,$10,$11)")
                         .bind(asset).bind(&cache_key).bind(&w.policy.app_id).bind(json!(w.policy)).bind(format!("school={}&id={}",w.school,w.post)).bind(w.title.chars().take(20).collect::<String>()).bind(&w.policy.link_type).bind(w.policy.permanent).bind(&link.value).bind(link.generated_at).bind(link.expires_at).execute(&mut *tx).await?;
-                }
-                sqlx::query("SELECT forum_finalize_prepared_source($1,$2,$3)")
+                    }
+                    Some(asset)
+                } else {
+                    None
+                };
+                sqlx::query("SELECT forum_finalize_prepared_source($1,$2,$3,$4,$5)")
                     .bind(w.id)
                     .bind(w.token)
                     .bind(asset)
+                    .bind(body)
+                    .bind(crate::content_publication::domain::MESSAGE_VERSION)
                     .execute(&mut *tx)
                     .await?;
             }

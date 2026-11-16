@@ -116,7 +116,7 @@ impl Repository {
         if current["revision"].as_i64() != Some(v.revision) {
             return Err(Error::Conflict);
         }
-        let managed = !comment && current["source_projection"] == "miniapp_summary_v1";
+        let managed = !comment && current["source_projection"] == "message_v1";
         if managed && !a.browser {
             return Err(Error::Forbidden);
         }

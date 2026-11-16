@@ -77,15 +77,11 @@ impl SourceTransport for HttpTransport {
     }
 }
 #[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Receipt {
     event_id: uuid::Uuid,
     status: String,
-    reason_code: Option<String>,
-    processing_stage: String,
     received_at: chrono::DateTime<chrono::Utc>,
-    updated_at: chrono::DateTime<chrono::Utc>,
-    retryable: bool,
-    sending: Option<crate::outbox::domain::SendingSummary>,
 }
 pub fn parse_response(
     d: &Delivery,
@@ -114,19 +110,31 @@ pub fn parse_response(
             "event_conflict" => "event_conflict",
             _ if status == 429 => "rate_limited",
             _ if status >= 500 => "temporarily_unavailable",
-            _ => "invalid_request",
+            "invalid_request" => "invalid_request",
+            "forbidden_field" => "forbidden_field",
+            "content_empty" => "content_empty",
+            "content_too_long" => "content_too_long",
+            "unsupported_event_type" => "unsupported_event_type",
+            "event_identity_mismatch" => "event_identity_mismatch",
+            "receipt_not_found" => "receipt_not_found",
+            "unsupported_media_type" => "unsupported_media_type",
+            _ => {
+                if code.len() <= 64 && code.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'_')
+                {
+                    tracing::warn!(upstream_status = status, upstream_code = code, event_id = %d.id, "source request rejected");
+                }
+                "upstream_error"
+            }
         }));
     }
+    ensure(matches!(status, 200 | 202), "protocol_error")?;
     let r: Document<Receipt> =
         serde_json::from_value(document).map_err(|_| Fault("protocol_error"))?;
     ensure(
         r.data.kind == "source-receipts"
             && d.receipt_id.is_none_or(|id| id == r.data.id)
             && r.data.attributes.event_id == d.id
-            && matches!(
-                r.data.attributes.status.as_str(),
-                "received" | "applied" | "ignored_stale" | "rejected"
-            ),
+            && r.data.attributes.status == "received",
         "protocol_error",
     )?;
     Ok(ReceiptResult {
@@ -164,8 +172,8 @@ mod tests {
         let mut d = delivery();
         let bytes = include_bytes!("../../../../../api-contract/fixtures/source-receipt-v2.json");
         let result = parse_response(&d, 200, MEDIA_TYPE, bytes).unwrap();
-        assert_eq!(result.status, "applied");
-        assert!(result.summary["sending"].is_null());
+        assert_eq!(result.status, "received");
+        assert_eq!(result.summary.as_object().unwrap().len(), 3);
         assert!(parse_response(&d, 200, "text/html", b"<html>OK</html>").is_err());
         d.receipt_id = Some(uuid::Uuid::new_v4());
         assert!(parse_response(&d, 200, MEDIA_TYPE, bytes).is_err());
@@ -186,5 +194,50 @@ mod tests {
                 .is_err()
             );
         }
+    }
+    #[test]
+    fn minimal_acceptance_and_precise_protocol_errors() {
+        let d = delivery();
+        let bytes = include_bytes!("../../../../../api-contract/fixtures/source-receipt-v2.json");
+        for status in [200, 202] {
+            assert_eq!(
+                parse_response(&d, status, MEDIA_TYPE, bytes)
+                    .unwrap()
+                    .status,
+                "received"
+            );
+        }
+        assert_eq!(
+            parse_response(&d, 204, MEDIA_TYPE, bytes).err().unwrap().0,
+            "protocol_error"
+        );
+        for code in [
+            "forbidden_field",
+            "content_empty",
+            "content_too_long",
+            "unsupported_event_type",
+            "event_identity_mismatch",
+            "receipt_not_found",
+            "unsupported_media_type",
+        ] {
+            let bytes = serde_json::to_vec(&serde_json::json!({"errors":[{"code":code}]})).unwrap();
+            assert_eq!(
+                parse_response(&d, 400, MEDIA_TYPE, &bytes).err().unwrap().0,
+                code
+            );
+        }
+        let bytes = br#"{"errors":[{"code":"unexpected_internal_failure"}]}"#;
+        assert_eq!(
+            parse_response(&d, 400, MEDIA_TYPE, bytes).err().unwrap().0,
+            "upstream_error"
+        );
+        assert_eq!(
+            parse_response(&d, 429, MEDIA_TYPE, bytes).err().unwrap().0,
+            "rate_limited"
+        );
+        assert_eq!(
+            parse_response(&d, 503, MEDIA_TYPE, bytes).err().unwrap().0,
+            "temporarily_unavailable"
+        );
     }
 }
