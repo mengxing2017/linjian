@@ -1,3 +1,4 @@
+import { navigationPagination } from '../../../shared/navigation'
 import { ListPanel } from '../../../shared/list-panel'
 import { Field } from '../../../shared/field'
 import { useState } from 'react'
@@ -108,7 +109,7 @@ export function Members({
               ? '没有匹配的账号，请调整搜索条件或先新建账号'
               : '本校暂无成员',
         }}
-        pagination={{ current: page, pageSize: 10, showSizeChanger: false, onChange: setPage }}
+        pagination={{ ...navigationPagination, current: page, pageSize: 10, showSizeChanger: false, onChange: setPage }}
         rowSelection={
           platformAdmin
             ? {

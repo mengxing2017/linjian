@@ -1,3 +1,4 @@
+import { PaginationControls } from '../../../shared/pagination-controls'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -53,7 +54,7 @@ export function BlockedWords({ school, schoolName, canEdit, platformAdmin = fals
         {title:'操作',render:(_,r)=>editable && <Space><Button type="link" onClick={()=>edit(r)}>编辑</Button><Popconfirm title="确定删除此屏蔽词？" onConfirm={()=>run(()=>api.remove(school,r.id,r.revision))}><Button type="link" danger>删除</Button></Popconfirm>
           {ordering && <><Button size="small" disabled={items[0]?.id===r.id} onClick={()=>move(r.id,items[items.indexOf(r)-1].id)}>上移</Button><Button size="small" disabled={items.at(-1)?.id===r.id} onClick={()=>move(r.id,items[items.indexOf(r)+1].id)}>下移</Button></>}</Space>},
       ]} />
-      {ordering ? <p>拖动行调整顺序，也可使用上移、下移按钮。</p> : <Space><Button disabled={page===1} onClick={()=>setPage(page-1)}>上一页</Button><span>第 {page} 页</span><Button disabled={!q.data?.has_more} onClick={()=>setPage(page+1)}>下一页</Button></Space>}
+      {ordering ? <p>拖动行调整顺序，也可使用上移、下移按钮。</p> : <PaginationControls page={page} more={q.data?.has_more} busy={q.isFetching || busy} subject="屏蔽词" change={setPage}/>}
     </Card>
     <Modal open={editing !== undefined} title={editing ? '编辑屏蔽词' : '添加屏蔽词'} onCancel={()=>setEditing(undefined)} confirmLoading={busy} onOk={()=>void run(async()=>{ await api.save(school,{word,remark,active,revision:editing?.revision ?? 0},editing?.id); setEditing(undefined) })}>
       <Space orientation="vertical" className="full-width"><label>屏蔽词<Input value={word} maxLength={100} onChange={e=>setWord(e.target.value)} /></label><label>备注<Input.TextArea value={remark} maxLength={255} onChange={e=>setRemark(e.target.value)} /></label><label>启用 <Switch checked={active} onChange={setActive}/></label></Space>

@@ -1,3 +1,4 @@
+import { navigationPagination } from '../../../shared/navigation'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Button, Card, Drawer, Table, Tag } from 'antd'
@@ -35,7 +36,7 @@ export function GlobalResources() {
           rowKey="id"
           loading={q.isFetching}
           dataSource={q.data ?? []}
-          pagination={{ pageSize: 10 }}
+          pagination={{ ...navigationPagination, pageSize: 10 }}
           scroll={{ x: 700 }}
           columns={[
             { title: '标题', dataIndex: 'title', render: (v) => label(v) },

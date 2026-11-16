@@ -1,3 +1,4 @@
+import { navigationPagination } from '../../../shared/navigation'
 import { ListPanel } from '../../../shared/list-panel'
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -160,7 +161,7 @@ export function Accounts({
         loading={q.isPending}
         dataSource={rows}
         scroll={{ x: 800 }}
-        pagination={{
+        pagination={{ ...navigationPagination,
           current: page,
           pageSize: 10,
           onChange: setPage,

@@ -317,6 +317,14 @@ a:focus-visible {
 .pagination-actions {
   margin-inline-start: auto;
 }
+.navigation-button {
+  min-width: 32px;
+  text-align: center;
+}
+.navigation-button:focus-visible {
+  outline: 2px solid var(--ant-color-primary, #1677ff);
+  outline-offset: 2px;
+}
 .ant-table-wrapper .ant-table-pagination {
   margin: 16px 0 0;
 }

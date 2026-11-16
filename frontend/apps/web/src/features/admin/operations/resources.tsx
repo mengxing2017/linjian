@@ -1,3 +1,4 @@
+import { PaginationControls } from '../../../shared/pagination-controls'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Button, Drawer, Input, InputNumber, Modal, Select, Space, Switch, Table, Tag } from 'antd'
@@ -43,7 +44,7 @@ export function OperationResources({ school, platformAdmin, schoolAdmin, module 
       ...(module === 'home-banners' ? [{ title: '曝光量', dataIndex: 'views' }, { title: '点击量', dataIndex: 'clicks' }] : []),
       { title: '操作', render: (_, r) => <Space><Button type="link" onClick={() => { setEditing(r); setOpen(true) }}>{canEdit ? '编辑' : '查看'}</Button>{canEdit && <Button danger type="link" onClick={() => Modal.confirm({ title: `确认删除“${r.title}”？`, content: '删除后立即停止展示，历史统计保留。', onOk: async () => { try { await api.remove(selected, module, r.id, r.revision); await q.refetch() } catch (e) { setError(e instanceof Error ? e.message : '删除失败'); throw e } } })}>删除</Button>}</Space> },
     ]} />
-    <Space><Button disabled={(filters.page ?? 1) <= 1 || q.isFetching} onClick={() => setFilters({ ...filters, page: (filters.page ?? 1) - 1 })}>上一页</Button><span>第 {filters.page ?? 1} 页</span><Button disabled={!q.data?.page?.has_more || q.isFetching} onClick={() => setFilters({ ...filters, page: (filters.page ?? 1) + 1 })}>下一页</Button></Space>
+    <PaginationControls page={filters.page ?? 1} more={q.data?.page?.has_more} busy={q.isFetching} subject="运营资源" change={page => setFilters({ ...filters, page })} />
     {open && <Drawer open size="large" title={`${canEdit ? editing ? '编辑' : '添加' : '查看'}${title}`} onClose={() => setOpen(false)}>
       <OperationEditor key={`${selected}:${editing?.id ?? 'new'}`} school={selected} module={module} item={editing} readOnly={!canEdit} onSaved={async () => { await q.refetch(); setOpen(false) }} />
     </Drawer>}
