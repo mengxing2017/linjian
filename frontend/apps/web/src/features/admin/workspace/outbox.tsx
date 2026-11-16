@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Button, Descriptions, Input, Modal, Select, Space, Table } from 'antd'
+import { Alert, Button, Descriptions, Input, Modal, Select, Space, Table, Typography } from 'antd'
 import { workspace, type Row } from './api'
 import { formatDate } from '../../../shared/format-date'
 import { PaginationControls } from '../../../shared/pagination-controls'
@@ -220,11 +220,13 @@ export function Outbox({ school }: { school: string }) {
             <Descriptions
               column={1}
               items={[
-                { key: 'id', label: '原事件', children: detail.data.id },
+                { key: 'id', label: '原事件', children: <Typography.Text copyable>{detail.data.id}</Typography.Text> },
                 {
                   key: 'route',
                   label: '原路由',
-                  children: String(detail.data.route_id ?? '待绑定'),
+                  children: detail.data.route_id
+                    ? <Typography.Text copyable>{detail.data.route_id}</Typography.Text>
+                    : '待绑定',
                 },
                 {
                   key: 'binding',
@@ -237,6 +239,8 @@ export function Outbox({ school }: { school: string }) {
                   children: formatDate(detail.data.frozen_at),
                 },
                 { key: 'receipt', label: '回执', children: String(detail.data.receipt_id ?? '—') },
+                { key: 'blocked', label: '阻塞原因', children: detail.data.blocked_reason ?? '—' },
+                { key: 'error', label: '最近问题', children: detail.data.last_error ?? '—' },
               ]}
             />
             {detail.data.preparation && (
