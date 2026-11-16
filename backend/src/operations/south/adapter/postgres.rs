@@ -25,10 +25,11 @@ async fn auth(
     } else {
         a.authorize(school(s)?, "member")?;
     }
-    preview::authorize(tx, a, s, role).await?;
+    // Acquire the write fence before authorization's shared school lock to avoid lock upgrades.
     if let Some(s) = s {
         crate::miniapp_users::south::adapter::postgres::guard_write(tx, a, s).await?;
     }
+    preview::authorize(tx, a, s, role).await?;
     Ok(())
 }
 async fn audit(
