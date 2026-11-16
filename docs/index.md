@@ -5,7 +5,7 @@ Linjian 是包含 Rust API、Web 管理后台与微信小程序的独立校园�
 ## 部署与运维
 
 - [Docker 构建与启动](runbooks/docker-images.md)：配置、构建、创建管理员和打开后台。
-- [来源连接配置](runbooks/wekeeper-configuration.md)：后端来源推送配置与连接验证。
+- [来源连接配置](runbooks/wekeeper-configuration.md)：`make dev-embedded` 环境变量、Docker 配置与连接验证。
 - [数据迁移](runbooks/migration.md)：快照导出、空库导入、切换及回退。
 
 ## 功能说明
