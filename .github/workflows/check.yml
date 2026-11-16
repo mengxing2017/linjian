@@ -19,8 +19,10 @@ jobs:
           components: rustfmt, clippy
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
-      - run: corepack enable
+          node-version: '26'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
       - run: sudo apt-get update && sudo apt-get install -y cmake pkg-config libssl-dev
       - run: make install
       - run: make check-web

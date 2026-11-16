@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.2/.schema/devbox.schema.json",
   "packages": {
     "rustup": "1.29.0",
-    "nodejs": "22",
+    "nodejs": "26",
     "pnpm": "11.22.0",
     "pkg-config": "0.29.2",
     "openssl": {
@@ -13,6 +13,9 @@
         "out"
       ]
     }
+  },
+  "env": {
+    "DEVBOX_COREPACK_ENABLED": ""
   },
   "shell": {
     "init_hook": [

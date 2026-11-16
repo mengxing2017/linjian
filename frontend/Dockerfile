@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
-FROM node:22-bookworm-slim AS builder
+FROM node:26-bookworm-slim AS builder
 WORKDIR /workspace/frontend
-RUN corepack enable
+RUN npm install --global pnpm@11.22.0
 COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml frontend/.npmrc ./
 COPY frontend/apps/web/package.json apps/web/package.json
 COPY frontend/apps/miniapp/package.json apps/miniapp/package.json

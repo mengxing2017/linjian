@@ -6,7 +6,7 @@
 
 ## 开发与验证
 
-从仓库根运行：
+使用 Node.js 26 与 pnpm 11.22.0（可进入 `devbox shell`），从仓库根运行：
 
 ```bash
 make install
