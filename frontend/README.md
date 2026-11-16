@@ -17,6 +17,12 @@ pnpm --dir frontend dev:miniapp
 
 `make check-web` 包含 contract 的浏览器及无 DOM 类型检查、契约测试、双客户端类型检查/lint/测试/生产构建与导入边界检查。单独校验小程序使用 `make check-miniapp`。
 
+Web 界面测试使用 JSDOM 31，并通过测试专用 ConfigProvider 设置 `motion: false`，保留真实 Ant Design 组件与样式可见性检查。测试文件串行运行，单项超时 15 秒；工作区测试命令实时输出各项目进度，避免通过延长等待时间掩盖交互问题。命令行可单独运行并显示每项耗时：
+
+```bash
+devbox run -- pnpm --dir frontend/apps/web exec vitest run --reporter=verbose
+```
+
 Web 默认 `http://localhost:5173`，通过 Vite 代理请求 `LINJIAN_API_ORIGIN`（默认 `http://127.0.0.1:8080`）。根 `frontend dev` 继续转发参数给 Web，例如 `pnpm --dir frontend dev --host 127.0.0.1 --port 5174`。
 
 开发和构建通过 Vite 的精确入口别名读取仓库 `api-contract/` 源码，避免 pnpm `file:` 安装副本在接口更新后保留旧导出。修改契约源码可直接触发开发服务更新；新增 package exports 或修改 Vite 配置后重启开发服务。

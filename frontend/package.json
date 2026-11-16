@@ -8,7 +8,7 @@
     "dev:miniapp": "pnpm --filter @linjian/miniapp dev",
     "typecheck": "pnpm -r typecheck",
     "lint": "node tools/check-boundaries.mjs && pnpm -r lint",
-    "test": "node --test tools/*.test.mjs && pnpm -r test",
+    "test": "node --test tools/*.test.mjs && pnpm -r --stream test",
     "build": "pnpm -r build",
     "build:web": "pnpm --filter @linjian/web build",
     "build:miniapp": "pnpm --filter @linjian/miniapp build"
