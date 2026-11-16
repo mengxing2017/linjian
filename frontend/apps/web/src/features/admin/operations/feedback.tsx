@@ -22,14 +22,14 @@ export function OperationFeedback({ school, canDelete }: { school: string; canDe
     <label>提交时间至<LocalDateTimePicker onChange={value => change({ ends_at: value ? new Date(value).toISOString() : undefined })} /></label>
     <Button onClick={() => setFilters({ page: 1, size: 20 })}>重置筛选</Button><Button onClick={() => void q.refetch()}>刷新</Button>
   </Space>{(error || q.error) && <Alert type="error" title={error || q.error?.message} />}
-    <Table<Feedback> rowKey="id" loading={q.isFetching} dataSource={q.data?.items} pagination={false} scroll={{ x: 1800 }} columns={[
-      { title: '反馈类型', render: (_, r) => types[r.feedback_type ?? 'legacy'] },
-      { title: '问题和建议', dataIndex: 'content', ellipsis: true, width: 240 }, { title: '联系方式', dataIndex: 'contact' },
-      { title: '图片', render: (_, r) => <Image.PreviewGroup>{r.images.map(src => <Image key={src} src={src} width={50} height={50} />)}</Image.PreviewGroup> },
-      { title: '反馈用户', render: (_, r) => <span>{r.reporter_name}<br />{r.account_id}</span> },
-      { title: '处理状态', render: (_, r) => states[r.state] }, { title: 'IP', render: (_, r) => r.submitted_ip || '未记录' },
-      { title: '提交时间', render: (_, r) => new Date(r.created_at).toLocaleString() }, { title: '更新时间', render: (_, r) => new Date(r.updated_at).toLocaleString() },
-      { title: '操作', render: (_, r) => <Space><Button type="link" onClick={() => { void api.feedbackDetail(school, r.id).then(setSelected).catch(e => setError(e.message)) }}>详情</Button>{canDelete && <Button danger type="link" onClick={() => remove(r)}>删除</Button>}</Space> },
+    <Table<Feedback> className="linjian-data-table" tableLayout="fixed" rowKey="id" loading={q.isFetching} dataSource={q.data?.items} pagination={false} scroll={{ x: 1800 }} columns={[
+      { title: '反馈类型', width: 120, render: (_, r) => types[r.feedback_type ?? 'legacy'] },
+      { title: '问题和建议', dataIndex: 'content', ellipsis: true, width: 240 }, { title: '联系方式', width: 180, dataIndex: 'contact' },
+      { title: '图片', width: 240, render: (_, r) => <div className="table-cell-images"><Image.PreviewGroup>{r.images.map(src => <Image key={src} src={src} width={50} height={50} />)}</Image.PreviewGroup></div> },
+      { title: '反馈用户', width: 220, render: (_, r) => <span>{r.reporter_name}<br />{r.account_id}</span> },
+      { title: '处理状态', width: 120, render: (_, r) => states[r.state] }, { title: 'IP', width: 160, render: (_, r) => r.submitted_ip || '未记录' },
+      { title: '提交时间', width: 180, render: (_, r) => new Date(r.created_at).toLocaleString() }, { title: '更新时间', width: 180, render: (_, r) => new Date(r.updated_at).toLocaleString() },
+      { title: '操作', width: 160, render: (_, r) => <Space><Button type="link" onClick={() => { void api.feedbackDetail(school, r.id).then(setSelected).catch(e => setError(e.message)) }}>详情</Button>{canDelete && <Button danger type="link" onClick={() => remove(r)}>删除</Button>}</Space> },
     ]} />
     <PaginationControls page={filters.page ?? 1} more={q.data?.page?.has_more} busy={q.isFetching} subject="反馈" change={page => setFilters({ ...filters, page })} />
     <Drawer open={!!selected} size="large" title="反馈详情" onClose={() => setSelected(undefined)}>{selected && <Space orientation="vertical"><p>反馈类型：{types[selected.feedback_type ?? 'legacy']}</p><p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{selected.content}</p><p>联系方式：{selected.contact || '未填写'}</p><p>反馈用户：{selected.reporter_name}（{selected.account_id}）</p><p>处理状态：{states[selected.state]}</p><p>IP：{selected.submitted_ip || '未记录'}</p><p>提交时间：{new Date(selected.created_at).toLocaleString()}</p><p>更新时间：{new Date(selected.updated_at).toLocaleString()}</p><Image.PreviewGroup>{selected.images.map(src => <Image key={src} src={src} width={180} />)}</Image.PreviewGroup>{canDelete && <Button danger onClick={() => remove(selected)}>删除反馈</Button>}</Space>}</Drawer>

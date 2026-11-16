@@ -182,6 +182,8 @@ export function PostManagement({
         </Button>
       </div>
       <Table<PostManagementView>
+        className="linjian-data-table"
+        tableLayout="fixed"
         rowKey="id"
         pagination={false}
         loading={q.isFetching || busy}

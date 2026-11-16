@@ -39,7 +39,7 @@ interface RecordListProps<T extends Row = Row> {
 
 export function RecordList<T extends Row = Row>({
   school, resource, columns, detail, status, onStatusChange, filters, actions, extraQuery,
-  rowActions, paginated = true, scrollWidth = 880, loader, showCreatedAt = true, searchPlaceholder = '搜索标题或正文',
+  rowActions, paginated = true, scrollWidth = 1030, loader, showCreatedAt = true, searchPlaceholder = '搜索标题或正文',
 }: RecordListProps<T>) {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -67,6 +67,8 @@ export function RecordList<T extends Row = Row>({
         footer={paginated && <PaginationControls page={page} more={q.data?.page?.has_more} busy={q.isFetching} change={setPage} />}
       >
         <Table<T>
+          className="linjian-data-table"
+          tableLayout="fixed"
           rowKey="id"
           loading={q.isFetching}
           dataSource={q.data?.items ?? []}
@@ -98,7 +100,7 @@ export function recordTitleColumn(open: (id: string) => void): TableColumnsType<
 export function defaultRecordColumns(open: (id: string) => void): TableColumnsType<Row> {
   return [
     recordTitleColumn(open),
-    { title: '详情', key: 'summary', ellipsis: true, render: (_, row) => label(row.content ?? row.body ?? row.detail ?? row.contact ?? row.chat_id) || '—' },
+    { title: '详情', key: 'summary', width: 320, render: (_, row) => label(row.content ?? row.body ?? row.detail ?? row.contact ?? row.chat_id) || '—' },
     {
       title: '状态', key: 'status', width: 140,
       render: (_, row) => <Tag color={

@@ -33,23 +33,27 @@ export function GlobalResources() {
         }
       >
         <Table<Row>
+          className="linjian-data-table"
+          tableLayout="fixed"
           rowKey="id"
           loading={q.isFetching}
           dataSource={q.data ?? []}
           pagination={{ ...navigationPagination, pageSize: 10 }}
-          scroll={{ x: 700 }}
+          scroll={{ x: 740 }}
           columns={[
-            { title: '标题', dataIndex: 'title', render: (v) => label(v) },
-            { title: '类型', dataIndex: 'kind', render: (v) => label(v) },
+            { title: '标题', width: 240, dataIndex: 'title', render: (v) => label(v) },
+            { title: '类型', width: 140, dataIndex: 'kind', render: (v) => label(v) },
             {
               title: '状态',
+              width: 120,
               render: (_, r) => (
                 <Tag color={r.active ? 'success' : 'default'}>{r.active ? '启用' : '停用'}</Tag>
               ),
             },
-            { title: '排序', dataIndex: 'sort_order' },
+            { title: '排序', width: 80, dataIndex: 'sort_order' },
             {
               title: '操作',
+              width: 160,
               render: (_, r) => (
                 <Button
                   type="link"

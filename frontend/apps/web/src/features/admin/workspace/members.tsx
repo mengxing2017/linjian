@@ -98,10 +98,12 @@ export function Members({
       {error && <Alert type="error" title={error} />}
       {done && <Alert type="info" role="status" title={<>{done}</>} />}
       <Table<Row>
+        className="linjian-data-table"
+        tableLayout="fixed"
         rowKey="id"
         loading={loading}
         dataSource={loadError ? [] : filtered}
-        scroll={{ x: 600 }}
+        scroll={{ x: platformAdmin ? 1424 : 1040 }}
         locale={{
           emptyText: loadError
             ? '加载失败，请刷新重试'
@@ -113,6 +115,7 @@ export function Members({
         rowSelection={
           platformAdmin
             ? {
+                columnWidth: 64,
                 selectedRowKeys: selected,
                 onChange: (keys) => setSelected(keys.map(String)),
                 preserveSelectedRowKeys: true,
@@ -121,9 +124,10 @@ export function Members({
             : undefined
         }
         columns={[
-          { title: '账号', render: (_, a) => String(a.username ?? '') },
+          { title: '账号', width: 160, render: (_, a) => String(a.username ?? '') },
           {
             title: '平台身份',
+            width: 140,
             render: (_, a) =>
               typeof a.platform_admin === 'boolean'
                 ? a.platform_admin
@@ -131,27 +135,31 @@ export function Members({
                   : '普通账号'
                 : '—',
           },
-          { title: '昵称', render: (_, a) => String(a.display_name ?? '') },
+          { title: '昵称', width: 160, render: (_, a) => String(a.display_name ?? '') },
           {
             title: '企业姓名 / 部门',
+            width: 260,
             render: (_, a) =>
               `${a.wecom_name ?? '未绑定'} · ${Array.isArray(a.wecom_departments) ? a.wecom_departments.join(' / ') : ''}`,
           },
           {
             title: '企业状态',
+            width: 180,
             render: (_, a) =>
               `${memberStatus(typeof a.wecom_status === 'number' ? a.wecom_status : null)} · ${verificationName(String(a.wecom_verification ?? 'unverified'))}`,
           },
           {
             title: '本校角色',
+            width: 140,
             render: (_, a) =>
               a.role === 'unassigned' ? '未授权' : schoolRoleLabel(String(a.role)),
           },
           ...(platformAdmin
             ? [
-                { title: '账号状态', render: (_: unknown, a: Row) => (a.active ? '启用' : '停用') },
+                { title: '账号状态', width: 120, render: (_: unknown, a: Row) => (a.active ? '启用' : '停用') },
                 {
                   title: '企业微信',
+                  width: 200,
                   render: (_: unknown, a: Row) =>
                     a.wecom_userid ? String(a.wecom_userid) : '未绑定',
                 },

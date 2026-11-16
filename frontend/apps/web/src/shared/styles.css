@@ -287,6 +287,41 @@ a:focus-visible {
   font-size: 14px;
   font-weight: 600;
 }
+/* Scope the table itself so headers inside Modal/Drawer portals are covered too. */
+.linjian-data-table {
+  min-width: 0;
+  max-width: 100%;
+}
+.linjian-data-table .ant-table-thead > tr > .ant-table-cell {
+  white-space: nowrap;
+}
+.linjian-data-table .ant-table-tbody > tr > td:not(.ant-table-cell-ellipsis) {
+  overflow-wrap: anywhere;
+}
+.linjian-data-table .record-title.ant-btn {
+  display: block;
+  width: 100%;
+  white-space: nowrap;
+}
+.table-cell-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.table-title-with-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.table-title-with-tag .record-title {
+  min-width: 0;
+}
+.table-title-with-tag .ant-tag {
+  flex-shrink: 0;
+}
+.directory-binding-summary {
+  overflow-wrap: anywhere;
+}
 .workspace-content .ant-table-tbody > tr > td {
   vertical-align: middle;
 }

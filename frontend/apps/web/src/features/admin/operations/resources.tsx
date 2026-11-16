@@ -33,17 +33,17 @@ export function OperationResources({ school, platformAdmin, schoolAdmin, module 
     </Space>
     {defaults && <p>平台默认{!platformAdmin ? '配置只读；统计为平台累计。' : '配置作用于所有学校；统计为平台累计。'}</p>}
     {(error || q.error) && <Alert type="error" title={error || q.error?.message} />}
-    <Table<OperationResource> rowKey="id" loading={q.isFetching} dataSource={q.data?.items ?? []} pagination={false} scroll={{ x: 1500 }} columns={[
-      { title: module === 'group-qrcodes' ? '二维码名称' : '广告标题', dataIndex: 'title' },
-      { title: '所属学校', dataIndex: 'school_name' },
-      { title: '图片', render: (_, r) => r.image_url ? <img src={r.image_url} alt={r.title} style={{ width: 70, height: 60, objectFit: 'contain' }} /> : '未配置' },
-      ...(module === 'group-qrcodes' ? [{ title: '展示时机', render: (_: unknown, r: OperationResource) => `${strategyLabels[r.popup_strategy]}${r.popup_strategy === 'interval' ? `（${r.popup_interval_days}天）` : ''}` }] : [
-        { title: '点击后去哪里', render: (_: unknown, r: OperationResource) => actionLabels[r.action.kind] }, { title: '目标内容', render: (_: unknown, r: OperationResource) => target(r.action) },
+    <Table<OperationResource> className="linjian-data-table" tableLayout="fixed" rowKey="id" loading={q.isFetching} dataSource={q.data?.items ?? []} pagination={false} scroll={{ x: module === 'group-qrcodes' ? 1360 : 1800 }} columns={[
+      { title: module === 'group-qrcodes' ? '二维码名称' : '广告标题', width: 200, dataIndex: 'title' },
+      { title: '所属学校', width: 200, dataIndex: 'school_name' },
+      { title: '图片', width: 100, render: (_, r) => r.image_url ? <img src={r.image_url} alt={r.title} style={{ width: 70, height: 60, objectFit: 'contain' }} /> : '未配置' },
+      ...(module === 'group-qrcodes' ? [{ title: '展示时机', width: 200, render: (_: unknown, r: OperationResource) => `${strategyLabels[r.popup_strategy]}${r.popup_strategy === 'interval' ? `（${r.popup_interval_days}天）` : ''}` }] : [
+        { title: '点击后去哪里', width: 160, render: (_: unknown, r: OperationResource) => actionLabels[r.action.kind] }, { title: '目标内容', width: 280, render: (_: unknown, r: OperationResource) => target(r.action) },
       ]),
-      { title: '状态', render: (_, r) => <><Tag color={r.active ? 'success' : 'default'}>{r.active ? '正常' : '隐藏'}</Tag>{r.needs_repair && <Tag color="warning">待修复</Tag>}</> },
-      { title: '开始展示时间', dataIndex: 'starts_at', render: time }, { title: '结束展示时间', dataIndex: 'ends_at', render: time },
-      ...(module === 'home-banners' ? [{ title: '曝光量', dataIndex: 'views' }, { title: '点击量', dataIndex: 'clicks' }] : []),
-      { title: '操作', render: (_, r) => <Space><Button type="link" onClick={() => { setEditing(r); setOpen(true) }}>{canEdit ? '编辑' : '查看'}</Button>{canEdit && <Button danger type="link" onClick={() => Modal.confirm({ title: `确认删除“${r.title}”？`, content: '删除后立即停止展示，历史统计保留。', onOk: async () => { try { await api.remove(selected, module, r.id, r.revision); await q.refetch() } catch (e) { setError(e instanceof Error ? e.message : '删除失败'); throw e } } })}>删除</Button>}</Space> },
+      { title: '状态', width: 140, render: (_, r) => <><Tag color={r.active ? 'success' : 'default'}>{r.active ? '正常' : '隐藏'}</Tag>{r.needs_repair && <Tag color="warning">待修复</Tag>}</> },
+      { title: '开始展示时间', width: 180, dataIndex: 'starts_at', render: time }, { title: '结束展示时间', width: 180, dataIndex: 'ends_at', render: time },
+      ...(module === 'home-banners' ? [{ title: '曝光量', width: 100, dataIndex: 'views' }, { title: '点击量', width: 100, dataIndex: 'clicks' }] : []),
+      { title: '操作', width: 160, render: (_, r) => <Space><Button type="link" onClick={() => { setEditing(r); setOpen(true) }}>{canEdit ? '编辑' : '查看'}</Button>{canEdit && <Button danger type="link" onClick={() => Modal.confirm({ title: `确认删除“${r.title}”？`, content: '删除后立即停止展示，历史统计保留。', onOk: async () => { try { await api.remove(selected, module, r.id, r.revision); await q.refetch() } catch (e) { setError(e instanceof Error ? e.message : '删除失败'); throw e } } })}>删除</Button>}</Space> },
     ]} />
     <PaginationControls page={filters.page ?? 1} more={q.data?.page?.has_more} busy={q.isFetching} subject="运营资源" change={page => setFilters({ ...filters, page })} />
     {open && <Drawer open size="large" title={`${canEdit ? editing ? '编辑' : '添加' : '查看'}${title}`} onClose={() => setOpen(false)}>

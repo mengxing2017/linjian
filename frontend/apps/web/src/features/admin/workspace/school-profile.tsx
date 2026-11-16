@@ -352,25 +352,30 @@ export function Schools({
         />
       </Space>
       <Table<School>
+        className="linjian-data-table"
+        tableLayout="fixed"
         rowKey="id"
         pagination={false}
         dataSource={q.data?.items ?? []}
         loading={q.isFetching}
-        scroll={{ x: 1000 }}
+        scroll={{ x: 1540 }}
         columns={[
           {
             title: '学校图标',
+            width: 100,
             render: (_, s) => <SchoolImage school={s.id} id={s.logo_asset_id} alt="学校图标" />,
           },
           ...(['name', 'short_name', 'province', 'city', 'area'] as const).map((key, i) => ({
             title: ['学校名称', '学校简称', '省份', '城市', '区域'][i],
             dataIndex: key,
+            width: [200, 140, 100, 100, 140][i],
           })),
-          { title: '纬度', dataIndex: 'latitude' },
-          { title: '经度', dataIndex: 'longitude' },
-          { title: '状态', render: (_, s) => (s.status === 'normal' ? '正常' : '隐藏') },
+          { title: '纬度', width: 120, dataIndex: 'latitude' },
+          { title: '经度', width: 120, dataIndex: 'longitude' },
+          { title: '状态', width: 100, render: (_, s) => (s.status === 'normal' ? '正常' : '隐藏') },
           {
             title: '操作',
+            width: 420,
             render: (_, s) => (
               <Space>
                 <Button onClick={() => setDetail(s)}>详情</Button>

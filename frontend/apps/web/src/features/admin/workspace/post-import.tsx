@@ -169,23 +169,29 @@ export function PostImport({
                 <Alert type="warning" title="存在错误，尚未创建任何帖子。请修正文件后重新预览。" />
               )}
               <Table
+                className="linjian-data-table"
+                tableLayout="fixed"
                 rowKey="row"
                 pagination={false}
+                scroll={{ x: 520 }}
                 dataSource={job.errors}
                 columns={[
-                  { title: '行号', dataIndex: 'row' },
-                  { title: '错误', dataIndex: 'message' },
+                  { title: '行号', width: 80, dataIndex: 'row' },
+                  { title: '错误', width: 440, dataIndex: 'message' },
                 ]}
               />
               <Table
+                className="linjian-data-table"
+                tableLayout="fixed"
                 rowKey="row"
+                scroll={{ x: 980 }}
                 dataSource={job.rows}
                 columns={[
-                  { title: '行号', dataIndex: 'row' },
-                  { title: '标题', render: (_, r) => r.post.title },
-                  { title: '正文', ellipsis: true, render: (_, r) => r.post.content },
-                  { title: '标签名称', render: (_, r) => r.post.tags.join('、') },
-                  { title: '图片数', render: (_, r) => r.post.images.length },
+                  { title: '行号', width: 80, dataIndex: 'row' },
+                  { title: '标题', width: 220, render: (_, r) => r.post.title },
+                  { title: '正文', width: 360, render: (_, r) => r.post.content },
+                  { title: '标签名称', width: 220, render: (_, r) => r.post.tags.join('、') },
+                  { title: '图片数', width: 100, render: (_, r) => r.post.images.length },
                 ]}
               />
               <Space>

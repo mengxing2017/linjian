@@ -260,12 +260,13 @@ export function PostReviews({ school }: { school: string }) {
       </Space>
       <p>列表摘要仅用于查找内容，请进入详情查看完整正文和附件后审核。</p>
       <Table<PostReview>
+        className="linjian-data-table"
+        tableLayout="fixed"
         rowKey="id"
         pagination={false}
         loading={q.isFetching}
         dataSource={q.data?.items ?? []}
         scroll={{ x: 1300 }}
-        tableLayout="fixed"
         columns={[
           {
             title: '标题',

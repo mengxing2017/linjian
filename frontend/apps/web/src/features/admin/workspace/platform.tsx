@@ -157,10 +157,14 @@ export function Accounts({
       )}
 
       <Table<Row>
+
+        className="linjian-data-table"
+
+        tableLayout="fixed"
         rowKey="id"
         loading={q.isPending}
         dataSource={rows}
-        scroll={{ x: 800 }}
+        scroll={{ x: 1200 }}
         pagination={{ ...navigationPagination,
           current: page,
           pageSize: 10,
@@ -169,17 +173,19 @@ export function Accounts({
           showTotal: (total) => `共 ${total} 个账号`,
         }}
         columns={[
-          { title: '账号', render: (_, a) => value(a, 'username') },
-          { title: '昵称', render: (_, a) => value(a, 'display_name') },
-          { title: '身份', render: (_, a) => (a.platform_admin ? '平台管理员' : '普通账号') },
+          { title: '账号', width: 160, render: (_, a) => value(a, 'username') },
+          { title: '昵称', width: 160, render: (_, a) => value(a, 'display_name') },
+          { title: '身份', width: 140, render: (_, a) => (a.platform_admin ? '平台管理员' : '普通账号') },
           {
             title: '状态',
+            width: 100,
             render: (_, a) => (
               <Tag color={a.active ? 'success' : 'default'}>{a.active ? '启用' : '停用'}</Tag>
             ),
           },
           {
             title: '企业微信',
+            width: 320,
             render: (_, a) =>
               a.wecom_userid
                 ? `${value(a, 'wecom_name')} · ${value(a, 'wecom_userid')} · ${value(a, 'wecom_verification')}`
@@ -187,6 +193,7 @@ export function Accounts({
           },
           {
             title: '操作',
+            width: 320,
             render: (_, a) => (
               <Space wrap>
                 <Button type="link" onClick={() => open(a, 'details')}>

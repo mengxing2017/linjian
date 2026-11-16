@@ -10,7 +10,7 @@ import { states, stateLabel } from './state-label'
 export function CommentReviews({ school, refresh }: { school: School; refresh: () => Promise<void> }) {
   const [status, setStatus] = useState('')
   const [visibility, setVisibility] = useState('')
-  return <RecordList school={school.id} resource="comments" scrollWidth={1040}
+  return <RecordList school={school.id} resource="comments" scrollWidth={1430}
     status={status} onStatusChange={setStatus} extraQuery={visibility ? { visibility } : {}}
     filters={change => <Space><Select aria-label="审核状态" value={status} style={{ width: 140 }} onChange={change} options={[
       { value: '', label: '全部审核状态' },
@@ -21,7 +21,7 @@ export function CommentReviews({ school, refresh }: { school: School; refresh: (
     columns={open => [recordTitleColumn(open),
       { title: '审核状态', key: 'status', width: 140, render: (_, row) => <Tag color={row.audit_status === 'approved' ? 'success' : row.audit_status === 'rejected' ? 'error' : 'processing'}>{stateLabel(row.audit_status)}</Tag> },
       { title: '显示状态', key: 'visibility', width: 100, render: (_, row) => <Tag>{row.visibility === 'hidden' ? '隐藏' : '正常'}</Tag> },
-      { title: '内容', key: 'summary', render: (_, row) => <p className="review-full-text">{label(row.content ?? row.body) || '—'}</p> },
+      { title: '内容', key: 'summary', width: 360, render: (_, row) => <p className="review-full-text">{label(row.content ?? row.body) || '—'}</p> },
       { title: '用户昵称', key: 'author', dataIndex: 'author_name', width: 160, ellipsis: true, render: value => label(value) || '—' },
     ]}
     detail={props => <CommentReviewDetail {...props} school={school} refresh={refresh} />}

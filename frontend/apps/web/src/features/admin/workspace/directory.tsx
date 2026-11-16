@@ -116,17 +116,20 @@ function DirectoryBrowser({
         />
       )}
       <Table<DirectoryMember>
+        className="linjian-data-table"
+        tableLayout="fixed"
         rowKey="id"
         loading={members.isFetching}
         dataSource={members.error ? [] : members.data?.items}
         pagination={false}
-        scroll={{ x: 700 }}
+        scroll={{ x: onSelect ? 1260 : 1120 }}
         locale={{ emptyText: '没有匹配的已同步成员，请检查筛选、同步状态和应用可见范围' }}
         columns={[
-          { title: '企业姓名', dataIndex: 'name' },
-          { title: 'UserID', dataIndex: 'userid' },
+          { title: '企业姓名', width: 160, dataIndex: 'name' },
+          { title: 'UserID', width: 200, dataIndex: 'userid' },
           {
             title: '部门',
+            width: 240,
             render: (_, m) =>
               m.departments
                 .map((d) => departmentPath(d.id, departments.data ?? m.departments))
@@ -134,15 +137,17 @@ function DirectoryBrowser({
           },
           {
             title: '企业状态',
+            width: 180,
             render: (_, m) =>
               `${memberStatus(m.status)} · ${verificationName(m.verification)}${m.visibility === 'not_seen' ? ' · 不在当前快照' : ''}`,
           },
-          { title: '本地账号', render: (_, m) => m.bound_account_name ?? '未绑定' },
-          { title: '核验时间', render: (_, m) => formatDate(m.checked_at, '尚未核验') },
+          { title: '本地账号', width: 160, render: (_, m) => m.bound_account_name ?? '未绑定' },
+          { title: '核验时间', width: 180, render: (_, m) => formatDate(m.checked_at, '尚未核验') },
           ...(onSelect
             ? [
                 {
                   title: '操作',
+                  width: 140,
                   render: (_: unknown, m: DirectoryMember) => (
                     <Button
                       type="link"
@@ -313,7 +318,7 @@ export function WecomBinding({
   return (
     <section>
       <h3>绑定企业微信成员</h3>
-      <p>
+      <p className="directory-binding-summary">
         当前绑定：{String(account.wecom_name ?? '')} {String(account.wecom_userid ?? '未绑定')}
         。绑定变更将退出此账号现有会话，不改变学校角色。
       </p>
@@ -329,12 +334,12 @@ export function WecomBinding({
         busy={busy}
       />
       {selected && (
-        <p>
+        <p className="directory-binding-summary">
           待绑定：{selected.name} · {selected.userid} ·{' '}
           {selected.departments.map((d) => d.name).join(' / ')}
         </p>
       )}
-      <Space>
+      <Space wrap>
         <Button
           type="primary"
           disabled={busy || !selected || !account.active}

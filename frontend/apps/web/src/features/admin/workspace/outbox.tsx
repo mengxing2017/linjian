@@ -94,23 +94,27 @@ export function Outbox({ school }: { school: string }) {
         />
       </Space>
       <Table<Row>
+        className="linjian-data-table"
+        tableLayout="fixed"
         rowKey="id"
         dataSource={q.data?.items ?? []}
         loading={q.isPending}
         pagination={false}
-        scroll={{ x: 1100 }}
+        scroll={{ x: 2250 }}
         columns={[
           {
             title: '事件',
+            width: 320,
             dataIndex: 'id',
             render: (id: string) => (
-              <Button type="link" onClick={() => setSelected(id)}>
+              <Button className="record-title" type="link" onClick={() => setSelected(id)}>
                 {id}
               </Button>
             ),
           },
           {
             title: '内容',
+            width: 100,
             dataIndex: 'post_id',
             render: (id: string) => (
               <a href={`/community/${encodeURIComponent(school)}/posts/${encodeURIComponent(id)}`}>
@@ -118,35 +122,39 @@ export function Outbox({ school }: { school: string }) {
               </a>
             ),
           },
-          { title: '版本', dataIndex: 'sequence' },
+          { title: '版本', width: 80, dataIndex: 'sequence' },
           {
             title: '变更',
+            width: 120,
             dataIndex: 'event_type',
             render: () => '发布 / 编辑',
           },
           {
             title: '内容准备',
+            width: 130,
             render: (_, r) => preparationStates[String(preparation(r)?.state)] ?? '原有事件',
           },
           {
             title: '来源投递状态',
+            width: 150,
             dataIndex: 'delivery_state',
             render: (v) => localStates[String(v)] ?? '—',
           },
           {
             title: '收件状态',
+            width: 120,
             render: (_, r) =>
               r.receipt_status
                 ? (states[String(r.receipt_status)] ?? String(r.receipt_status))
                 : '待收件',
           },
-          { title: '请求次数', dataIndex: 'attempts' },
-          { title: '原路由', dataIndex: 'route_id' },
-          { title: '阻塞原因', dataIndex: 'blocked_reason', render: (v) => v ?? '—' },
-          { title: '最近问题', dataIndex: 'last_error', render: (v) => v ?? '—' },
-          { title: '创建时间', dataIndex: 'created_at', render: (v) => formatDate(v) },
+          { title: '请求次数', width: 110, dataIndex: 'attempts' },
+          { title: '原路由', ellipsis: true, width: 300, dataIndex: 'route_id' },
+          { title: '阻塞原因', ellipsis: true, width: 200, dataIndex: 'blocked_reason', render: (v) => v ?? '—' },
+          { title: '最近问题', ellipsis: true, width: 280, dataIndex: 'last_error', render: (v) => v ?? '—' },
+          { title: '创建时间', width: 180, dataIndex: 'created_at', render: (v) => formatDate(v) },
           {
-            title: '操作',
+            title: '操作', width: 160, fixed: 'right',
             render: (_, r) => {
               const p = preparation(r)
               return p && p.state !== 'completed' ? (
@@ -284,7 +292,10 @@ export function Outbox({ school }: { school: string }) {
             )}
             <p>关联事件</p>
             <Table<Row>
+              className="linjian-data-table"
+              tableLayout="fixed"
               size="small"
+              scroll={{ x: 700 }}
               rowKey="id"
               pagination={false}
               dataSource={
@@ -293,20 +304,23 @@ export function Outbox({ school }: { school: string }) {
                   : []
               }
               columns={[
-                { title: '事件', dataIndex: 'id' },
-                { title: '路由', dataIndex: 'route_id' },
-                { title: '版本', dataIndex: 'sequence' },
+                { title: '事件', width: 320, dataIndex: 'id' },
+                { title: '路由', width: 300, dataIndex: 'route_id' },
+                { title: '版本', width: 80, dataIndex: 'sequence' },
               ]}
             />
             <p>恢复记录</p>
             <Table<{ actor_id: string; reason: string; created_at: string }>
+              className="linjian-data-table"
+              tableLayout="fixed"
               size="small"
+              scroll={{ x: 500 }}
               rowKey={(r) => r.created_at}
               pagination={false}
               dataSource={detail.data.recoveries ?? []}
               columns={[
-                { title: '原因', dataIndex: 'reason' },
-                { title: '时间', dataIndex: 'created_at', render: (v) => formatDate(v) },
+                { title: '原因', width: 320, dataIndex: 'reason' },
+                { title: '时间', width: 180, dataIndex: 'created_at', render: (v) => formatDate(v) },
               ]}
             />
           </>

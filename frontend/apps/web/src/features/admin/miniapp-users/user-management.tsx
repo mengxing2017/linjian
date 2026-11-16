@@ -157,29 +157,33 @@ export function MiniappUsers({
         <Alert type="info" title="请选择学校，或由平台管理员切换到全部学校范围。" />
       ) : (
         <Table<MiniappUser>
+          className="linjian-data-table"
+          tableLayout="fixed"
           rowKey="id"
           dataSource={q.data?.items ?? []}
           loading={q.isFetching}
           pagination={false}
-          scroll={{ x: 1000 }}
+          scroll={{ x: 1110 }}
           onChange={(_, __, sorter) => {
             if (!Array.isArray(sorter) && sorter.field)
               change({ sort: (sorter.order === 'ascend' ? '' : '-') + String(sorter.field) })
           }}
           columns={[
-            { title: '头像', dataIndex: 'avatar_url', render: (v) => <UserAvatar url={v} /> },
-            { title: '昵称', dataIndex: 'nickname' },
-            { title: '手机号', dataIndex: 'mobile', render: (v) => v || '未填写' },
-            { title: '所属学校', dataIndex: 'school_name', render: (v) => v || '未绑定学校' },
-            { title: '发帖数', dataIndex: 'post_count', sorter: true },
+            { title: '头像', width: 80, dataIndex: 'avatar_url', render: (v) => <UserAvatar url={v} /> },
+            { title: '昵称', width: 160, dataIndex: 'nickname' },
+            { title: '手机号', width: 160, dataIndex: 'mobile', render: (v) => v || '未填写' },
+            { title: '所属学校', width: 200, dataIndex: 'school_name', render: (v) => v || '未绑定学校' },
+            { title: '发帖数', width: 110, dataIndex: 'post_count', sorter: true },
             {
               title: '创建时间',
+              width: 180,
               dataIndex: 'created_at',
               sorter: true,
               render: (v) => formatDate(v),
             },
             {
               title: '状态',
+              width: 100,
               dataIndex: 'status',
               render: (v) => (
                 <Tag color={v === 'banned' ? 'red' : 'green'}>
@@ -189,6 +193,7 @@ export function MiniappUsers({
             },
             {
               title: '操作',
+              width: 120,
               render: (_, r) => (
                 <Button
                   onClick={() => {
