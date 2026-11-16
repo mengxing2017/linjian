@@ -11,12 +11,12 @@
       "identity": "00000000-0000-0000-0000-000000000001",
       "secret": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
       "secret_encoding": "base64url-no-padding",
-      "body": "{\"data\":{\"type\":\"source-events\",\"id\":\"00000000-0000-0000-0000-000000000001\",\"attributes\":{\"event_id\":\"00000000-0000-0000-0000-000000000001\",\"schema_version\":2,\"route_id\":\"fixture-route\",\"event_type\":\"content.upsert\",\"external_content_id\":\"post-1\",\"version\":\"1\",\"sequence\":1,\"occurred_at\":\"2026-11-08T00:00:00Z\",\"title\":\"通知🌸\",\"content\":\"中文正文\",\"detail_url\":\"https://forum.example.com/community/a/posts/1\"}}}",
+      "body": "{\"data\":{\"type\":\"source-events\",\"id\":\"00000000-0000-0000-0000-000000000001\",\"attributes\":{\"event_id\":\"00000000-0000-0000-0000-000000000001\",\"schema_version\":2,\"route_id\":\"fixture-route\",\"event_type\":\"content.upsert\",\"occurred_at\":\"2026-11-08T00:00:00Z\",\"content\":\"之前有人说军训是 1.10 开始 训……\\nmp://Ltxhoqe18kEGxlD\"}}}",
       "body_base64": "eyJkYXRhIjp7InR5cGUiOiJzb3VyY2UtZXZlbnRzIiwiaWQiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDEiLCJhdHRyaWJ1dGVzIjp7ImV2ZW50X2lkIjoiMDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAxIiwic2NoZW1hX3ZlcnNpb24iOjIsInJvdXRlX2lkIjoiZml4dHVyZS1yb3V0ZSIsImV2ZW50X3R5cGUiOiJjb250ZW50LnVwc2VydCIsImV4dGVybmFsX2NvbnRlbnRfaWQiOiJwb3N0LTEiLCJ2ZXJzaW9uIjoiMSIsInNlcXVlbmNlIjoxLCJvY2N1cnJlZF9hdCI6IjIwMjYtMTEtMDhUMDA6MDA6MDBaIiwidGl0bGUiOiLpgJrnn6Xwn4y4IiwiY29udGVudCI6IuS4reaWh+ato+aWhyIsImRldGFpbF91cmwiOiJodHRwczovL2ZvcnVtLmV4YW1wbGUuY29tL2NvbW11bml0eS9hL3Bvc3RzLzEifX19",
-      "digest": "7a2f51155a74faa3d206d38e19d15b69f0abac6e353189f44f12686a44c3c485",
-      "canonical": "2\nfixture-key\nPOST\n/api/v2/source-events\n1794096000\n00000000-0000-4000-8000-000000000001\n00000000-0000-0000-0000-000000000001\n7a2f51155a74faa3d206d38e19d15b69f0abac6e353189f44f12686a44c3c485",
+      "digest": "0071a8099c7892070d9f90820b2c45e4d724846ccbc696d66efbd570eb42bca1",
+      "canonical": "2\nfixture-key\nPOST\n/api/v2/source-events\n1794096000\n00000000-0000-4000-8000-000000000001\n00000000-0000-0000-0000-000000000001\n0071a8099c7892070d9f90820b2c45e4d724846ccbc696d66efbd570eb42bca1",
       "canonical_base64": "MgpmaXh0dXJlLWtleQpQT1NUCi9hcGkvdjIvc291cmNlLWV2ZW50cwoxNzk0MDk2MDAwCjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMQowMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDEKN2EyZjUxMTU1YTc0ZmFhM2QyMDZkMzhlMTlkMTViNjlmMGFiYWM2ZTM1MzE4OWY0NGYxMjY4NmE0NGMzYzQ4NQ==",
-      "signature": "e0f57f1588d555dedf323d66077d2eca495d4c46d7076a46eff7132d8fa5164e"
+      "signature": "b89efdfdee8830aa16a6ec9937d3d2e8b38e39976b91f47f38de697f9d654e54"
     },
     {
       "name": "get",
@@ -79,12 +79,12 @@
       "identity": "00000000-0000-0000-0000-000000000001",
       "secret": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
       "secret_encoding": "base64url-no-padding",
-      "body": "{\"data\":{\"type\":\"source-events\",\"id\":\"00000000-0000-0000-0000-000000000001\",\"attributes\":{\"event_id\":\"00000000-0000-0000-0000-000000000001\",\"schema_version\":2,\"route_id\":\"fixture-route\",\"event_type\":\"content.withdrawn\",\"external_content_id\":\"post-1\",\"version\":\"1\",\"sequence\":1,\"occurred_at\":\"2026-11-08T00:00:00Z\",\"title\":null,\"content\":null,\"detail_url\":\"https://forum.example.com/community/a/posts/1\"}}}",
+      "body": "{\"data\":{\"type\":\"source-events\",\"id\":\"00000000-0000-0000-0000-000000000001\",\"attributes\":{\"event_id\":\"00000000-0000-0000-0000-000000000001\",\"schema_version\":2,\"route_id\":\"fixture-route\",\"event_type\":\"content.withdrawn\",\"occurred_at\":\"2026-11-08T00:00:00Z\",\"content\":\"之前有人说军训是 1.10 开始 训……\\nmp://Ltxhoqe18kEGxlD\"}}}",
       "body_base64": "eyJkYXRhIjp7InR5cGUiOiJzb3VyY2UtZXZlbnRzIiwiaWQiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDEiLCJhdHRyaWJ1dGVzIjp7ImV2ZW50X2lkIjoiMDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAxIiwic2NoZW1hX3ZlcnNpb24iOjIsInJvdXRlX2lkIjoiZml4dHVyZS1yb3V0ZSIsImV2ZW50X3R5cGUiOiJjb250ZW50LndpdGhkcmF3biIsImV4dGVybmFsX2NvbnRlbnRfaWQiOiJwb3N0LTEiLCJ2ZXJzaW9uIjoiMSIsInNlcXVlbmNlIjoxLCJvY2N1cnJlZF9hdCI6IjIwMjYtMTEtMDhUMDA6MDA6MDBaIiwidGl0bGUiOm51bGwsImNvbnRlbnQiOm51bGwsImRldGFpbF91cmwiOiJodHRwczovL2ZvcnVtLmV4YW1wbGUuY29tL2NvbW11bml0eS9hL3Bvc3RzLzEifX19",
-      "digest": "7b1f766230eaec44bb13eb08c9850c8dc9a017784d96f35e5047a71aef2bfa45",
-      "canonical": "2\nfixture-key\nPOST\n/api/v2/source-events\n1794096000\n00000000-0000-4000-8000-000000000001\n00000000-0000-0000-0000-000000000001\n7b1f766230eaec44bb13eb08c9850c8dc9a017784d96f35e5047a71aef2bfa45",
+      "digest": "c2239cd8162eb58e1ffa0506c2b7906a0a747865ebcbdd950a277f0f13b9b0fd",
+      "canonical": "2\nfixture-key\nPOST\n/api/v2/source-events\n1794096000\n00000000-0000-4000-8000-000000000001\n00000000-0000-0000-0000-000000000001\nc2239cd8162eb58e1ffa0506c2b7906a0a747865ebcbdd950a277f0f13b9b0fd",
       "canonical_base64": "MgpmaXh0dXJlLWtleQpQT1NUCi9hcGkvdjIvc291cmNlLWV2ZW50cwoxNzk0MDk2MDAwCjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMQowMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDEKN2IxZjc2NjIzMGVhZWM0NGJiMTNlYjA4Yzk4NTBjOGRjOWEwMTc3ODRkOTZmMzVlNTA0N2E3MWFlZjJiZmE0NQ==",
-      "signature": "bd903e3f0631e36bd00f614bc8d020cb667c089bc3ff48397ef848e4c8d8ab7d"
+      "signature": "578ca6cbe9736bc263bd4cc22e8f9a910afd37dae6f933230fc3ecff0009d2c6"
     }
   ]
 }

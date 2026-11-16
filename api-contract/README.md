@@ -39,6 +39,6 @@ pnpm --dir api-contract test
 
 ## 来源接入
 
-`source-events` 子路径导出来源事件及收件摘要类型。签名只由 Rust 服务端实现，不在浏览器或小程序保存来源凭据。`fixtures/source-event-v1.json` 的 UTF-8 正文和 HMAC-SHA256 向量由 Rust 与 TypeScript 独立核对。
+`source-events` 子路径导出完整来源消息及最小受理回执类型。签名只由 Rust 服务端实现，不在浏览器或小程序保存来源凭据。`fixtures/source-v2.json` 的 UTF-8 正文和 HMAC-SHA256 向量由 Rust 与 TypeScript 独立核对。
 
 论坛管理通过本地 `source-outbox` 列表查看发件状态并重试原事件。群发送授权、设备与任务 client 不属于本包。

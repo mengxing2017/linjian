@@ -86,3 +86,14 @@ it('exposes independent preparation recovery without delivery recovery',()=>{
  expect(fixture.data.attributes.recoverable).toBe(false)
  expect(fixture.data.attributes.preparation).toMatchObject({state:'blocked',revision:3,recoverable:true})
 })
+
+it('publishes only complete source content and minimal acceptance receipts',()=>{
+ const vector=fixture.vectors.find((v:{path:string;method:string})=>v.path==='/api/v2/source-events' && v.method==='POST')
+ const doc=JSON.parse(vector.body)
+ expect(Object.keys(doc.data.attributes).sort()).toEqual(['content','event_id','event_type','occurred_at','route_id','schema_version'])
+ expect(doc.data.attributes.content).toBe('之前有人说军训是 1.10 开始 训……\nmp://Ltxhoqe18kEGxlD')
+ expect(Array.from(doc.data.attributes.content.split('\n')[0]).length).toBe(20)
+ const receipt=JSON.parse(readFileSync(new URL('../fixtures/source-receipt-v2.json',import.meta.url),'utf8'))
+ expect(Object.keys(receipt.data.attributes).sort()).toEqual(['event_id','received_at','status'])
+ expect(receipt.data.attributes.status).toBe('received')
+})

@@ -3,7 +3,11 @@
     "invalid_request",
     "forbidden_field",
     "event_identity_mismatch",
-    "unsupported_version"
+    "unsupported_version",
+    "content_empty",
+    "content_too_long",
+    "unsupported_event_type",
+    "upstream_error"
   ],
   "401": [
     "authentication_failed",

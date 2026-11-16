@@ -19,7 +19,6 @@
       "created_at": "2026-11-09T00:00:00Z",
       "frozen_at": null,
       "binding_version": null,
-      "superseded_by": null,
       "recovery_reason": null,
       "delivery_state": "preparing_content",
       "recoverable": false,

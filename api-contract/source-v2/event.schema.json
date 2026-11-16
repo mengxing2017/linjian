@@ -31,13 +31,8 @@
             "schema_version",
             "route_id",
             "event_type",
-            "external_content_id",
-            "version",
-            "sequence",
             "occurred_at",
-            "title",
-            "content",
-            "detail_url"
+            "content"
           ],
           "properties": {
             "event_id": {
@@ -54,80 +49,19 @@
               "pattern": "^[A-Za-z0-9_-]+$"
             },
             "event_type": {
-              "enum": [
-                "content.upsert",
-                "content.withdrawn"
-              ]
-            },
-            "external_content_id": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 256
-            },
-            "version": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 256
-            },
-            "sequence": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 9007199254740991
+              "const": "content.upsert"
             },
             "occurred_at": {
               "type": "string",
               "format": "date-time"
             },
-            "title": {
-              "type": [
-                "string",
-                "null"
-              ],
-              "maxLength": 512
-            },
             "content": {
-              "type": [
-                "string",
-                "null"
-              ],
-              "maxLength": 100000
-            },
-            "detail_url": {
               "type": "string",
-              "maxLength": 2048,
-              "pattern": "^https://"
+              "minLength": 1,
+              "maxLength": 200,
+              "pattern": "\\S"
             }
-          },
-          "allOf": [
-            {
-              "if": {
-                "properties": {
-                  "event_type": {
-                    "const": "content.upsert"
-                  }
-                }
-              },
-              "then": {
-                "properties": {
-                  "title": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "content": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                }
-              },
-              "else": {
-                "properties": {
-                  "content": {
-                    "type": "null"
-                  }
-                }
-              }
-            }
-          ]
+          }
         }
       }
     }
