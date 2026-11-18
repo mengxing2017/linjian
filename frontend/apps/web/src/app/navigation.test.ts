@@ -1,5 +1,14 @@
 import { expect, it } from 'vitest'
+import { isValidElement } from 'react'
 import { navigation, navigationDomains, visibleNavigationKeys } from './navigation'
+
+it('gives every navigation destination a distinct icon', () => {
+  const icons = navigation.map((item) => {
+    expect(isValidElement(item.icon)).toBe(true)
+    return isValidElement(item.icon) ? item.icon.type : undefined
+  })
+  expect(new Set(icons).size).toBe(navigation.length)
+})
 it('exposes complete forum management without sending capabilities', () => {
   expect(navigation.map((v) => v.key)).toEqual(
     expect.arrayContaining([

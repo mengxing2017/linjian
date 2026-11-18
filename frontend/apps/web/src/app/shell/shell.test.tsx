@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { visibleNavigationKeys } from '../navigation'
+import { navigationDomains, visibleNavigationKeys } from '../navigation'
 import { AppShell, navigation } from './index'
 import { helpHref, pageHelp } from './help'
 
@@ -28,10 +28,10 @@ afterEach(cleanup)
 function show(platformAdmin = false) {
   const onNavigate = vi.fn()
   const onLogout = vi.fn().mockResolvedValue(undefined)
-  render(
+  const shell = (active: string) => (
     <MemoryRouter>
       <AppShell
-        active="posts"
+        active={active}
         onNavigate={onNavigate}
         username="测试运营"
         platformAdmin={platformAdmin}
@@ -40,10 +40,39 @@ function show(platformAdmin = false) {
       >
         <p>学校内容</p>
       </AppShell>
-    </MemoryRouter>,
+    </MemoryRouter>
   )
-  return { onNavigate, onLogout }
+  const view = render(shell('posts'))
+  return { onNavigate, onLogout, changeActive: (active: string) => view.rerender(shell(active)) }
 }
+
+it('independently expands and collapses all six navigation groups without navigating', () => {
+  const { onNavigate } = show(true)
+  for (const domain of navigationDomains) {
+    const toggle = screen.getByRole('button', { name: domain.label })
+    const item = navigation.find((item) => item.domain === domain.key)!
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByRole('menuitem', { name: item.label })).toBeNull()
+  }
+  fireEvent.click(screen.getByRole('button', { name: '数据统计' }))
+  expect(screen.getByRole('menuitem', { name: '统计概览' })).toBeTruthy()
+  expect(screen.queryByRole('menuitem', { name: '内容管理' })).toBeNull()
+  expect(onNavigate).not.toHaveBeenCalled()
+})
+
+it('reveals the destination group on page changes and preserves group state across compact mode', () => {
+  const { changeActive } = show(true)
+  fireEvent.click(screen.getByRole('button', { name: '数据统计' }))
+  fireEvent.click(screen.getByRole('button', { name: '收起侧栏' }))
+  expect(screen.getByRole('menuitem', { name: '统计概览' })).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: '展开侧栏' }))
+  expect(screen.getByRole('button', { name: '数据统计' }).getAttribute('aria-expanded')).toBe('false')
+  changeActive('statistics-content')
+  expect(screen.getByRole('button', { name: '数据统计' }).getAttribute('aria-expanded')).toBe('true')
+  expect(screen.getByRole('menuitem', { name: '内容统计' }).getAttribute('aria-current')).toBe('page')
+})
 it('shows role-appropriate navigation and routes business selections', () => {
   const { onNavigate } = show()
   expect(screen.queryByRole('menuitem', { name: '学校管理' })).toBeNull()
