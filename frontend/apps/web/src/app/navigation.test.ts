@@ -21,7 +21,7 @@ it('exposes complete forum management without sending capabilities', () => {
       ]),
     ),
   ).toEqual({
-    forum: ['posts', 'home-menu', 'cases', 'resources', 'platform-resources', 'blocked-words', 'platform-blocked-words'],
+    forum: ['posts', 'statistics', 'home-menu', 'cases', 'resources', 'platform-resources', 'blocked-words', 'platform-blocked-words'],
     operations: ['group-qrcodes','home-banners','customer-config','feedback'],
     school: ['schools', 'miniapp-users', 'members', 'settings'],
     source: ['source-connections', 'source-bindings', 'source-outbox'],

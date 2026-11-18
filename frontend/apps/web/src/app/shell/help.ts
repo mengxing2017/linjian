@@ -5,6 +5,7 @@ export const pageHelp: Record<string, string> = {
 
   'source-outbox': 'operator/source-outbox',
   posts: 'operator/moderation',
+  statistics: 'business-statistics',
   'home-menu': 'operator/moderation#display-resources',
   cases: 'operator/moderation',
   'group-qrcodes': 'operator/moderation#display-resources',

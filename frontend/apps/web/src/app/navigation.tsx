@@ -41,6 +41,7 @@ export const navigation: NavigationItem[] = [
     scope: 'school',
     capability: 'school.read',
   },
+  { key: 'statistics', label: '业务统计', description: '查看内容、注册人员与活跃趋势。', domain: 'forum', scope: 'selectable', capability: 'resources.read', icon: <AppstoreOutlined /> },
   { key: 'home-menu', icon: <FilterOutlined />, label: '首页菜单/标签', description: '管理首页菜单与发布候选标签。', domain: 'forum', scope: 'school', capability: 'school.read' },
   {
     key: 'cases',

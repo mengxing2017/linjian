@@ -4,6 +4,7 @@ import { Navigate, useSearchParams } from 'react-router-dom'
 import { navigation, visibleNavigationKeys } from '../../../app/navigation'
 import { AppShell } from '../../../app/shell'
 import { useSchools } from '../../school-context'
+import { StatisticsPage } from '../statistics'
 import { MiniappUsers } from '../miniapp-users'
 import { SourceBindings, SourceConnections } from '../source-access'
 import { Accounts, Schools } from './platform'
@@ -76,6 +77,7 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
         <>请核对当前学校与角色，或从导航选择已授权功能。<Button onClick={fallback}>返回可用功能</Button></>
       } />
     }
+    if (tab === 'statistics') return <StatisticsPage user={user} schools={q.data ?? []} />
     if (tab === 'customer-config' && user.platform_admin) return <CustomerConfiguration />
     if (tab === 'group-qrcodes' || tab === 'home-banners') return <OperationResources key={`${school?.id}:${tab}`} module={tab} school={school?.id} platformAdmin={user.platform_admin} schoolAdmin={user.platform_admin || role === 'admin'} />
     if (tab === 'feedback' && school) return <OperationFeedback key={school.id} school={school.id} canDelete={user.platform_admin || role === 'admin'} />
@@ -126,7 +128,7 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
       schoolRole={role}
       pageExtra={
         <div className="scope-toolbar">
-          {globalScope ? <Tag>范围：全平台</Tag> : <>
+          {tab === 'statistics' ? <Tag>业务统计</Tag> : globalScope ? <Tag>范围：全平台</Tag> : <>
             <div>
               <span className="field-caption">当前学校</span>
               <Select
