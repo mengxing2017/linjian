@@ -1,0 +1,143 @@
+{
+  "data": {
+    "type": "school-statistics",
+    "id": "00000000-0000-0000-0000-000000000002",
+    "attributes": {
+      "school_id": "00000000-0000-0000-0000-000000000001",
+      "school_ids": [
+        "00000000-0000-0000-0000-000000000001"
+      ],
+      "school_names": [
+        "统计测试校"
+      ],
+      "full_site": false,
+      "timezone": "Asia/Shanghai",
+      "period": "day",
+      "granularity": "hour",
+      "window": {
+        "key": "summary",
+        "start_at": "2026-11-15T16:00:00Z",
+        "end_at": "2026-11-16T16:00:00Z",
+        "actual_end_at": "2026-11-16T16:00:00Z",
+        "state": "complete"
+      },
+      "as_of": "2026-11-18T00:00:00Z",
+      "expires_at": "2026-11-18T00:10:00Z",
+      "definition_version": 1,
+      "summary": {
+        "posts": 2,
+        "comments": 3,
+        "post_authors": 1,
+        "comment_authors": 1,
+        "participants": 1,
+        "registrations": null,
+        "cumulative_registrations": null,
+        "new_participants": null,
+        "active_users": null,
+        "registered_participants": null,
+        "comment_post_ratio": 1.5,
+        "new_participation_rate": null,
+        "participation_rate": null,
+        "daily_posts": 2.0,
+        "daily_comments": 3.0
+      },
+      "coverage": {
+        "content": true,
+        "registration": true,
+        "registration_assignment": false,
+        "registration_base": false,
+        "activity": false,
+        "reasons": [
+          "历史注册学校归属未知",
+          "活跃采集未覆盖、延迟或存在缺口"
+        ],
+        "content_from": "2026-01-01T00:00:00Z",
+        "registration_from": "2026-01-01T00:00:00Z",
+        "activity_from": null,
+        "activity_through": null
+      },
+      "buckets": [
+        {
+          "key": "bucket-0",
+          "start_at": "2026-11-15T16:00:00Z",
+          "end_at": "2026-11-16T16:00:00Z",
+          "actual_end_at": "2026-11-16T16:00:00Z",
+          "state": "complete",
+          "metrics": {
+            "posts": 2,
+            "comments": 3,
+            "post_authors": 1,
+            "comment_authors": 1,
+            "participants": 1,
+            "registrations": null,
+            "cumulative_registrations": null,
+            "new_participants": null,
+            "active_users": null,
+            "registered_participants": null,
+            "comment_post_ratio": 1.5,
+            "new_participation_rate": null,
+            "participation_rate": null,
+            "daily_posts": 2.0,
+            "daily_comments": 3.0
+          },
+          "coverage": {
+            "content": true,
+            "registration": true,
+            "registration_assignment": false,
+            "registration_base": false,
+            "activity": false,
+            "reasons": [
+              "历史注册学校归属未知",
+              "活跃采集未覆盖、延迟或存在缺口"
+            ],
+            "content_from": "2026-01-01T00:00:00Z",
+            "registration_from": "2026-01-01T00:00:00Z",
+            "activity_from": null,
+            "activity_through": null
+          }
+        }
+      ],
+      "comparisons": [
+        {
+          "kind": "previous",
+          "window": null,
+          "reason": "无可比同期",
+          "metrics": null,
+          "changes": {},
+          "buckets": []
+        }
+      ],
+      "current_state": {
+        "posts": {
+          "audit": {
+            "pending": 1,
+            "approved": 1,
+            "rejected": 0
+          },
+          "visibility": {
+            "visible": 2,
+            "hidden": 0,
+            "deleted": 0,
+            "offline": 0
+          },
+          "public": 1
+        },
+        "comments": {
+          "audit": {
+            "pending": 2,
+            "approved": 1,
+            "rejected": 0
+          },
+          "visibility": {
+            "visible": 3,
+            "hidden": 0,
+            "deleted": 0
+          },
+          "public": 1
+        }
+      },
+      "registration_groups": {},
+      "schools": []
+    }
+  }
+}

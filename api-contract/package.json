@@ -19,7 +19,8 @@
     "./miniapp-users/browser": "./src/modules/miniapp-users/browser.ts",
     "./miniapp-users": "./src/modules/miniapp-users/index.ts",
     "./home-menu": "./src/modules/home-menu/index.ts",
-    "./operations": "./src/modules/operations/index.ts"
+    "./operations": "./src/modules/operations/index.ts",
+    "./statistics": "./src/modules/statistics/index.ts"
   },
   "scripts": {
     "build": "tsc --noEmit && tsc -p tsconfig.platform.json",

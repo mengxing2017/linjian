@@ -15,6 +15,7 @@
     "src/modules/media/index.ts",
     "src/modules/source-events/index.ts",
     "src/modules/miniapp-users/index.ts",
-    "src/modules/operations/index.ts"
+    "src/modules/operations/index.ts",
+    "src/modules/statistics/index.ts"
   ]
 }

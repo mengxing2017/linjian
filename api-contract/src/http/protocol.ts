@@ -119,6 +119,7 @@ export function resourceType(path: string): string {
   if(kind && ['resource-previews','resource-publications','resource-qrcodes','source-outbox','home-menu-tags','home-menu-settings','home-menu-imports'].includes(kind))return kind;
   if (parts[2] === "schools" && parts[4] === "published-resources") return "resources";
   if(parts[2]==='miniapp') {
+    if(parts[3]==='activity-events') return 'miniapp-activity-events';
     if(parts[3]==='profile' && parts[4]==='mobile') return 'miniapp-user-mobiles';
     if(parts[3]==='profile') return 'miniapp-profiles';
     if(parts[3]==='avatar-assets') return 'miniapp-avatar-assets';
