@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Button, Form, Input, Upload } from 'antd'
 import { Field } from '../../shared/field'
 import { workspace, type Post } from './api'
@@ -20,6 +21,7 @@ export function PostEditor({
   run: CommunityAction
   publish: (values: { title: string; content: string; tags?: string }) => Promise<void>
 }) {
+  const [failed, setFailed] = useState<File[]>([])
   return (
     <Form
       layout="vertical"
@@ -56,8 +58,8 @@ export function PostEditor({
                 if (images.length + files.length > 9) throw new Error('最多9张图片')
                 const uploaded = [...images]
                 for (const file of files) {
-                  uploaded.push((await workspace.upload(s, file)).url)
-                  setImages([...uploaded])
+                  try { uploaded.push((await workspace.upload(s, file)).url); setImages([...uploaded]) }
+                  catch { setFailed(v => [...v, file]) }
                 }
               })
             return false
@@ -68,10 +70,13 @@ export function PostEditor({
           </Button>
         </Upload>
       </div>
-      {images.map((src) => (
+      <p>PNG/JPEG/GIF/WebP，单张最大 5 MiB。上传后提交生效。</p>
+      {failed.map((file, i) => <div key={i}>{file.name} 上传失败<Button disabled={busy} onClick={() => void run(async () => { if (images.length >= 9) throw new Error('最多9张图片'); const v = await workspace.upload(s, file); setImages([...images, v.url]); setFailed(items => items.filter((_, n) => n !== i)) })}>重试此图片</Button><Button disabled={busy} onClick={() => setFailed(items => items.filter((_, n) => n !== i))}>移除失败项</Button></div>)}
+      {images.map((src, index) => (
         <div key={src}>
           <img src={src} alt="上传预览" width={100} />
-          <Button htmlType="button" onClick={() => setImages(images.filter((v) => v !== src))}>
+          {index > 0 && <Button disabled={busy} onClick={() => { const next = [...images]; [next[index - 1], next[index]] = [next[index]!, next[index - 1]!]; setImages(next) }}>前移</Button>}
+          <Button disabled={busy} htmlType="button" onClick={() => setImages(images.filter((v) => v !== src))}>
             移除
           </Button>
         </div>
