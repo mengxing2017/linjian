@@ -3,13 +3,13 @@ services:
   postgres:
     image: ${LINJIAN_POSTGRES_IMAGE:-postgres:17-bookworm}
     environment:
-      POSTGRES_DB: linjian
-      POSTGRES_USER: linjian
+      POSTGRES_DB: ${LINJIAN_DATABASE_NAME:-linjian}
+      POSTGRES_USER: ${LINJIAN_DATABASE_USER:-linjian}
       POSTGRES_PASSWORD: ${LINJIAN_DATABASE_PASSWORD:?Set an independent database password}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: [CMD-SHELL, pg_isready -U linjian -d linjian]
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
       interval: 5s
       timeout: 3s
       retries: 20
@@ -32,12 +32,15 @@ services:
       LINJIAN_MEDIA_DRAFT_LEASE_DAYS: ${LINJIAN_MEDIA_DRAFT_LEASE_DAYS:-30}
       LINJIAN_MEDIA_CLEANUP_BATCH_SIZE: ${LINJIAN_MEDIA_CLEANUP_BATCH_SIZE:-100}
       LINJIAN_BIND_ADDR: 0.0.0.0:8080
-      LINJIAN_DATABASE_HOST: postgres
-      LINJIAN_DATABASE_NAME: linjian
-      LINJIAN_DATABASE_USER: linjian
+      LINJIAN_DATABASE_HOST: ${LINJIAN_DATABASE_HOST:-postgres}
+      LINJIAN_DATABASE_PORT: ${LINJIAN_DATABASE_PORT:-5432}
+      LINJIAN_DATABASE_NAME: ${LINJIAN_DATABASE_NAME:-linjian}
+      LINJIAN_DATABASE_USER: ${LINJIAN_DATABASE_USER:-linjian}
       LINJIAN_DATABASE_PASSWORD: ${LINJIAN_DATABASE_PASSWORD:?Set an independent database password}
+      LINJIAN_DATABASE_SSL_MODE: ${LINJIAN_DATABASE_SSL_MODE:-prefer}
+      LINJIAN_DATABASE_MAX_CONNECTIONS: ${LINJIAN_DATABASE_MAX_CONNECTIONS:-10}
       LINJIAN_ADMIN_WEB_ORIGIN: ${LINJIAN_ADMIN_WEB_ORIGIN:?Set the management browser origin}
-      LINJIAN_BROWSER_ORIGINS: ${LINJIAN_BROWSER_ORIGINS:?Set the JSON browser origins array}
+      LINJIAN_BROWSER_ORIGINS: ${LINJIAN_BROWSER_ORIGINS:-}
       LINJIAN_OFFICIAL_ACCOUNT_WEB_ORIGIN: ${LINJIAN_OFFICIAL_ACCOUNT_WEB_ORIGIN:-}
       LINJIAN_COMMUNITY_WEB_ORIGIN: ${LINJIAN_COMMUNITY_WEB_ORIGIN:-}
       LINJIAN_API_PUBLIC_ORIGIN: ${LINJIAN_API_PUBLIC_ORIGIN:?Set the public API origin}
@@ -82,6 +85,7 @@ services:
     environment:
       LINJIAN_WEB_LISTEN: ${LINJIAN_WEB_LISTEN:-:80}
       LINJIAN_API_LISTEN: ${LINJIAN_API_LISTEN:-http://localhost:8081}
+      LINJIAN_API_UPSTREAM: ${LINJIAN_API_UPSTREAM:-api:8080}
     ports:
       - ${LINJIAN_WEB_BIND_HOST:-0.0.0.0}:${LINJIAN_HTTP_PORT:-8091}:80
       - ${LINJIAN_WEB_BIND_HOST:-0.0.0.0}:${LINJIAN_HTTPS_PORT:-8444}:443

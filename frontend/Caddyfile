@@ -10,7 +10,7 @@
  @api path /api /api/* /healthz /readyz
  handle @api {
   header Cache-Control no-store
-  reverse_proxy api:8080
+  reverse_proxy {$LINJIAN_API_UPSTREAM:api:8080}
  }
  handle /docs/* {
   root * /srv
@@ -40,7 +40,7 @@
  }
  @api path /api /api/* /healthz /readyz
  handle @api {
-  reverse_proxy api:8080
+  reverse_proxy {$LINJIAN_API_UPSTREAM:api:8080}
  }
  handle {
   respond "Not Found" 404
