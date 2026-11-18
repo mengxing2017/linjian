@@ -25,15 +25,31 @@ pub fn digest(bytes: &[u8]) -> String {
 }
 impl Files {
     pub fn open(config: Config) -> Result<Self> {
-        config.validate().map_err(|_| Error::Unavailable)?;
-        std::fs::create_dir_all(&config.storage.filesystem_root).map_err(io)?;
+        Self::open_for_startup(config).map_err(io)
+    }
+    /// Keep filesystem diagnostics for startup; business callers retain the generic error.
+    pub(crate) fn open_for_startup(config: Config) -> std::io::Result<Self> {
+        let context = |operation: &'static str| {
+            let path = config.storage.filesystem_root.clone();
+            move |error: &dyn std::fmt::Display| {
+                std::io::Error::other(format!(
+                    "media storage at {}: {operation}: {error}",
+                    path.display()
+                ))
+            }
+        };
+        config
+            .validate()
+            .map_err(|error| context("validate configuration")(&error))?;
+        std::fs::create_dir_all(&config.storage.filesystem_root)
+            .map_err(|error| context("create directory")(&error))?;
         let root = File::from(
             rustix::fs::open(
                 &config.storage.filesystem_root,
                 OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
                 Mode::empty(),
             )
-            .map_err(io)?,
+            .map_err(|error| context("open directory")(&error))?,
         );
         let marker = ".linjian-store";
         match rustix::fs::openat(
@@ -45,12 +61,14 @@ impl Files {
             Ok(fd) => {
                 let mut f = File::from(fd);
                 f.write_all(Uuid::new_v4().to_string().as_bytes())
-                    .map_err(io)?;
-                f.sync_all().map_err(io)?;
-                root.sync_all().map_err(io)?;
+                    .map_err(|error| context("write .linjian-store")(&error))?;
+                f.sync_all()
+                    .map_err(|error| context("sync .linjian-store")(&error))?;
+                root.sync_all()
+                    .map_err(|error| context("sync directory")(&error))?;
             }
             Err(rustix::io::Errno::EXIST) => {}
-            Err(e) => return Err(io(e)),
+            Err(error) => return Err(context("create .linjian-store")(&error)),
         }
         let mut value = String::new();
         File::from(
@@ -60,12 +78,14 @@ impl Files {
                 OFlags::RDONLY | OFlags::NOFOLLOW,
                 Mode::empty(),
             )
-            .map_err(io)?,
+            .map_err(|error| context("open .linjian-store")(&error))?,
         )
         .take(64)
         .read_to_string(&mut value)
-        .map_err(io)?;
-        let store_id = value.parse().map_err(io)?;
+        .map_err(|error| context("read .linjian-store")(&error))?;
+        let store_id = value
+            .parse::<Uuid>()
+            .map_err(|error| context("parse .linjian-store UUID")(&error))?;
         Ok(Self {
             root: Arc::new(root),
             store_id,
@@ -180,6 +200,31 @@ impl Default for Files {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn startup_errors_identify_directory_operation_and_cause() {
+        let root = std::env::temp_dir().join(format!("linjian-startup-test-{}", Uuid::new_v4()));
+        std::fs::write(&root, b"not a directory").unwrap();
+        let error = Files::open_for_startup(Config::local(root.clone())).unwrap_err();
+        let message = error.to_string();
+        assert!(message.contains(&root.display().to_string()));
+        assert!(message.contains("create directory"));
+        assert!(message.contains("exists") || message.contains("directory"));
+        std::fs::remove_file(&root).unwrap();
+
+        std::fs::create_dir(&root).unwrap();
+        std::fs::write(root.join(".linjian-store"), b"invalid-marker").unwrap();
+        let error = Files::open_for_startup(Config::local(root.clone())).unwrap_err();
+        assert!(error.to_string().contains("parse .linjian-store UUID"));
+        assert_eq!(
+            std::fs::read(root.join(".linjian-store")).unwrap(),
+            b"invalid-marker"
+        );
+        assert!(matches!(
+            Files::open(Config::local(root.clone())),
+            Err(Error::Unavailable)
+        ));
+        std::fs::remove_dir_all(root).unwrap();
+    }
     fn fixture() -> (Files, std::path::PathBuf) {
         let root = std::env::temp_dir().join(format!("linjian-files-test-{}", Uuid::new_v4()));
         (Files::open(Config::local(root.clone())).unwrap(), root)

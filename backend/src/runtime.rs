@@ -40,7 +40,7 @@ async fn serve_inner(
         .unwrap_or_else(|_| "true".into())
         .parse::<bool>()?;
     let local = embedded || std::env::var("LINJIAN_INSECURE_LOCAL_AUTH").is_ok_and(|v| v == "true");
-    let files = crate::media::south::adapter::filesystem::Files::open(
+    let files = crate::media::south::adapter::filesystem::Files::open_for_startup(
         if embedded {
             crate::media::config::Config::from_env_with_root(
                 std::env::temp_dir().join("linjian-media"),
