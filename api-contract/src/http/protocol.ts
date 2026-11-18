@@ -133,14 +133,7 @@ export function resourceType(path: string): string {
     return 'miniapp-users';
   }
   if (parts[2] === "auth") return "sessions";
-  if (
-    parts[2] === "platform" &&
-    parts[3] === "wecom-directory" &&
-    parts[4] === "credential-rotations"
-  )
-    return "wecom-credential-rotations";
-  if (parts[2] === "accounts" && parts[4] === "wecom-binding")
-    return "wecom-bindings";
+
   if (parts[2] === "profile" || parts[2] === "accounts") return "accounts";
   if (parts[2] === "schools") {
     const kind = parts[4] ?? "schools";

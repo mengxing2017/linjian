@@ -50,19 +50,6 @@ it('shares a real Rust create-post response and sends CSRF for writes', async ()
   setCsrf('')
 })
 
-it('keeps OAuth selection in a fixed local entry URL', async () => {
-  const { wecomOAuthUrl } = await import('../src/modules/business')
-  expect(wecomOAuthUrl()).toBe('/api/v1/wecom/oauth/start')
-  expect(wecomOAuthUrl({school: '00000000-0000-0000-0000-000000000000'})).toBe('/api/v1/wecom/oauth/start?school=00000000-0000-0000-0000-000000000000')
-})
-
-it('reads the public WeCom status using the backend fixture', async () => {
-  const { workspace } = await import('../src/modules/business')
-  const fixture = (await import('../fixtures/wecom-status.json')).default
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(fixture)))
-  expect(await workspace.wecomStatus()).toEqual({id:'current',server_configured:false,client_configured:false,oauth_available:false,share_available:false})
-})
-
 it('consumes the Cairnkit error fixture serialized by Rust', async () => {
   const fixture = (await import('../fixtures/not-found.json')).default
   const mock = vi.fn().mockResolvedValue(json(fixture,{status:404,headers:{'Content-Type':'application/vnd.api+json'}}))

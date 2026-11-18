@@ -16,7 +16,6 @@ export interface User {
     platform_admin: boolean;
     bound_school_id: string | null;
     grants: Grant[];
-    wecom_authenticated: boolean;
 }
 export interface Session {
     user: User;
