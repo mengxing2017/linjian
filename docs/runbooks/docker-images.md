@@ -38,6 +38,8 @@ LINJIAN_API_PUBLIC_ORIGIN=http://127.0.0.1:8091
 LINJIAN_INSECURE_LOCAL_AUTH=true
 ```
 
+上传文件由 API 写入 `/data/media`，Compose 将独立的 `media-data` 命名卷挂载到该目录。镜像已为应用用户准备写权限，无需 TOML 配置文件或配置文件挂载。上传限额及清理期限通过 `.env` 中的 `LINJIAN_MEDIA_*` 变量配置，修改后重新创建 API 容器生效；容器内目录固定为 `/data/media`，修改路径时须同时修改卷挂载。
+
 ### 构建并等待启动完成
 
 依次执行，前一条成功后再执行下一条：
@@ -209,7 +211,7 @@ docker compose --env-file .env start
 (umask 077; docker compose --env-file .env exec -T postgres pg_dump -U linjian -d linjian -Fc > linjian-20261115.dump)
 ```
 
-将备份文件和受控保存的 `.env` 放到可靠存储。数据库中包含媒体和会话，Caddy 证书状态另保存在命名卷中。
+将备份文件和受控保存的 `.env` 放到可靠存储。数据库保存媒体元数据、引用和会话；图片二进制位于 `media-data` 命名卷。上面的数据库备份命令不包含图片，必须在停止 API 写入及后台清理期间同时备份数据库和文件卷，并成套恢复，保留文件卷中的 `.linjian-store` 标识。Caddy 证书状态另保存在命名卷中。
 
 源码部署更新：
 

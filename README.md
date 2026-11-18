@@ -40,6 +40,8 @@ make web-dev
 
 Web 默认 `http://localhost:5173`；API 默认 `127.0.0.1:8080`。嵌入式开发入口创建随机端口与密码的临时 PostgreSQL 17，忽略外部数据库配置，退出删除数据；首次可能下载数据库程序。若与原项目同时开发，可设置独立端口，并将 `LINJIAN_ADMIN_WEB_ORIGIN`、`LINJIAN_BROWSER_ORIGINS`、`LINJIAN_BIND_ADDR`、`LINJIAN_DEV_API_UPSTREAM` 与 Vite 端口同步调整。
 
+上传文件采用本地文件存储，配置只使用 `LINJIAN_MEDIA_*` 环境变量，无需 TOML 文件。`make dev-embedded` 默认写入系统临时目录下的 `linjian-media`（通常为 `/tmp/linjian-media`），可用 `LINJIAN_MEDIA_ROOT` 指定绝对目录。嵌入式数据库退出即删除，开发上传文件保留在临时目录，可在停止服务后手动清理。Docker 的 API 容器使用 `/data/media`，由独立 `media-data` 命名卷持久化；重建容器不丢失文件。数据库与文件卷须配套备份和恢复。上传大小、尺寸和清理期限见 `env.example`，修改后重启生效。
+
 也可使用自己的独立数据库，设置 `LINJIAN_DATABASE_URL`、`LINJIAN_ADMIN_WEB_ORIGIN`、`LINJIAN_BROWSER_ORIGINS`（JSON 数组），本地 HTTP 还需 `LINJIAN_INSECURE_LOCAL_AUTH=true` 后运行 `devbox run -- make api-dev`。管理员创建使用 `cargo run --manifest-path backend/Cargo.toml --bin linjian-api -- --create-admin <username>`，密码从 stdin 读取。生产不启用开发账号引导。
 
 浏览器 Cookie 名为 `linjian_session`，小程序存储键为 `linjian:miniapp:session`，独立数据库保存新会话；旧项目 Cookie 和会话不会迁入。
