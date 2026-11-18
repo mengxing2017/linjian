@@ -41,11 +41,18 @@ impl Repository {
         sqlx::query("DELETE FROM media_access_tokens WHERE expires_at<now()")
             .execute(&self.0)
             .await?;
-        sqlx::query("INSERT INTO media_access_tokens SELECT $1,$2,id,now()+interval '15 minutes' FROM media_assets WHERE school_id=$2 AND id=$3").bind(hash(&token)).bind(s).bind(id).execute(&self.0).await?;
+        sqlx::query("INSERT INTO media_access_tokens(token_hash,school_id,asset_id,expires_at,post_id) SELECT $1,$2,m.id,now()+interval '15 minutes',p.id FROM media_assets m JOIN file_assets f ON f.id=m.id AND f.purpose='post_image' AND f.state='ready' JOIN posts p ON p.school_id=m.school_id AND p.images @> jsonb_build_array('/api/v1/schools/'||m.school_id||'/media/'||m.id) WHERE m.school_id=$2 AND m.id=$3 AND p.audit_status='approved' AND p.visibility='visible' LIMIT 1").bind(hash(&token)).bind(s).bind(id).execute(&self.0).await?;
         Ok(format!("{origin}/api/legacy/media/{token}"))
     }
-    pub async fn media(&self, token: &str) -> Result<(String, Vec<u8>)> {
-        sqlx::query_as("SELECT a.mime_type,a.content FROM media_access_tokens t JOIN media_assets a ON a.id=t.asset_id AND a.school_id=t.school_id WHERE t.token_hash=$1 AND t.expires_at>now()").bind(hash(token)).fetch_optional(&self.0).await?.ok_or(Error::NotFound)
+    pub async fn media(
+        &self,
+        token: &str,
+        files: crate::media::south::adapter::filesystem::Files,
+    ) -> Result<(String, Vec<u8>)> {
+        let id:Uuid=sqlx::query_scalar("SELECT a.id FROM media_access_tokens t JOIN media_assets a ON a.id=t.asset_id AND a.school_id=t.school_id JOIN posts p ON p.id=t.post_id AND p.school_id=t.school_id JOIN schools s ON s.id=t.school_id WHERE t.token_hash=$1 AND t.expires_at>now() AND s.active AND p.audit_status='approved' AND p.visibility='visible' AND p.images @> jsonb_build_array('/api/v1/schools/'||a.school_id||'/media/'||a.id)").bind(hash(token)).fetch_optional(&self.0).await?.ok_or(Error::NotFound)?;
+        crate::media::south::adapter::postgres::Repository(self.0.clone(), files)
+            .read(id)
+            .await
     }
     pub async fn public(&self, s: Uuid) -> Result<bool> {
         Ok(sqlx::query_scalar("SELECT active AND coalesce((config->>'public_read')::boolean,false) FROM schools WHERE id=$1").bind(s).fetch_optional(&self.0).await?.unwrap_or(false))

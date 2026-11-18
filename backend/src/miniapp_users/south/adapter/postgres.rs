@@ -309,35 +309,32 @@ impl Repository {
         tx.commit().await?;
         Ok(())
     }
-    pub async fn upload(&self, a: &Actor, bytes: Vec<u8>) -> Result<Uuid> {
-        require(!a.is_admin_browser(), "请使用小程序身份")?;
-        let (mime, _, _) = crate::media::domain::validate(&bytes)?;
-        let mut tx = self.0.begin().await?;
-        let (_, status, _) = lock_user(&mut tx, a.id).await?;
-        if status != "normal" {
-            return Err(Error::MiniappBanned);
-        }
-        guard_session(&mut tx, a).await?;
-        let id = Uuid::now_v7();
-        sqlx::query(
-            "INSERT INTO miniapp_avatar_assets(id,owner_id,mime_type,content) VALUES($1,$2,$3,$4)",
-        )
-        .bind(id)
-        .bind(a.id)
-        .bind(mime)
-        .bind(bytes)
-        .execute(&mut *tx)
-        .await?;
-        tx.commit().await?;
-        Ok(id)
+    pub async fn upload(
+        &self,
+        a: &Actor,
+        bytes: Vec<u8>,
+        files: crate::media::south::adapter::filesystem::Files,
+    ) -> Result<Uuid> {
+        let value = crate::media::south::adapter::postgres::Repository(self.0.clone(), files)
+            .upload(a, None, "avatar", bytes, Uuid::new_v4())
+            .await?;
+        crate::business::uuid(&value, "id")
     }
-    pub async fn avatar(&self, a: &Actor, id: Uuid) -> Result<(String, Vec<u8>)> {
-        let row=sqlx::query("SELECT x.mime_type,x.content FROM miniapp_avatar_assets x JOIN accounts owner ON owner.id=x.owner_id WHERE x.id=$1 AND (x.owner_id=$2 OR ($3 AND EXISTS(SELECT 1 FROM miniapp_users u WHERE u.account_id=owner.id AND u.avatar_asset_id=x.id) AND ($4 OR owner.bound_school_id=ANY($5))))")
+
+    pub async fn avatar(
+        &self,
+        a: &Actor,
+        id: Uuid,
+        files: crate::media::south::adapter::filesystem::Files,
+    ) -> Result<(String, Vec<u8>)> {
+        let row=sqlx::query("SELECT x.id FROM miniapp_avatar_assets x JOIN accounts owner ON owner.id=x.owner_id WHERE x.id=$1 AND (x.owner_id=$2 OR ($3 AND EXISTS(SELECT 1 FROM miniapp_users u WHERE u.account_id=owner.id AND u.avatar_asset_id=x.id) AND ($4 OR owner.bound_school_id=ANY($5))))")
   .bind(id).bind(a.id).bind(a.is_admin_browser()).bind(a.platform_admin).bind(a.grants.iter().filter(|g|matches!(g.role.as_str(),"admin"|"operator")).map(|g|g.school_id).collect::<Vec<_>>()).fetch_optional(&self.0).await?.ok_or(Error::NotFound)?;
-        Ok((row.get("mime_type"), row.get("content")))
+        crate::media::south::adapter::postgres::Repository(self.0.clone(), files)
+            .read(row.get("id"))
+            .await
     }
     pub async fn cleanup(&self) -> Result<()> {
-        sqlx::query("DELETE FROM miniapp_avatar_assets WHERE id IN (SELECT x.id FROM miniapp_avatar_assets x WHERE x.created_at<now()-interval '1 day' AND NOT EXISTS(SELECT 1 FROM miniapp_users u WHERE u.avatar_asset_id=x.id) FOR UPDATE OF x SKIP LOCKED)").execute(&self.0).await?;
+        // Unified media lifecycle worker owns physical deletion.
         Ok(())
     }
 }

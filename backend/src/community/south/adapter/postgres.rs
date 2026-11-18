@@ -23,7 +23,7 @@ impl Repository {
                 .and_then(|x| x.parse::<Uuid>().ok())
                 .ok_or_else(|| Error::Invalid("图片地址无效".into()))?;
             let exists: bool = sqlx::query_scalar(
-                "SELECT EXISTS(SELECT 1 FROM media_assets WHERE school_id=$1 AND id=$2)",
+                "SELECT EXISTS(SELECT 1 FROM file_assets WHERE school_id=$1 AND id=$2 AND purpose='post_image' AND state='ready')",
             )
             .bind(s)
             .bind(id)

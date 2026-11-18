@@ -95,6 +95,7 @@ async fn browser_login_and_miniapp_login_have_distinct_source_rules() {
             endpoints,
             insecure_local_auth: false,
             statistics: Default::default(),
+            files: Default::default(),
         },
     ));
     for path in ["/api/v1/auth/sessions", "/api/v1/auth/miniapp"] {

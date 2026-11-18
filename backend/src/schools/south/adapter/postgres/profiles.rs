@@ -197,13 +197,20 @@ impl Repository {
         tx.commit().await?;
         Ok(result)
     }
-    pub async fn branding(&self, school: Uuid, slot: &str) -> Result<(String, Vec<u8>)> {
+    pub async fn branding(
+        &self,
+        school: Uuid,
+        slot: &str,
+        files: crate::media::south::adapter::filesystem::Files,
+    ) -> Result<(String, Vec<u8>)> {
         let column = match slot {
             "logo" => "logo_asset_id",
             "header" => "header_bg_asset_id",
             _ => return Err(Error::NotFound),
         };
-        let r=sqlx::query(&format!("SELECT m.mime_type,m.content FROM schools s JOIN operational_media m ON m.id=s.{column} AND m.school_id=s.id WHERE s.id=$1 AND s.active")).bind(school).fetch_optional(&self.0).await?.ok_or(Error::NotFound)?;
-        Ok((r.get("mime_type"), r.get("content")))
+        let r=sqlx::query(&format!("SELECT m.id FROM schools s JOIN operational_media m ON m.id=s.{column} AND m.school_id=s.id WHERE s.id=$1 AND s.active")).bind(school).fetch_optional(&self.0).await?.ok_or(Error::NotFound)?;
+        crate::media::south::adapter::postgres::Repository(self.0.clone(), files)
+            .read(r.get("id"))
+            .await
     }
 }

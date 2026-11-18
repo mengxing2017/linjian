@@ -34,7 +34,7 @@ fn kind(uri: &axum::http::Uri) -> Result<(&'static str, &'static str)> {
     }
 }
 fn service(a: Application) -> Service {
-    Service(Repository(a.pool))
+    Service(Repository(a.pool, a.options.files))
 }
 async fn list(
     State(a): State<Application>,

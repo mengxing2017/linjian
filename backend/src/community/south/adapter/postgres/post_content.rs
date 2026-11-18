@@ -10,6 +10,8 @@ use uuid::Uuid;
 pub(super) async fn validate(
     tx: &mut Transaction<'_, Postgres>,
     s: Uuid,
+    a: &Actor,
+    current_post: Option<Uuid>,
     v: &PostInput,
 ) -> Result<()> {
     v.validate(s)?;
@@ -30,12 +32,8 @@ pub(super) async fn validate(
             .and_then(|v| v.parse::<Uuid>().ok())
             .ok_or_else(|| Error::Invalid("图片地址无效".into()))?;
         let exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM media_assets WHERE school_id=$1 AND id=$2)",
-        )
-        .bind(s)
-        .bind(id)
-        .fetch_one(&mut **tx)
-        .await?;
+            "SELECT EXISTS(SELECT 1 FROM file_assets f WHERE f.id=$2 AND f.school_id=$1 AND f.purpose='post_image' AND f.state='ready' AND (f.owner_id=$3 OR EXISTS(SELECT 1 FROM file_asset_references r WHERE r.asset_id=f.id AND r.object_type='posts' AND r.object_id=$4)) AND (f.expires_at>now() OR EXISTS(SELECT 1 FROM file_asset_references r WHERE r.asset_id=f.id) OR EXISTS(SELECT 1 FROM file_asset_leases l WHERE l.asset_id=f.id AND l.owner_id=$3 AND l.expires_at>now())))"
+        ).bind(s).bind(id).bind(a.id).bind(current_post).fetch_one(&mut **tx).await?;
         require(exists, "图片不存在或属于其他学校")?;
     }
     let words: Vec<String> = sqlx::query_scalar(
@@ -56,7 +54,7 @@ pub(super) async fn create(
     s: Uuid,
     v: PostInput,
 ) -> Result<Value> {
-    validate(tx, s, &v).await?;
+    validate(tx, s, a, None, &v).await?;
     let policy = decisions::policy(tx, s, false).await?;
     let id = Uuid::now_v7();
     let item=sqlx::query_scalar("INSERT INTO posts(id,school_id,author_id,title,content,images,tags,audit_status,created_via,source_projection) VALUES($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9) RETURNING to_jsonb(posts)")
@@ -81,7 +79,7 @@ pub(super) async fn update(
     id: Uuid,
     v: PostInput,
 ) -> Result<Value> {
-    validate(tx, s, &v).await?;
+    validate(tx, s, a, Some(id), &v).await?;
     let current:Value=sqlx::query_scalar("SELECT to_jsonb(p) FROM posts p WHERE school_id=$1 AND id=$2 AND revision=$3 AND visibility<>'deleted' AND (author_id=$4 OR $5) FOR UPDATE")
  .bind(s).bind(id).bind(v.revision.unwrap_or(0)).bind(a.id).bind(a.can(s,"operator")).fetch_optional(&mut **tx).await?.ok_or(Error::Conflict)?;
     if current["title"] == v.title.trim()

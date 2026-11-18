@@ -56,7 +56,9 @@ async fn branding(
     Path((s, slot)): Path<(Uuid, String)>,
 ) -> Result<axum::response::Response> {
     use axum::response::IntoResponse;
-    let (mime, bytes) = Repository(a.pool).branding(s, &slot).await?;
+    let (mime, bytes) = Repository(a.pool)
+        .branding(s, &slot, a.options.files.clone())
+        .await?;
     Ok((
         [
             (axum::http::header::CONTENT_TYPE, mime),

@@ -21,15 +21,14 @@ pub trait Store: Clone + Send + Sync + 'static {
         &self,
         a: &Actor,
         s: Option<Uuid>,
-        mime: String,
-        width: u32,
-        height: u32,
         bytes: Vec<u8>,
+        files: crate::media::south::adapter::filesystem::Files,
     ) -> impl Future<Output = Result<Value>> + Send;
     fn media_list(
         &self,
         a: &Actor,
         s: Option<Uuid>,
+        page: crate::business::Page,
     ) -> impl Future<Output = Result<Vec<Value>>> + Send;
     fn media(
         &self,
@@ -37,5 +36,6 @@ pub trait Store: Clone + Send + Sync + 'static {
         s: Option<Uuid>,
         id: Uuid,
         published: bool,
+        files: crate::media::south::adapter::filesystem::Files,
     ) -> impl Future<Output = Result<(String, Vec<u8>)>> + Send;
 }

@@ -10,7 +10,10 @@ use serde_json::{Value, json};
 use sqlx::{PgPool, Postgres, Row, Transaction};
 use uuid::Uuid;
 #[derive(Clone)]
-pub struct Repository(pub PgPool);
+pub struct Repository(
+    pub PgPool,
+    pub crate::media::south::adapter::filesystem::Files,
+);
 fn school(s: Option<Uuid>) -> Result<Uuid> {
     s.ok_or(Error::Forbidden)
 }
@@ -305,7 +308,7 @@ impl Store for Repository {
                             .strip_prefix(&prefix)
                             .and_then(|i| i.parse::<Uuid>().ok())
                             .ok_or_else(|| Error::Invalid("图片必须来自本校上传".into()))?;
-                        sqlx::query("SELECT id FROM media_assets WHERE id=$1 AND school_id=$2 AND owner_id=$3 FOR SHARE").bind(id).bind(s).bind(a.id).fetch_optional(&mut *tx).await?.ok_or(Error::Forbidden)?;
+                        sqlx::query("SELECT id FROM media_assets WHERE id=$1 AND school_id=$2 AND owner_id=$3 AND EXISTS(SELECT 1 FROM file_assets f WHERE f.id=media_assets.id AND f.purpose='feedback_evidence' AND f.state='ready') FOR UPDATE").bind(id).bind(s).bind(a.id).fetch_optional(&mut *tx).await?.ok_or(Error::Forbidden)?;
                     }
                     let id = Uuid::now_v7();
                     sqlx::query("INSERT INTO cases(id,school_id,account_id,kind,feedback_type,content,contact,images,submission_key,submitted_ip) VALUES($1,$2,$3,'feedback',$4,$5,$6,$7,$8,$9::text::inet)").bind(id).bind(s).bind(a.id).bind(v.feedback_type).bind(v.content).bind(v.contact).bind(json!(v.images)).bind(v.submission_key).bind(ip).execute(&mut *tx).await?;
@@ -367,8 +370,16 @@ impl Store for Repository {
             }
             Command::ResourceMedia(id) => {
                 auth(&mut tx, a, s, "operator").await?;
-                let row=sqlx::query("SELECT m.mime_type,m.content FROM school_resources r JOIN operational_media m ON m.id::text=r.image_ref->>'id' AND m.school_id IS NOT DISTINCT FROM r.school_id WHERE r.id=$1 AND r.deleted_at IS NULL AND (r.school_id=$2 OR r.school_id IS NULL)").bind(id).bind(school(s)?).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
-                json!({"mime":row.get::<String,_>("mime_type"),"bytes":row.get::<Vec<u8>,_>("content")})
+                let row=sqlx::query("SELECT m.id FROM school_resources r JOIN operational_media m ON m.id::text=r.image_ref->>'id' AND m.school_id IS NOT DISTINCT FROM r.school_id WHERE r.id=$1 AND r.deleted_at IS NULL AND (r.school_id=$2 OR r.school_id IS NULL)").bind(id).bind(school(s)?).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
+                {
+                    let (mime, bytes) = crate::media::south::adapter::postgres::Repository(
+                        self.0.clone(),
+                        self.1.clone(),
+                    )
+                    .read(row.get("id"))
+                    .await?;
+                    json!({"mime":mime,"bytes":bytes})
+                }
             }
             Command::CustomerMedia(kind) => {
                 auth(&mut tx, a, s, "member").await?;
@@ -387,15 +398,37 @@ impl Store for Repository {
                     .or(cfg["fallback_asset_id"].as_str())
                     .and_then(|s| s.parse::<Uuid>().ok())
                     .ok_or(Error::NotFound)?;
-                let row=sqlx::query("SELECT mime_type,content FROM operational_media WHERE id=$1 AND school_id IS NULL").bind(asset).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
-                json!({"mime":row.get::<String,_>("mime_type"),"bytes":row.get::<Vec<u8>,_>("content")})
+                let row = sqlx::query(
+                    "SELECT id FROM operational_media WHERE id=$1 AND school_id IS NULL",
+                )
+                .bind(asset)
+                .fetch_optional(&mut *tx)
+                .await?
+                .ok_or(Error::NotFound)?;
+                {
+                    let (mime, bytes) = crate::media::south::adapter::postgres::Repository(
+                        self.0.clone(),
+                        self.1.clone(),
+                    )
+                    .read(row.get("id"))
+                    .await?;
+                    json!({"mime":mime,"bytes":bytes})
+                }
             }
             Command::FeedbackMedia { case, media } => {
                 auth(&mut tx, a, s, "operator").await?;
                 let s = school(s)?;
                 let path = format!("/api/v1/schools/{s}/media/{media}");
-                let row=sqlx::query("SELECT m.mime_type,m.content FROM media_assets m JOIN cases c ON c.school_id=m.school_id WHERE c.id=$1 AND c.school_id=$2 AND c.kind='feedback' AND c.deleted_at IS NULL AND c.images @> $3 AND m.id=$4").bind(case).bind(s).bind(json!([path])).bind(media).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
-                json!({"mime":row.get::<String,_>("mime_type"),"bytes":row.get::<Vec<u8>,_>("content")})
+                let row=sqlx::query("SELECT m.id FROM media_assets m JOIN cases c ON c.school_id=m.school_id WHERE c.id=$1 AND c.school_id=$2 AND c.kind='feedback' AND c.deleted_at IS NULL AND c.images @> $3 AND m.id=$4").bind(case).bind(s).bind(json!([path])).bind(media).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
+                {
+                    let (mime, bytes) = crate::media::south::adapter::postgres::Repository(
+                        self.0.clone(),
+                        self.1.clone(),
+                    )
+                    .read(row.get("id"))
+                    .await?;
+                    json!({"mime":mime,"bytes":bytes})
+                }
             }
         };
         tx.commit().await?;

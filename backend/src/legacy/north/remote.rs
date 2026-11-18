@@ -10,7 +10,7 @@ async fn media(
     State(a): State<Application>,
     Path(token): Path<String>,
 ) -> crate::business::Result<Response> {
-    let (mime, b) = a.legacy.media(&token).await?;
+    let (mime, b) = a.legacy.media(&token, a.options.files.clone()).await?;
     Ok((
         [
             (header::CONTENT_TYPE, mime),

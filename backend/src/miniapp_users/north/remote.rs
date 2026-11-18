@@ -146,7 +146,9 @@ async fn school(
     Ok(completed())
 }
 async fn upload(State(a): State<Application>, actor: Actor, b: Bytes) -> Result<ApiResponse> {
-    let id = Repository(a.pool).upload(&actor, b.to_vec()).await?;
+    let id = Repository(a.pool)
+        .upload(&actor, b.to_vec(), a.options.files.clone())
+        .await?;
     Ok(singleton(
         "miniapp-avatar-assets",
         id,
@@ -158,7 +160,9 @@ async fn avatar(
     actor: Actor,
     Path(id): Path<Uuid>,
 ) -> Result<Response> {
-    let (mime, bytes) = Repository(a.pool).avatar(&actor, id).await?;
+    let (mime, bytes) = Repository(a.pool)
+        .avatar(&actor, id, a.options.files.clone())
+        .await?;
     Ok((
         [
             (header::CONTENT_TYPE, mime),

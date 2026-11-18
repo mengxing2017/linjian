@@ -5,20 +5,36 @@ pub struct Options {
     pub endpoints: crate::config::origins::PublicEndpoints,
     pub insecure_local_auth: bool,
     pub statistics: crate::statistics::config::Config,
+    pub files: crate::media::south::adapter::filesystem::Files,
 }
 impl Options {
     pub fn from_env(local: bool) -> Result<Self, String> {
+        let files = crate::media::south::adapter::filesystem::Files::open(
+            crate::media::config::Config::from_env()?,
+        )
+        .map_err(|_| "media directory unavailable")?;
+        Self::from_env_with_files(local, files)
+    }
+    pub(crate) fn from_env_with_files(
+        local: bool,
+        files: crate::media::south::adapter::filesystem::Files,
+    ) -> Result<Self, String> {
         Ok(Self {
             endpoints: crate::config::origins::PublicEndpoints::from_env(local)?,
             insecure_local_auth: local,
             statistics: crate::statistics::config::Config::from_env()?,
+            files,
         })
     }
     pub fn local() -> Self {
+        Self::local_with_files(Default::default())
+    }
+    pub(crate) fn local_with_files(files: crate::media::south::adapter::filesystem::Files) -> Self {
         Self {
             endpoints: crate::config::origins::PublicEndpoints::local_admin(),
             insecure_local_auth: true,
             statistics: Default::default(),
+            files,
         }
     }
 }
@@ -37,6 +53,7 @@ pub struct Application {
     pub media: crate::media::north::local::Service,
 }
 pub fn build_application(pool: PgPool, options: Options) -> Application {
+    let files = options.files.clone();
     Application {
         statistics: crate::statistics::north::local::Service::new(
             crate::statistics::south::adapter::postgres::Repository(
@@ -62,7 +79,7 @@ pub fn build_application(pool: PgPool, options: Options) -> Application {
         ),
         integrations: crate::integrations::north::local::Service::new(pool.clone()),
         media: crate::media::north::local::Service(
-            crate::media::south::adapter::postgres::Repository(pool.clone()),
+            crate::media::south::adapter::postgres::Repository(pool.clone(), files),
         ),
         pool,
     }

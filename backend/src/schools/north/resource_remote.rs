@@ -10,7 +10,7 @@ use crate::{
 use axum::{
     Router,
     body::Bytes,
-    extract::{DefaultBodyLimit, Path, State},
+    extract::{DefaultBodyLimit, Path, Query, State},
     http::header,
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -91,17 +91,21 @@ macro_rules! scope_handlers {
         ) -> Result<ApiResponse> {
             Ok(resource(
                 "resource-artwork",
-                service(&a).upload(&actor, $scope, bytes.to_vec()).await?,
+                service(&a)
+                    .upload(&actor, $scope, bytes.to_vec(), a.options.files.clone())
+                    .await?,
             ))
         }
         async fn $list(
             State(a): State<Application>,
             actor: Actor,
             Path($binding): Path<$path>,
+            Query(page): Query<crate::business::Page>,
         ) -> Result<ApiResponse> {
-            Ok(resource(
+            Ok(crate::http::jsonapi::collection(
                 "resource-artwork",
-                service(&a).list(&actor, $scope).await?,
+                service(&a).list(&actor, $scope, page.clone()).await?,
+                &page,
             ))
         }
         async fn $qr(
@@ -113,7 +117,9 @@ macro_rules! scope_handlers {
             let v: QrInput = input.decode("resource-qrcodes")?;
             Ok(resource(
                 "resource-artwork",
-                service(&a).qr(&actor, $scope, &v.url).await?,
+                service(&a)
+                    .qr(&actor, $scope, &v.url, a.options.files.clone())
+                    .await?,
             ))
         }
     };
@@ -163,13 +169,20 @@ async fn platform_upload(
 ) -> Result<ApiResponse> {
     Ok(resource(
         "resource-artwork",
-        service(&a).upload(&actor, None, bytes.to_vec()).await?,
+        service(&a)
+            .upload(&actor, None, bytes.to_vec(), a.options.files.clone())
+            .await?,
     ))
 }
-async fn platform_list(State(a): State<Application>, actor: Actor) -> Result<ApiResponse> {
-    Ok(resource(
+async fn platform_list(
+    State(a): State<Application>,
+    actor: Actor,
+    Query(page): Query<crate::business::Page>,
+) -> Result<ApiResponse> {
+    Ok(crate::http::jsonapi::collection(
         "resource-artwork",
-        service(&a).list(&actor, None).await?,
+        service(&a).list(&actor, None, page.clone()).await?,
+        &page,
     ))
 }
 async fn platform_qr(
@@ -180,7 +193,9 @@ async fn platform_qr(
     let v: QrInput = input.decode("resource-qrcodes")?;
     Ok(resource(
         "resource-artwork",
-        service(&a).qr(&actor, None, &v.url).await?,
+        service(&a)
+            .qr(&actor, None, &v.url, a.options.files.clone())
+            .await?,
     ))
 }
 async fn artwork(
@@ -188,21 +203,33 @@ async fn artwork(
     actor: Actor,
     Path((s, id)): Path<(Uuid, Uuid)>,
 ) -> Result<Response> {
-    Ok(binary(service(&a).media(&actor, Some(s), id, false).await?))
+    Ok(binary(
+        service(&a)
+            .media(&actor, Some(s), id, false, a.options.files.clone())
+            .await?,
+    ))
 }
 async fn platform_artwork(
     State(a): State<Application>,
     actor: Actor,
     Path(id): Path<Uuid>,
 ) -> Result<Response> {
-    Ok(binary(service(&a).media(&actor, None, id, false).await?))
+    Ok(binary(
+        service(&a)
+            .media(&actor, None, id, false, a.options.files.clone())
+            .await?,
+    ))
 }
 async fn published(
     State(a): State<Application>,
     actor: Actor,
     Path((s, id)): Path<(Uuid, Uuid)>,
 ) -> Result<Response> {
-    Ok(binary(service(&a).media(&actor, Some(s), id, true).await?))
+    Ok(binary(
+        service(&a)
+            .media(&actor, Some(s), id, true, a.options.files.clone())
+            .await?,
+    ))
 }
 pub fn router() -> Router<Application> {
     Router::new()

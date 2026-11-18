@@ -40,6 +40,17 @@ async fn serve_inner(
         .unwrap_or_else(|_| "true".into())
         .parse::<bool>()?;
     let local = embedded || std::env::var("LINJIAN_INSECURE_LOCAL_AUTH").is_ok_and(|v| v == "true");
+    let files = crate::media::south::adapter::filesystem::Files::open(
+        if embedded {
+            crate::media::config::Config::from_env_with_root(
+                std::env::temp_dir().join("linjian-media"),
+            )
+        } else {
+            crate::media::config::Config::from_env()
+        }
+        .map_err(std::io::Error::other)?,
+    )?;
+    info!(directory = %files.config.storage.filesystem_root.display(), "media file storage initialized");
     let options = if embedded
         && [
             "LINJIAN_ADMIN_WEB_ORIGIN",
@@ -51,11 +62,15 @@ async fn serve_inner(
         .iter()
         .all(|key| std::env::var(key).is_err())
     {
-        bootstrap::Options::local()
+        bootstrap::Options::local_with_files(files)
     } else {
-        bootstrap::Options::from_env(local).map_err(std::io::Error::other)?
+        bootstrap::Options::from_env_with_files(local, files).map_err(std::io::Error::other)?
     };
     database::migrate(&pool).await?;
+    let wrong_store:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM file_assets WHERE state IN ('ready','uploading') AND store_id<>$1)").bind(options.files.store_id).fetch_one(&pool).await?;
+    if wrong_store {
+        return Err("configured media volume does not match database store_id".into());
+    }
     crate::source_access::south::adapter::postgres::Repository(pool.clone())
         .publish_environment()
         .await
@@ -93,8 +108,12 @@ async fn serve_inner(
         crate::miniapp_users::south::adapter::postgres::Repository(application.pool.clone());
     let import_cleanup =
         crate::community::south::adapter::postgres::Repository(application.pool.clone());
+    let media_cleanup = application.media.0.clone();
     let artwork_worker = tokio::spawn(async move {
         loop {
+            if media_cleanup.cleanup().await.is_err() {
+                tracing::warn!("media cleanup failed; retrying later");
+            }
             if import_cleanup.cleanup_post_imports().await.is_err() {
                 tracing::warn!("expired post import preview cleanup failed");
             }

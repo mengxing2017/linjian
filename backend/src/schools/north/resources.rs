@@ -16,11 +16,22 @@ impl<R: Store> Service<R> {
         }
         self.0.command(a, s, v).await
     }
-    pub async fn upload(&self, a: &Actor, s: Option<Uuid>, b: Vec<u8>) -> Result<Value> {
-        let (m, w, h) = crate::media::domain::validate(&b)?;
-        self.0.upload(a, s, m, w, h, b).await
+    pub async fn upload(
+        &self,
+        a: &Actor,
+        s: Option<Uuid>,
+        b: Vec<u8>,
+        files: crate::media::south::adapter::filesystem::Files,
+    ) -> Result<Value> {
+        self.0.upload(a, s, b, files).await
     }
-    pub async fn qr(&self, a: &Actor, s: Option<Uuid>, url: &str) -> Result<Value> {
+    pub async fn qr(
+        &self,
+        a: &Actor,
+        s: Option<Uuid>,
+        url: &str,
+        files: crate::media::south::adapter::filesystem::Files,
+    ) -> Result<Value> {
         require(
             crate::schools::domain::https(url) && url.len() <= 2048,
             "二维码内容须为 HTTPS 业务链接",
@@ -34,10 +45,15 @@ impl<R: Store> Service<R> {
         image::DynamicImage::ImageLuma8(image)
             .write_to(&mut bytes, image::ImageFormat::Png)
             .map_err(|_| Error::Unavailable)?;
-        self.upload(a, s, bytes.into_inner()).await
+        self.upload(a, s, bytes.into_inner(), files).await
     }
-    pub async fn list(&self, a: &Actor, s: Option<Uuid>) -> Result<Vec<Value>> {
-        self.0.media_list(a, s).await
+    pub async fn list(
+        &self,
+        a: &Actor,
+        s: Option<Uuid>,
+        page: crate::business::Page,
+    ) -> Result<Vec<Value>> {
+        self.0.media_list(a, s, page).await
     }
     pub async fn media(
         &self,
@@ -45,7 +61,8 @@ impl<R: Store> Service<R> {
         s: Option<Uuid>,
         id: Uuid,
         published: bool,
+        files: crate::media::south::adapter::filesystem::Files,
     ) -> Result<(String, Vec<u8>)> {
-        self.0.media(a, s, id, published).await
+        self.0.media(a, s, id, published, files).await
     }
 }
