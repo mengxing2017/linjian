@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { recordPage } from '../statistics/activity'
 import { postVisibilityLabel } from './post-status'
 import { shallowRef, ref } from 'vue'
 import { communityApi, type Post, type Comment, type Reaction, type Follow } from './api'
@@ -119,7 +120,10 @@ function next() {
   })
 }
 defineExpose({
-  show: load,
+  show: async () => {
+    await load()
+    if (!error.value && post.value) recordPage('post_open', props.school, props.id)
+  },
   share: () =>
     canSharePost(post.value, props.school, props.id)
       ? {

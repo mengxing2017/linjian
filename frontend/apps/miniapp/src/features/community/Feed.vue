@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { recordPage } from '../statistics/activity'
 import HomeOperations from '../operations/HomeOperations.vue'
 const operations = shallowRef<InstanceType<typeof HomeOperations>>()
 import { postVisibilityLabel } from './post-status'
@@ -91,12 +92,14 @@ defineExpose({
   show: async () => {
     if (!(await requireSchool())) return
     void operations.value?.show()
-    return posts.value.length
+    const activeSchool = schoolContext.id
+    await (posts.value.length
       ? run(async () => {
           await requireSchool()
           if (!posts.value.length) void load()
         })
-      : load()
+      : load())
+    if (!error.value && activeSchool === schoolContext.id) recordPage('feed_open', activeSchool)
   },
   refresh: async () => { await load(); await operations.value?.refresh() },
   loadMore: () => {
