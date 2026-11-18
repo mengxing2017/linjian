@@ -1,7 +1,8 @@
 import type { Client, Cancellation } from '../../http/client'
+export type StatisticsView = 'overview' | 'content' | 'registration' | 'activity' | 'schools'
 export type Period = 'day' | 'week' | 'month' | 'year' | 'custom'
 export interface StatisticsQuery {
-  period?: Period; anchor_date?: string; start_date?: string; end_date?: string
+  view?: StatisticsView; period?: Period; anchor_date?: string; start_date?: string; end_date?: string
   granularity?: 'hour' | 'day' | 'week' | 'month'; comparison?: 'none' | 'previous' | 'year' | 'both'
   school_ids?: string; school_status?: 'normal' | 'hidden'
 }
@@ -19,6 +20,7 @@ export interface Change { current: number | null; previous: number | null; delta
 export interface Comparison { kind: string; window: Window | null; reason: string | null; metrics: Metrics | null; changes: Record<string, Change>; buckets: Bucket[] }
 export interface SchoolRow { id: string; name: string; status: string; metrics: Metrics; coverage: Coverage; changes: Record<string, Change> }
 export interface StatisticsReport {
+  view: StatisticsView; school_count: number;
   id: string; school_id: string | null; school_ids: string[]; school_names: string[]; full_site: boolean
   timezone: string; period: Period; granularity: string; window: Window; as_of: string; expires_at: string
   definition_version: number; summary: Metrics; coverage: Coverage; buckets: Bucket[]; comparisons: Comparison[]

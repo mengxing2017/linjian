@@ -1,0 +1,53 @@
+{
+  "data": [
+    {
+      "type": "school-statistics-rows",
+      "id": "00000000-0000-0000-0000-000000000001",
+      "attributes": {
+        "name": "统计测试校",
+        "status": "normal",
+        "metrics": {
+          "posts": 2,
+          "comments": 3,
+          "post_authors": 1,
+          "comment_authors": 1,
+          "participants": 1,
+          "registrations": null,
+          "cumulative_registrations": null,
+          "new_participants": null,
+          "active_users": 3,
+          "registered_participants": 1,
+          "comment_post_ratio": 1.5,
+          "new_participation_rate": null,
+          "participation_rate": 33.3,
+          "daily_posts": 2.0,
+          "daily_comments": 3.0
+        },
+        "coverage": {
+          "content": true,
+          "registration": true,
+          "registration_assignment": false,
+          "registration_base": false,
+          "activity": true,
+          "reasons": [
+            "历史注册学校归属未知"
+          ],
+          "content_from": "2026-01-01T00:00:00Z",
+          "registration_from": "2026-01-01T00:00:00Z",
+          "activity_from": "2026-01-01T00:00:00Z",
+          "activity_through": "2026-11-18T00:00:00Z"
+        },
+        "changes": {}
+      }
+    }
+  ],
+  "meta": {
+    "page": {
+      "number": 1,
+      "size": 20,
+      "has_more": false
+    },
+    "total": 1,
+    "snapshot_id": "00000000-0000-0000-0000-000000000002"
+  }
+}

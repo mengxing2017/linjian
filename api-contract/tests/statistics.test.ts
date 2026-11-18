@@ -10,7 +10,8 @@ describe('business statistics contract', () => {
       const api = createStatisticsClient(createClient(async () => ({ status: 200, headers: { 'content-type': 'application/vnd.api+json' }, body: doc })))
       const r = await api.report('school-a', { period: 'day', anchor_date: '2026-11-16' })
       expect(r).toEqual({ id: doc.data.id, ...doc.data.attributes })
-      expect(r.summary.active_users).toBe(name === 'statistics-unavailable' ? null : 3)
+      expect(r.summary.active_users).toBeNull()
+      expect(r.view).toBe('content')
     }
   })
   it('keeps platform query explicit and propagates cancellation', async () => {
@@ -20,7 +21,19 @@ describe('business statistics contract', () => {
     const r = await api.report(undefined, { period: 'month', school_ids: 'a,b', school_status: 'hidden' }, signal)
     expect(request?.path).toBe('/api/v1/platform/statistics?period=month&school_ids=a%2Cb&school_status=hidden')
     expect(request?.signal).toBe(signal)
-    expect(r.registration_groups.unknown).toBe(1)
+    expect(r.school_count).toBe(1)
+    expect(r.schools).toEqual([])
+  })
+  it('loads school comparisons through bounded server pagination, separate from report metadata', async () => {
+    let request: TransportRequest | undefined
+    const api = createStatisticsClient(createClient(async r => { request = r; return { status: 200, headers: { 'content-type': 'application/vnd.api+json' }, body: fixture('school-statistics-rows') } }))
+    const signal = new AbortController().signal
+    const rows = await api.schools('snapshot', { page: 2, size: 20, sort: 'posts', descending: true }, signal)
+    expect(request?.path).toBe('/api/v1/platform/statistics/snapshots/snapshot/schools?page=2&size=20&sort=posts&descending=true')
+    expect(request?.signal).toBe(signal)
+    expect(rows.items).toHaveLength(1)
+    expect(rows.page?.size).toBe(20)
+    expect(fixture('platform-statistics').data.attributes.schools).toEqual([])
   })
   it('encodes miniapp events as their own JSON:API type and exports the original snapshot', async () => {
     const requests: TransportRequest[] = []
