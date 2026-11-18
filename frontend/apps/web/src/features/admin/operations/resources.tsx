@@ -52,12 +52,14 @@ export function OperationResources({ school, platformAdmin, schoolAdmin, module 
   </section>
 }
 function OperationEditor({ school, module, item, readOnly, onSaved }: { school?: string; module: Module; item?: OperationResource; readOnly: boolean; onSaved: () => Promise<void> }) {
+  const [uploading, setUploading] = useState(false)
   const [form, setForm] = useState<OperationInput>({ revision: item?.revision ?? 0, title: item?.title ?? '', content: item?.content ?? '', image_ref: item?.image_ref ?? { kind: 'asset', id: '' }, action: module === 'group-qrcodes' ? {kind:'none'} : item?.action ?? { kind: 'none' }, active: item?.active ?? true, sort_order: item?.sort_order ?? 0, starts_at: item?.starts_at ?? null, ends_at: item?.ends_at ?? null, popup_strategy: item?.popup_strategy ?? 'daily', popup_interval_days: item?.popup_interval_days ?? 1 })
   const [preview, setPreview] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(''), [postSearch, setPostSearch] = useState('')
   const posts = useQuery({ queryKey: ['linjian', 'operations-posts', school, postSearch], queryFn: () => workspace.list(school!, 'posts', `?status=approved&search=${encodeURIComponent(postSearch)}`), enabled: !!school && form.action.kind === 'internal_page' && form.action.page === 'post' })
   function change(v: Partial<OperationInput>) { setForm({ ...form, ...v }); setPreview(false) }
   const qr = module === 'group-qrcodes', action = form.action
   function validate() {
+    if (uploading) throw new Error('请等待图片上传完成')
     if (!form.title.trim() || !form.image_ref.id) throw new Error('请填写名称并选择图片')
     if (form.starts_at && form.ends_at && form.ends_at <= form.starts_at) throw new Error('结束展示时间必须晚于开始')
     if (action.kind === 'internal_page' && action.page === 'post' && !action.object_id) throw new Error('请选择目标帖子')
@@ -67,7 +69,7 @@ function OperationEditor({ school, module, item, readOnly, onSaved }: { school?:
     <fieldset disabled={readOnly || busy} style={{ border: 0, padding: 0 }}><Space orientation="vertical" className="full-width">
       <label>{qr ? '二维码名称' : '广告标题'}<Input aria-label={qr ? '二维码名称' : '广告标题'} value={form.title} maxLength={100} onChange={e => change({ title: e.target.value })} /></label>
       <label>展示说明<Input.TextArea value={form.content} maxLength={qr ? 255 : 20000} onChange={e => change({ content: e.target.value })} /></label>
-      {!readOnly && <MediaPicker school={school} value={form.image_ref.id || null} onChange={id => change({ image_ref: { kind: 'asset', id: id ?? '' } })} label={qr ? '二维码图片' : '广告图片'} />}
+      {!readOnly && <MediaPicker onBusyChange={setUploading} school={school} value={form.image_ref.id || null} onChange={id => change({ image_ref: { kind: 'asset', id: id ?? '' } })} label={qr ? '二维码图片' : '广告图片'} />}
       {readOnly && item?.image_url && <img src={item.image_url} alt={item.title} style={{ maxWidth: 250 }} />}
       {qr ? <><label>展示时机<Select value={form.popup_strategy} options={Object.entries(strategyLabels).map(([value, label]) => ({ value, label }))} onChange={popup_strategy => change({ popup_strategy })} /></label>{form.popup_strategy === 'interval' && <label>间隔天数<InputNumber min={1} max={365} precision={0} value={form.popup_interval_days} onChange={v => change({ popup_interval_days: Number(v) })} /></label>}</> : <>
         <label>点击后去哪里<Select value={action.kind === 'internal_page' && action.page === 'post' ? 'post' : action.kind} options={[{ value: 'none', label: '不跳转' }, { value: 'internal_page', label: '打开站内页面' }, ...(school ? [{ value: 'post', label: '打开帖子详情' }] : []), ...(!['none', 'internal_page'].includes(action.kind) ? [{ value: action.kind, label: `${actionLabels[action.kind]}（历史配置）` }] : [])]} onChange={v => change({ action: v === 'none' ? { kind: 'none' } : v === 'post' ? { kind: 'internal_page', page: 'post', object_id: null } : { kind: 'internal_page', page: 'feed' } })} /></label>

@@ -1,3 +1,4 @@
+import { MediaPicker } from '../operations/media-picker'
 import { AuditModeFields } from './audit-modes'
 import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -13,9 +14,8 @@ import {
   Select,
   Space,
   Table,
-  Upload,
 } from 'antd'
-import { workspace, product, type School, type SchoolInput, type SchoolFilters } from './api'
+import { workspace, type School, type SchoolInput, type SchoolFilters } from './api'
 import { PaginationControls } from '../../../shared/pagination-controls'
 const defaults = {
   name: '',
@@ -84,11 +84,6 @@ export function SchoolForm({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [conflict, setConflict] = useState(false)
-  const gallery = useQuery({
-    queryKey: ['linjian', 'school-artwork', school?.id],
-    queryFn: () => product.resources.artwork(school!.id),
-    enabled: !!school,
-  })
   const primary = Form.useWatch('theme_primary', form) || defaults.theme_primary,
     secondary = Form.useWatch('theme_secondary', form) || defaults.theme_secondary,
     text = Form.useWatch('theme_text_color', form) || defaults.theme_text_color
@@ -148,7 +143,7 @@ export function SchoolForm({
         } else void save(v)
       }}
     >
-      {(error || gallery.error) && <Alert type="error" title={error || gallery.error?.message} />}
+      {error && <Alert type="error" title={error} />}
       {conflict && (
         <>
           <p>资料已被其他操作更新，本地输入已保留。重新加载会舍弃本地输入。</p>
@@ -207,40 +202,12 @@ export function SchoolForm({
         ).map(([key, label]) => (
           <section key={key}>
             <Form.Item name={key} label={label}>
-              <Select
-                allowClear
-                onClear={() => form.setFieldValue(key, null)}
-                options={gallery.data?.map((a, i) => ({
-                  value: a.id,
-                  label: `图片 ${i + 1} · ${a.width}×${a.height}`,
-                }))}
-              />
+              <MediaPicker school={school.id} value={form.getFieldValue(key) ?? null} label={label} onChange={id => form.setFieldValue(key, id)} onBusyChange={setBusy} />
             </Form.Item>
-            <Upload
-              disabled={busy}
-              accept="image/png,image/jpeg,image/gif,image/webp"
-              showUploadList={false}
-              beforeUpload={(file) => {
-                setBusy(true)
-                setError('')
-                void file
-                  .arrayBuffer()
-                  .then((bytes) => product.resources.upload(school.id, bytes))
-                  .then(async (a) => {
-                    form.setFieldValue(key, a.id)
-                    await gallery.refetch()
-                  })
-                  .catch((e) => setError((e as Error).message))
-                  .finally(() => setBusy(false))
-                return false
-              }}
-            >
-              <Button disabled={busy}>上传{label}</Button>
-            </Upload>
           </section>
         ))
       ) : (
-        <p>先保存学校，再编辑上传图标和背景；未配置时显示默认图片。</p>
+        <p>先保存学校资料，随后可上传图标和背景，也可保留默认图片。</p>
       )}
       {(
         [
@@ -285,7 +252,7 @@ export function SchoolForm({
           <AuditModeFields disabled={school.status !== 'normal'} />
         </>
       )}
-      <Button type="primary" htmlType="submit" loading={busy} disabled={conflict}>
+      <Button type="primary" htmlType="submit" loading={busy} disabled={conflict || busy}>
         保存学校资料
       </Button>
     </Form>
@@ -309,11 +276,11 @@ export function Schools({
     queryKey: ['linjian', 'school-management', filters],
     queryFn: ({ signal }) => workspace.schoolProfiles.platform(filters, signal),
   })
-  async function saved() {
+  async function saved(result?: School) {
     await cache.invalidateQueries({ queryKey: ['linjian', 'school-management'] })
     await refresh()
-    setCreating(false)
-    setEditing(undefined)
+    if (creating && result) { setCreating(false); setEditing(result) }
+    else { setCreating(false); setEditing(undefined) }
     setDetail(undefined)
   }
   const change = (v: Partial<SchoolFilters>) => setFilters((f) => ({ ...f, ...v, page: 1 }))
@@ -397,7 +364,7 @@ export function Schools({
       />
       <Modal
         open={creating || !!editing}
-        title={editing ? '编辑学校' : '新建学校'}
+        title={editing ? '学校资料与图片' : '新建学校'}
         footer={null}
         onCancel={() => {
           setCreating(false)

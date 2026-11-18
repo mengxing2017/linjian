@@ -4,7 +4,7 @@ import {QueryClient,QueryClientProvider} from '@tanstack/react-query'
 import {SchoolForm} from './school-profile'
 import {workspace,type School} from './api'
 import {schoolDefaults} from '../../../test/school'
-vi.mock('./api',()=>({workspace:{schoolProfiles:{create:vi.fn(),update:vi.fn(),detail:vi.fn(),branding:vi.fn(),artwork:vi.fn()}},product:{resources:{artwork:vi.fn().mockResolvedValue([]),upload:vi.fn()}}}))
+vi.mock('./api',()=>({workspace:{schoolProfiles:{create:vi.fn(),update:vi.fn(),detail:vi.fn(),branding:vi.fn(),artwork:vi.fn()}},product:{resources:{artwork:vi.fn().mockResolvedValue({items:[]}),upload:vi.fn()}}}))
 afterEach(()=>{cleanup();vi.clearAllMocks()})
 const school:School={...schoolDefaults,id:'school',name:'示例学校',revision:3,config:{post_audit_mode:'manual',comment_audit_mode:'manual'}}
 function mount(platform:boolean,existing?:School){render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><SchoolForm school={existing} platform={platform} onSaved={async()=>{}}/></QueryClientProvider>)}
