@@ -69,31 +69,36 @@ impl PublicEndpoints {
                 })
                 .transpose()
         };
-        let values: Vec<String> =
-            serde_json::from_str(&get("LINJIAN_BROWSER_ORIGINS").unwrap_or_else(|| "[]".into()))
-                .map_err(|_| "LINJIAN_BROWSER_ORIGINS: expected a JSON array of origins")?;
-        let browser_origins = values
-            .iter()
-            .map(|value| {
-                CanonicalOrigin::parse(value, local)
-                    .map_err(|error| format!("LINJIAN_BROWSER_ORIGINS: {error}"))
-            })
-            .collect::<Result<BTreeSet<_>, _>>()?;
-        let result = Self {
+        let mut result = Self {
             admin: origin("LINJIAN_ADMIN_WEB_ORIGIN")?,
             official_account: origin("LINJIAN_OFFICIAL_ACCOUNT_WEB_ORIGIN")?,
             community: origin("LINJIAN_COMMUNITY_WEB_ORIGIN")?,
             api: origin("LINJIAN_API_PUBLIC_ORIGIN")?,
-            browser_origins,
+            browser_origins: BTreeSet::new(),
         };
         let declared: BTreeSet<_> = [&result.admin, &result.official_account, &result.community]
             .into_iter()
             .flatten()
             .cloned()
             .collect();
+        result.browser_origins = match get("LINJIAN_BROWSER_ORIGINS") {
+            None => declared.clone(),
+            Some(value) if value.trim().is_empty() => declared.clone(),
+            Some(value) => {
+                let values: Vec<String> = serde_json::from_str(&value)
+                    .map_err(|_| "LINJIAN_BROWSER_ORIGINS: expected a JSON array of origins")?;
+                values
+                    .iter()
+                    .map(|value| {
+                        CanonicalOrigin::parse(value, local)
+                            .map_err(|error| format!("LINJIAN_BROWSER_ORIGINS: {error}"))
+                    })
+                    .collect::<Result<BTreeSet<_>, _>>()?
+            }
+        };
         if declared != result.browser_origins {
             return Err(
-                "LINJIAN_BROWSER_ORIGINS must match the configured browser entrances".into(),
+                "LINJIAN_BROWSER_ORIGINS must match LINJIAN_ADMIN_WEB_ORIGIN, LINJIAN_OFFICIAL_ACCOUNT_WEB_ORIGIN and LINJIAN_COMMUNITY_WEB_ORIGIN; omit or leave it empty to use those entrances automatically (LINJIAN_API_PUBLIC_ORIGIN is not a browser entrance)".into(),
             );
         }
         Ok(result)
@@ -171,9 +176,47 @@ mod tests {
             )])
             .is_err()
         );
-        assert!(parse(&[("LINJIAN_ADMIN_WEB_ORIGIN", "https://admin.example.com")]).is_err());
+        assert!(parse(&[("LINJIAN_ADMIN_WEB_ORIGIN", "https://admin.example.com")]).is_ok());
+        assert!(
+            parse(&[
+                ("LINJIAN_ADMIN_WEB_ORIGIN", "https://admin.example.com"),
+                ("LINJIAN_BROWSER_ORIGINS", "[]")
+            ])
+            .is_err()
+        );
         assert!(parse(&[("LINJIAN_BROWSER_ORIGINS", "null")]).is_err());
         assert!(!PublicEndpoints::default().allows_admin("https://admin.example.com", false));
+    }
+
+    #[test]
+    fn optional_browser_origins_use_only_declared_entrances() {
+        for optional in [None, Some(""), Some("  ")] {
+            for enabled in [false, true] {
+                let endpoints = PublicEndpoints::parse(
+                    |key| match key {
+                        "LINJIAN_BROWSER_ORIGINS" => optional.map(str::to_owned),
+                        "LINJIAN_ADMIN_WEB_ORIGIN" if enabled => {
+                            Some("https://admin.example.com".into())
+                        }
+                        "LINJIAN_OFFICIAL_ACCOUNT_WEB_ORIGIN" if enabled => {
+                            Some("https://m.example.com".into())
+                        }
+                        "LINJIAN_API_PUBLIC_ORIGIN" => Some("https://api.example.com".into()),
+                        _ => None,
+                    },
+                    false,
+                )
+                .unwrap();
+                assert_eq!(endpoints.browser_origins.len(), if enabled { 2 } else { 0 });
+                assert_eq!(
+                    endpoints.allows_admin("https://admin.example.com", false),
+                    enabled
+                );
+                assert!(!endpoints.allows_admin("https://m.example.com", false));
+                assert!(!endpoints.allows_admin("https://api.example.com", false));
+                assert!(!endpoints.allows_admin("https://unknown.example.com", false));
+            }
+        }
     }
 
     #[test]
