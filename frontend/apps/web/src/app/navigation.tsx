@@ -12,9 +12,10 @@ import {
   UsergroupAddOutlined,
 } from '@ant-design/icons'
 
-export type NavigationDomain = 'forum' | 'operations' | 'school' | 'source' | 'administration'
+export type NavigationDomain = 'statistics' | 'forum' | 'operations' | 'school' | 'source' | 'administration'
 export const navigationDomains = [
-  { key: 'forum', label: '论坛功能' },
+  { key: 'statistics', label: '数据统计' },
+  { key: 'forum', label: '论坛管理' },
   { key: 'operations', label: '运营中心' },
   { key: 'school', label: '学校管理' },
   { key: 'source', label: '来源推送' },
@@ -31,6 +32,12 @@ export interface NavigationItem {
   hidden?: boolean
 }
 export const navigation: NavigationItem[] = [
+  { key: 'statistics', label: '统计概览', description: '查看所选范围的核心指标。', domain: 'statistics', scope: 'selectable', capability: 'resources.read', icon: <AppstoreOutlined /> },
+  { key: 'statistics-content', label: '内容统计', description: '查看帖子、评论与内容参与趋势。', domain: 'statistics', scope: 'selectable', capability: 'resources.read', icon: <FileSearchOutlined /> },
+  { key: 'statistics-registration', label: '注册统计', description: '查看新增与累计注册趋势。', domain: 'statistics', scope: 'selectable', capability: 'resources.read', icon: <UsergroupAddOutlined /> },
+  { key: 'statistics-activity', label: '活跃统计', description: '查看注册人员访问与参与趋势。', domain: 'statistics', scope: 'selectable', capability: 'resources.read', icon: <UserOutlined /> },
+  { key: 'statistics-schools', label: '学校对比', description: '按学校对比统计指标。', domain: 'statistics', scope: 'global', capability: 'global.manage', icon: <BankOutlined /> },
+
 
   {
     key: 'posts',
@@ -41,7 +48,6 @@ export const navigation: NavigationItem[] = [
     scope: 'school',
     capability: 'school.read',
   },
-  { key: 'statistics', label: '业务统计', description: '查看内容、注册人员与活跃趋势。', domain: 'forum', scope: 'selectable', capability: 'resources.read', icon: <AppstoreOutlined /> },
   { key: 'home-menu', icon: <FilterOutlined />, label: '首页菜单/标签', description: '管理首页菜单与发布候选标签。', domain: 'forum', scope: 'school', capability: 'school.read' },
   {
     key: 'cases',

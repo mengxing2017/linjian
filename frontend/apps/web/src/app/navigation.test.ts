@@ -21,7 +21,8 @@ it('exposes complete forum management without sending capabilities', () => {
       ]),
     ),
   ).toEqual({
-    forum: ['posts', 'statistics', 'home-menu', 'cases', 'resources', 'platform-resources', 'blocked-words', 'platform-blocked-words'],
+    statistics: ['statistics', 'statistics-content', 'statistics-registration', 'statistics-activity', 'statistics-schools'],
+    forum: ['posts', 'home-menu', 'cases', 'resources', 'platform-resources', 'blocked-words', 'platform-blocked-words'],
     operations: ['group-qrcodes','home-banners','customer-config','feedback'],
     school: ['schools', 'miniapp-users', 'members', 'settings'],
     source: ['source-connections', 'source-bindings', 'source-outbox'],
@@ -42,4 +43,11 @@ it('keeps platform account and school management separate from school operators'
   expect(visibleNavigationKeys(false, 'admin')).not.toContain('schools')
   expect(visibleNavigationKeys(false, 'member')).toEqual([])
   expect(visibleNavigationKeys(true)).toContain('accounts')
+})
+
+it('places separate statistics navigation before forum and limits school comparison to platform admins', () => {
+  expect(navigationDomains[0].key).toBe('statistics')
+  expect(navigation.find((n) => n.key === 'statistics')?.label).toBe('统计概览')
+  expect(visibleNavigationKeys(false, 'operator')).toContain('statistics-activity')
+  expect(visibleNavigationKeys(false, 'admin')).not.toContain('statistics-schools')
 })
