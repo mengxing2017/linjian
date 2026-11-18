@@ -1,37 +1,39 @@
 WITH windows AS (
- SELECT * FROM jsonb_to_recordset($1::jsonb) AS w(key text,start_at timestamptz,actual_end_at timestamptz,school_ids uuid[],full_site boolean)
+ SELECT * FROM jsonb_to_recordset($1::jsonb) AS w(key text,start_at timestamptz,actual_end_at timestamptz,school_ids uuid[],full_site boolean,content boolean,registration boolean,activity boolean,cohort boolean,detail boolean)
 )
 SELECT jsonb_build_object('key',w.key,
- 'unknown_assignments',EXISTS(SELECT 1 FROM statistics_registrations WHERE school_assignment='unknown' AND registered_at>=w.start_at AND registered_at<w.actual_end_at),
- 'unknown_base',EXISTS(SELECT 1 FROM statistics_registrations WHERE school_assignment='unknown' AND registered_at<w.actual_end_at),
+ 'unknown_assignments',w.registration AND EXISTS(SELECT 1 FROM statistics_registrations WHERE school_assignment='unknown' AND registered_at>=w.start_at AND registered_at<w.actual_end_at),
+ 'unknown_base',w.registration AND EXISTS(SELECT 1 FROM statistics_registrations WHERE school_assignment='unknown' AND registered_at<w.actual_end_at),
  'metrics',jsonb_build_object(
- 'posts',p.n,'comments',c.n,'post_authors',p.authors,'comment_authors',c.authors,
- 'participants',(SELECT count(DISTINCT author_id) FROM (
-   SELECT author_id FROM posts WHERE created_at>=w.start_at AND created_at<w.actual_end_at AND school_id=ANY(w.school_ids)
-   UNION SELECT author_id FROM comments WHERE created_at>=w.start_at AND created_at<w.actual_end_at AND school_id=ANY(w.school_ids)
- ) u),
- 'registrations',r.n,'cumulative_registrations',r.total,'new_participants',r.participants,
- 'active_users',a.n,'registered_participants',a.participants))
+ 'posts',CASE WHEN w.content THEN p.n END,'comments',CASE WHEN w.content THEN c.n END,
+ 'post_authors',CASE WHEN w.content AND w.detail THEN p.authors END,'comment_authors',CASE WHEN w.content AND w.detail THEN c.authors END,
+ 'participants',CASE WHEN w.content AND w.detail THEN (SELECT count(DISTINCT author_id) FROM (
+   SELECT author_id FROM posts WHERE w.content AND created_at>=w.start_at AND created_at<w.actual_end_at AND school_id=ANY(w.school_ids)
+   UNION SELECT author_id FROM comments WHERE w.content AND created_at>=w.start_at AND created_at<w.actual_end_at AND school_id=ANY(w.school_ids)
+ ) u) END,
+ 'registrations',CASE WHEN w.registration THEN r.n END,'cumulative_registrations',CASE WHEN w.registration AND w.detail THEN r.total END,
+ 'new_participants',CASE WHEN w.cohort THEN r.participants END,
+ 'active_users',CASE WHEN w.activity THEN a.n END,'registered_participants',CASE WHEN w.activity AND w.detail THEN a.participants END))
 FROM windows w
 CROSS JOIN LATERAL (
- SELECT count(*) n,count(DISTINCT author_id) authors FROM posts
- WHERE created_at>=w.start_at AND created_at<w.actual_end_at AND school_id=ANY(w.school_ids)
+ SELECT count(*) n,count(DISTINCT author_id) FILTER(WHERE w.detail) authors FROM posts
+ WHERE w.content AND created_at>=w.start_at AND created_at<w.actual_end_at AND school_id=ANY(w.school_ids)
 ) p
 CROSS JOIN LATERAL (
- SELECT count(*) n,count(DISTINCT author_id) authors FROM comments
- WHERE created_at>=w.start_at AND created_at<w.actual_end_at AND school_id=ANY(w.school_ids)
+ SELECT count(*) n,count(DISTINCT author_id) FILTER(WHERE w.detail) authors FROM comments
+ WHERE w.content AND created_at>=w.start_at AND created_at<w.actual_end_at AND school_id=ANY(w.school_ids)
 ) c
 CROSS JOIN LATERAL (
  SELECT count(*) FILTER(WHERE registered_at>=w.start_at) n,count(*) total,
- count(*) FILTER(WHERE registered_at>=w.start_at AND EXISTS (
+ count(*) FILTER(WHERE w.cohort AND registered_at>=w.start_at AND EXISTS (
   SELECT 1 FROM posts WHERE author_id=r.account_id AND created_at>=r.registered_at AND created_at>=w.start_at AND created_at<w.actual_end_at AND school_id=ANY(w.school_ids)
   UNION ALL SELECT 1 FROM comments WHERE author_id=r.account_id AND created_at>=r.registered_at AND created_at>=w.start_at AND created_at<w.actual_end_at AND school_id=ANY(w.school_ids)
  )) participants
- FROM statistics_registrations r WHERE registered_at<w.actual_end_at AND time_quality='verified'
+ FROM statistics_registrations r WHERE w.registration AND registered_at<w.actual_end_at AND (w.detail OR registered_at>=w.start_at) AND time_quality='verified'
  AND (w.full_site OR registration_school_id=ANY(w.school_ids))
 ) r
 CROSS JOIN LATERAL (
  SELECT count(DISTINCT account_id) n,count(DISTINCT account_id) FILTER(WHERE kind IN ('post_create','comment_create')) participants
- FROM statistics_activity_events WHERE occurred_at>=w.start_at AND occurred_at<w.actual_end_at
+ FROM statistics_activity_events WHERE w.activity AND occurred_at>=w.start_at AND occurred_at<w.actual_end_at
  AND (w.full_site OR school_id=ANY(w.school_ids))
 ) a

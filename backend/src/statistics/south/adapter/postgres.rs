@@ -166,6 +166,7 @@ async fn aggregate(
     full: bool,
     data: &CoverageData,
     scopes: &BTreeMap<String, Vec<Uuid>>,
+    view: &str,
 ) -> Result<Vec<Bucket>> {
     let inputs: Vec<Value> = windows
         .iter()
@@ -173,6 +174,11 @@ async fn aggregate(
             let mut value = json!(w);
             value["school_ids"] = json!(scopes.get(&w.key).map(Vec::as_slice).unwrap_or(ids));
             value["full_site"] = json!(full && !scopes.contains_key(&w.key));
+            value["content"] = json!(matches!(view, "overview" | "content" | "schools"));
+            value["registration"] = json!(matches!(view, "overview" | "registration" | "schools"));
+            value["activity"] = json!(matches!(view, "overview" | "activity" | "schools"));
+            value["cohort"] = json!(view == "registration");
+            value["detail"] = json!(view != "overview");
             value
         })
         .collect();
@@ -203,14 +209,9 @@ async fn aggregate(
                 unknown,
                 unknown_base,
             );
-            if !coverage.content {
-                m.posts = None;
-                m.comments = None;
-                m.post_authors = None;
-                m.comment_authors = None;
-                m.participants = None;
-            }
-            if !coverage.registration || !coverage.registration_assignment {
+            // Existing local records remain useful before historical completeness is verified.
+            // Coverage flags distinguish these observed counts from complete totals.
+            if !coverage.registration_assignment {
                 m.registrations = None;
             }
             if !coverage.registration_base {
@@ -229,9 +230,24 @@ async fn aggregate(
             let days = ((w.actual_end_at - w.start_at).num_seconds() as f64 / 86400.)
                 .ceil()
                 .max(1.);
-            m.daily_posts = m.posts.map(|x| (x as f64 / days * 10.).round() / 10.);
-            m.daily_comments = m.comments.map(|x| (x as f64 / days * 10.).round() / 10.);
+            m.daily_posts = m
+                .posts
+                .filter(|_| coverage.content)
+                .map(|x| (x as f64 / days * 10.).round() / 10.);
+            m.daily_comments = m
+                .comments
+                .filter(|_| coverage.content)
+                .map(|x| (x as f64 / days * 10.).round() / 10.);
             m.ratios();
+            if view == "overview" {
+                m = Metrics {
+                    posts: m.posts,
+                    comments: m.comments,
+                    registrations: m.registrations,
+                    active_users: m.active_users,
+                    ..Default::default()
+                };
+            }
             Ok(Bucket {
                 window: w.clone(),
                 metrics: m,
@@ -239,6 +255,20 @@ async fn aggregate(
             })
         })
         .collect()
+}
+fn comparable_metrics(bucket: &Bucket) -> Metrics {
+    let mut metrics = bucket.metrics.clone();
+    if !bucket.coverage.content {
+        metrics.posts = None;
+        metrics.comments = None;
+        metrics.post_authors = None;
+        metrics.comment_authors = None;
+        metrics.participants = None;
+    }
+    if !bucket.coverage.registration {
+        metrics.registrations = None;
+    }
+    metrics
 }
 pub fn changes(m: &Metrics, previous: &Metrics) -> BTreeMap<String, Change> {
     [
@@ -304,7 +334,15 @@ impl StatisticsStore for Repository {
         let now: DateTime<Utc> = sqlx::query_scalar("SELECT transaction_timestamp()")
             .fetch_one(&mut *tx)
             .await?;
-        let plan = Plan::new(&q, now)?;
+        let view = q.view()?.to_string();
+        require(
+            view != "schools" || school.is_none(),
+            "学校对比仅支持平台范围",
+        )?;
+        let mut plan = Plan::new(&q, now)?;
+        if matches!(view.as_str(), "overview" | "schools") {
+            plan.buckets.clear();
+        }
         require(
             school.is_none() || q.school_ids.is_none() && q.school_status.is_none(),
             "单校范围不接受学校筛选",
@@ -350,7 +388,11 @@ impl StatisticsStore for Repository {
         for (kind, w) in &plan.comparisons {
             if let Some(w) = w {
                 windows.push(w.clone());
-                let mut bs = buckets(w.start_at, w.end_at, &plan.granularity, now)?;
+                let mut bs = if plan.buckets.is_empty() {
+                    Vec::new()
+                } else {
+                    buckets(w.start_at, w.end_at, &plan.granularity, now)?
+                };
                 for b in &mut bs {
                     b.key = format!("{kind}-{}", b.key);
                 }
@@ -358,7 +400,7 @@ impl StatisticsStore for Repository {
             }
         }
         let mut scopes = BTreeMap::new();
-        if school.is_none() {
+        if view == "schools" {
             for r in &schools {
                 let id: Uuid = r.get("id");
                 let mut ws = vec![plan.window.clone()];
@@ -370,8 +412,9 @@ impl StatisticsStore for Repository {
                 }
             }
         }
-        let all = aggregate(&mut tx, &windows, &ids, full, &data, &scopes).await?;
+        let all = aggregate(&mut tx, &windows, &ids, full, &data, &scopes, &view).await?;
         let summary = all[0].metrics.clone();
+        let comparable_summary = comparable_metrics(&all[0]);
         let cov = all[0].coverage.clone();
         let buckets = all[1..1 + plan.buckets.len()].to_vec();
         let comparisons = plan
@@ -381,8 +424,8 @@ impl StatisticsStore for Repository {
                 let m = all
                     .iter()
                     .find(|b| b.window.key == *kind)
-                    .map(|b| b.metrics.clone());
-                let changes = changes(&summary, &m.clone().unwrap_or_default());
+                    .map(comparable_metrics);
+                let changes = changes(&comparable_summary, &m.clone().unwrap_or_default());
                 Comparison {
                     kind: kind.clone(),
                     window: w.clone(),
@@ -392,24 +435,32 @@ impl StatisticsStore for Repository {
                     buckets: all
                         .iter()
                         .filter(|b| b.window.key.starts_with(&format!("{kind}-bucket-")))
-                        .cloned()
+                        .map(|bucket| {
+                            let mut bucket = bucket.clone();
+                            bucket.metrics = comparable_metrics(&bucket);
+                            bucket
+                        })
                         .collect(),
                 }
             })
             .collect();
-        let current_state: Value = sqlx::query_scalar(include_str!("state.sql"))
-            .bind(&ids)
-            .bind(plan.window.start_at)
-            .bind(plan.window.actual_end_at)
-            .fetch_one(&mut *tx)
-            .await?;
-        let groups: Value = if full {
+        let current_state: Value = if view == "content" {
+            sqlx::query_scalar(include_str!("state.sql"))
+                .bind(&ids)
+                .bind(plan.window.start_at)
+                .bind(plan.window.actual_end_at)
+                .fetch_one(&mut *tx)
+                .await?
+        } else {
+            json!({})
+        };
+        let groups: Value = if full && view == "registration" {
             sqlx::query_scalar("SELECT coalesce(jsonb_object_agg(school_assignment,n),'{}') FROM (SELECT school_assignment,count(*) AS n FROM statistics_registrations WHERE registered_at>=$1 AND registered_at<$2 AND time_quality='verified' GROUP BY school_assignment) g").bind(plan.window.start_at).bind(plan.window.actual_end_at).fetch_one(&mut *tx).await?
         } else {
             json!({})
         };
         let mut school_rows = Vec::new();
-        if school.is_none() {
+        if view == "schools" {
             for r in &schools {
                 let id: Uuid = r.get("id");
                 let current = all
@@ -429,7 +480,7 @@ impl StatisticsStore for Repository {
                                 }
                             )
                     })
-                    .map(|b| b.metrics.clone())
+                    .map(comparable_metrics)
                     .unwrap_or_default();
                 school_rows.push(SchoolRow {
                     id,
@@ -437,15 +488,21 @@ impl StatisticsStore for Repository {
                     status: if r.get("active") { "normal" } else { "hidden" }.into(),
                     metrics: current.metrics.clone(),
                     coverage: current.coverage.clone(),
-                    changes: changes(&current.metrics, &previous),
+                    changes: changes(&comparable_metrics(current), &previous),
                 });
             }
         }
         let report = Report {
+            view,
+            school_count: schools.len(),
             id: Uuid::new_v4(),
             school_id: school,
-            school_ids: ids,
-            school_names: schools.iter().map(|r| r.get("name")).collect(),
+            school_ids: if full { Vec::new() } else { ids },
+            school_names: if full {
+                Vec::new()
+            } else {
+                schools.iter().map(|r| r.get("name")).collect()
+            },
             full_site: full,
             timezone: "Asia/Shanghai".into(),
             period: plan.period,
@@ -453,7 +510,7 @@ impl StatisticsStore for Repository {
             window: plan.window,
             as_of: now,
             expires_at: now + Duration::seconds(self.1.snapshot_seconds),
-            definition_version: 1,
+            definition_version: 2,
             summary,
             coverage: cov,
             buckets,
@@ -463,7 +520,7 @@ impl StatisticsStore for Repository {
             schools: school_rows,
         };
         tx.commit().await?;
-        sqlx::query("INSERT INTO statistics_snapshots(id,owner_id,school_id,as_of,expires_at,definition_version,result) VALUES($1,$2,$3,$4,$5,1,$6)").bind(report.id).bind(a.id).bind(school).bind(now).bind(report.expires_at).bind(json!(report)).execute(&self.0).await?;
+        sqlx::query("INSERT INTO statistics_snapshots(id,owner_id,school_id,as_of,expires_at,definition_version,result) VALUES($1,$2,$3,$4,$5,2,$6)").bind(report.id).bind(a.id).bind(school).bind(now).bind(report.expires_at).bind(json!(report)).execute(&self.0).await?;
         Ok(report)
     }
     async fn snapshot(&self, a: &Actor, school: Option<Uuid>, id: Uuid) -> Result<Report> {

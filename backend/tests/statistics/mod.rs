@@ -72,6 +72,34 @@ async fn statistics_scope_registration_snapshot_and_activity_are_isolated() {
         .execute(&pool)
         .await
         .unwrap();
+    let observed = app
+        .statistics
+        .report(&actor, None, Query::default())
+        .await
+        .unwrap();
+    assert_eq!(observed.summary.posts, Some(2));
+    assert!(!observed.coverage.content);
+    assert!(observed.comparisons.is_empty());
+    assert!(observed.buckets.is_empty());
+    let observed_content = app
+        .statistics
+        .report(
+            &actor,
+            None,
+            Query {
+                view: Some("content".into()),
+                comparison: Some("previous".into()),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(observed_content.summary.posts, Some(2));
+    assert_eq!(
+        observed_content.comparisons[0].changes["posts"].state,
+        "unavailable"
+    );
+    assert!(observed_content.summary.registrations.is_none());
     sqlx::query("UPDATE statistics_coverage SET start_at='2020-01-01'")
         .execute(&pool)
         .await
@@ -82,9 +110,27 @@ async fn statistics_scope_registration_snapshot_and_activity_are_isolated() {
         .await
         .unwrap();
     assert_eq!(full.summary.posts, Some(2));
-    assert_eq!(full.summary.participants, Some(1));
+    assert!(full.summary.participants.is_none());
     assert_eq!(full.summary.registrations, Some(1));
-    assert_eq!(full.registration_groups["unassigned"], 1);
+    assert!(full.buckets.is_empty());
+    assert!(full.comparisons.is_empty());
+    assert!(full.schools.is_empty());
+    assert_eq!(full.view, "overview");
+    let registration = app
+        .statistics
+        .report(
+            &actor,
+            None,
+            Query {
+                view: Some("registration".into()),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(registration.registration_groups["unassigned"], 1);
+    assert!(registration.summary.posts.is_none());
+    assert!(!registration.buckets.is_empty());
     assert!(full.summary.active_users.is_none());
     let single = app
         .statistics
@@ -133,7 +179,14 @@ async fn statistics_scope_registration_snapshot_and_activity_are_isolated() {
     );
     let own = app
         .statistics
-        .report(&school_actor, Some(s), Query::default())
+        .report(
+            &school_actor,
+            Some(s),
+            Query {
+                view: Some("content".into()),
+                ..Default::default()
+            },
+        )
         .await
         .unwrap();
     assert!(
@@ -219,7 +272,14 @@ async fn statistics_scope_registration_snapshot_and_activity_are_isolated() {
     }
     let full = app
         .statistics
-        .report(&actor, None, Query::default())
+        .report(
+            &actor,
+            None,
+            Query {
+                view: Some("schools".into()),
+                ..Default::default()
+            },
+        )
         .await
         .unwrap();
     assert_eq!(full.summary.active_users, Some(1));
@@ -231,6 +291,68 @@ async fn statistics_scope_registration_snapshot_and_activity_are_isolated() {
             .sum::<i64>(),
         2
     );
+    let router = linjian_api::http::app_router(app.clone());
+    sqlx::query("INSERT INTO schools(id,name) SELECT gen_random_uuid(),'分页学校' || n FROM generate_series(1,98) AS n").execute(&pool).await.unwrap();
+    let overview_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/platform/statistics")
+                .header("cookie", format!("linjian_session={root_token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(overview_response.status(), StatusCode::OK);
+    let overview_bytes = axum::body::to_bytes(overview_response.into_body(), 8192)
+        .await
+        .unwrap();
+    let overview: serde_json::Value = serde_json::from_slice(&overview_bytes).unwrap();
+    assert_eq!(overview["data"]["attributes"]["school_count"], 100);
+    assert_eq!(overview["data"]["attributes"]["buckets"], json!([]));
+    assert_eq!(overview["data"]["attributes"]["comparisons"], json!([]));
+    assert_eq!(overview["data"]["attributes"]["schools"], json!([]));
+    assert_eq!(overview["data"]["attributes"]["school_ids"], json!([]));
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/platform/statistics?view=schools")
+                .header("cookie", format!("linjian_session={root_token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(response.into_body(), 100_000)
+        .await
+        .unwrap();
+    assert!(
+        bytes.len() < 8192,
+        "school snapshot metadata must stay small"
+    );
+    let document: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(document["data"]["attributes"]["schools"], json!([]));
+    assert!(
+        document["data"]["attributes"]["school_ids"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    let snapshot = document["data"]["id"].as_str().unwrap();
+    let response = router.oneshot(Request::builder()
+        .uri(format!("/api/v1/platform/statistics/snapshots/{snapshot}/schools?page=1&size=1&sort=posts"))
+        .header("cookie", format!("linjian_session={root_token}"))
+        .body(Body::empty()).unwrap()).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(response.into_body(), 100_000)
+        .await
+        .unwrap();
+    let document: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(document["data"].as_array().unwrap().len(), 1);
+    assert_eq!(document["meta"]["page"]["has_more"], true);
     sqlx::query("UPDATE statistics_snapshots SET expires_at=now()-interval '1 second' WHERE id=$1")
         .bind(full.id)
         .execute(&pool)

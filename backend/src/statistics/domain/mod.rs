@@ -9,6 +9,7 @@ use uuid::Uuid;
 #[derive(Clone, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Query {
+    pub view: Option<String>,
     pub period: Option<String>,
     pub anchor_date: Option<String>,
     pub start_date: Option<String>,
@@ -17,6 +18,19 @@ pub struct Query {
     pub comparison: Option<String>,
     pub school_ids: Option<String>,
     pub school_status: Option<String>,
+}
+impl Query {
+    pub fn view(&self) -> Result<&str> {
+        let view = self.view.as_deref().unwrap_or("overview");
+        require(
+            matches!(
+                view,
+                "overview" | "content" | "registration" | "activity" | "schools"
+            ),
+            "统计模块无效",
+        )?;
+        Ok(view)
+    }
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Window {
@@ -124,6 +138,8 @@ pub struct SchoolRow {
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Report {
+    pub view: String,
+    pub school_count: usize,
     pub id: Uuid,
     pub school_id: Option<Uuid>,
     pub school_ids: Vec<Uuid>,

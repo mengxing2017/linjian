@@ -103,6 +103,7 @@ pub fn buckets(
 }
 impl Plan {
     pub fn new(q: &Query, now: DateTime<Utc>) -> Result<Self> {
+        q.view()?;
         let today = now
             .with_timezone(&FixedOffset::east_opt(8 * 3600).unwrap())
             .date_naive();
@@ -163,7 +164,7 @@ impl Plan {
         )?;
         let w = win("summary", midnight(start), midnight(end), now);
         let bs = buckets(w.start_at, w.end_at, g, now)?;
-        let selection = q.comparison.as_deref().unwrap_or("both");
+        let selection = q.comparison.as_deref().unwrap_or("none");
         require(
             matches!(selection, "none" | "previous" | "year" | "both"),
             "对比类型无效",
@@ -242,6 +243,7 @@ mod tests {
     fn boundaries_and_in_progress() {
         let q = Query {
             period: Some("month".into()),
+            comparison: Some("both".into()),
             ..Default::default()
         };
         let p = Plan::new(&q, now("2026-11-18T07:30:00Z")).unwrap();
@@ -258,6 +260,7 @@ mod tests {
         let p = Plan::new(
             &Query {
                 period: Some("month".into()),
+                comparison: Some("both".into()),
                 ..Default::default()
             },
             now("2026-03-31T07:00:00Z"),
@@ -270,6 +273,7 @@ mod tests {
         let p = Plan::new(
             &Query {
                 period: Some("day".into()),
+                comparison: Some("both".into()),
                 anchor_date: Some("2024-02-29".into()),
                 ..Default::default()
             },
@@ -280,6 +284,7 @@ mod tests {
         let p = Plan::new(
             &Query {
                 period: Some("week".into()),
+                comparison: Some("both".into()),
                 anchor_date: Some("2020-12-31".into()),
                 ..Default::default()
             },

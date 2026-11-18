@@ -31,11 +31,11 @@ async fn platform(
     actor: Actor,
     Query(q): Query<crate::statistics::domain::Query>,
 ) -> Result<Response> {
-    Ok(resource(
-        "platform-statistics",
-        a.statistics.report(&actor, None, q).await?,
-    )
-    .into_response())
+    let mut report = a.statistics.report(&actor, None, q).await?;
+    report.schools.clear();
+    report.school_ids.clear();
+    report.school_names.clear();
+    Ok(resource("platform-statistics", report).into_response())
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
