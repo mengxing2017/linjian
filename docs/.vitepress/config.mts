@@ -27,6 +27,7 @@ export default defineConfig({
           { text: '内容全文审核', link: '/guide/content-review' },
           { text: '小程序内容来源推送', link: '/guide/miniapp-publication' },
           { text: '运营中心', link: '/guide/operations' },
+          { text: '业务统计', link: '/guide/business-statistics' },
         ],
       },
       {
