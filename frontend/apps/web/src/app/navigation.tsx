@@ -1,14 +1,30 @@
 import type { ReactNode } from 'react'
 import {
   AlertOutlined,
+  ApartmentOutlined,
+  ApiOutlined,
   AppstoreOutlined,
   AuditOutlined,
   BankOutlined,
+  BarChartOutlined,
+  BranchesOutlined,
+  CommentOutlined,
+  CustomerServiceOutlined,
+  DashboardOutlined,
   FileSearchOutlined,
-  FilterOutlined,
+  GlobalOutlined,
+  IdcardOutlined,
+  LineChartOutlined,
+  PictureOutlined,
+  QrcodeOutlined,
   SafetyCertificateOutlined,
+  SendOutlined,
   SettingOutlined,
-  UserOutlined,
+  SlidersOutlined,
+  StopOutlined,
+  TagsOutlined,
+  TeamOutlined,
+  UserAddOutlined,
   UsergroupAddOutlined,
 } from '@ant-design/icons'
 
@@ -32,11 +48,11 @@ export interface NavigationItem {
   hidden?: boolean
 }
 export const navigation: NavigationItem[] = [
-  { key: 'statistics', label: '统计概览', description: '查看所选范围的核心指标。', domain: 'statistics', scope: 'selectable', capability: 'resources.read', icon: <AppstoreOutlined /> },
-  { key: 'statistics-content', label: '内容统计', description: '查看帖子、评论与内容参与趋势。', domain: 'statistics', scope: 'selectable', capability: 'resources.read', icon: <FileSearchOutlined /> },
-  { key: 'statistics-registration', label: '注册统计', description: '查看新增与累计注册趋势。', domain: 'statistics', scope: 'selectable', capability: 'resources.read', icon: <UsergroupAddOutlined /> },
-  { key: 'statistics-activity', label: '活跃统计', description: '查看注册人员访问与参与趋势。', domain: 'statistics', scope: 'selectable', capability: 'resources.read', icon: <UserOutlined /> },
-  { key: 'statistics-schools', label: '学校对比', description: '按学校对比统计指标。', domain: 'statistics', scope: 'global', capability: 'global.manage', icon: <BankOutlined /> },
+  { key: 'statistics', label: '统计概览', description: '查看所选范围的核心指标。', domain: 'statistics', scope: 'selectable', capability: 'resources.read', icon: <DashboardOutlined /> },
+  { key: 'statistics-content', label: '内容统计', description: '查看帖子、评论与内容参与趋势。', domain: 'statistics', scope: 'selectable', capability: 'resources.read', icon: <BarChartOutlined /> },
+  { key: 'statistics-registration', label: '注册统计', description: '查看新增与累计注册趋势。', domain: 'statistics', scope: 'selectable', capability: 'resources.read', icon: <UserAddOutlined /> },
+  { key: 'statistics-activity', label: '活跃统计', description: '查看注册人员访问与参与趋势。', domain: 'statistics', scope: 'selectable', capability: 'resources.read', icon: <LineChartOutlined /> },
+  { key: 'statistics-schools', label: '学校对比', description: '按学校对比统计指标。', domain: 'statistics', scope: 'global', capability: 'global.manage', icon: <ApartmentOutlined /> },
 
 
   {
@@ -48,7 +64,7 @@ export const navigation: NavigationItem[] = [
     scope: 'school',
     capability: 'school.read',
   },
-  { key: 'home-menu', icon: <FilterOutlined />, label: '首页菜单/标签', description: '管理首页菜单与发布候选标签。', domain: 'forum', scope: 'school', capability: 'school.read' },
+  { key: 'home-menu', icon: <TagsOutlined />, label: '首页菜单/标签', description: '管理首页菜单与发布候选标签。', domain: 'forum', scope: 'school', capability: 'school.read' },
   {
     key: 'cases',
     icon: <AlertOutlined />,
@@ -60,7 +76,7 @@ export const navigation: NavigationItem[] = [
   },
   {
     key: 'resources',
-    icon: <FilterOutlined />,
+    icon: <PictureOutlined />,
     label: '展示资源',
     description: '管理校园展示资源与服务入口。',
     domain: 'forum',
@@ -76,12 +92,12 @@ export const navigation: NavigationItem[] = [
     scope: 'global',
     capability: 'global.manage',
   },
-  { key: 'blocked-words', icon: <FilterOutlined />, label: '学校屏蔽词管理', description: '维护本校屏蔽词，查看对本校生效的平台规则。', domain: 'forum', scope: 'school', capability: 'school.read' },
-  { key: 'platform-blocked-words', icon: <FilterOutlined />, label: '平台屏蔽词管理', description: '管理所有学校共用的屏蔽词。', domain: 'forum', scope: 'global', capability: 'global.manage' },
-  { key: 'group-qrcodes', label: '群二维码', description: '管理群二维码及展示时机。', domain: 'operations', scope: 'selectable', capability: 'resources.read', icon: <AppstoreOutlined /> },
-  { key: 'home-banners', label: '首页广告位', description: '管理首页广告及曝光点击统计。', domain: 'operations', scope: 'selectable', capability: 'resources.read', icon: <AppstoreOutlined /> },
-  { key: 'customer-config', label: '客户配置', description: '配置平台合作、加盟与客服二维码。', domain: 'operations', scope: 'global', capability: 'global.manage', icon: <SettingOutlined /> },
-  { key: 'feedback', label: '投诉反馈', description: '查询与删除用户投诉反馈。', domain: 'operations', scope: 'school', capability: 'school.read', icon: <AlertOutlined /> },
+  { key: 'blocked-words', icon: <StopOutlined />, label: '学校屏蔽词管理', description: '维护本校屏蔽词，查看对本校生效的平台规则。', domain: 'forum', scope: 'school', capability: 'school.read' },
+  { key: 'platform-blocked-words', icon: <GlobalOutlined />, label: '平台屏蔽词管理', description: '管理所有学校共用的屏蔽词。', domain: 'forum', scope: 'global', capability: 'global.manage' },
+  { key: 'group-qrcodes', label: '群二维码', description: '管理群二维码及展示时机。', domain: 'operations', scope: 'selectable', capability: 'resources.read', icon: <QrcodeOutlined /> },
+  { key: 'home-banners', label: '首页广告位', description: '管理首页广告及曝光点击统计。', domain: 'operations', scope: 'selectable', capability: 'resources.read', icon: <SlidersOutlined /> },
+  { key: 'customer-config', label: '客户配置', description: '配置平台合作、加盟与客服二维码。', domain: 'operations', scope: 'global', capability: 'global.manage', icon: <CustomerServiceOutlined /> },
+  { key: 'feedback', label: '投诉反馈', description: '查询与删除用户投诉反馈。', domain: 'operations', scope: 'school', capability: 'school.read', icon: <CommentOutlined /> },
   {
     key: 'schools',
     icon: <BankOutlined />,
@@ -92,7 +108,7 @@ export const navigation: NavigationItem[] = [
     capability: 'global.manage',
   },
   {
-    key: 'miniapp-users', icon: <UserOutlined />, label: '用户管理',
+    key: 'miniapp-users', icon: <TeamOutlined />, label: '用户管理',
     description: '管理微信小程序注册用户的资料、所属学校及正常或封禁状态。',
     domain: 'school', scope: 'school', capability: 'school.read',
   },
@@ -121,7 +137,7 @@ export const navigation: NavigationItem[] = [
     domain: 'source',
     scope: 'global',
     capability: 'global.manage',
-    icon: <SettingOutlined />,
+    icon: <ApiOutlined />,
   },
   {
     key: 'source-bindings',
@@ -130,11 +146,11 @@ export const navigation: NavigationItem[] = [
     domain: 'source',
     scope: 'school',
     capability: 'school.admin',
-    icon: <SettingOutlined />,
+    icon: <BranchesOutlined />,
   },
   {
     key: 'source-outbox',
-    icon: <FileSearchOutlined />,
+    icon: <SendOutlined />,
     label: '来源发件记录',
     description: '查看论坛推送与收件结果，重试失败事件。',
     domain: 'source',
@@ -152,7 +168,7 @@ export const navigation: NavigationItem[] = [
   },
   {
     key: 'accounts',
-    icon: <UserOutlined />,
+    icon: <IdcardOutlined />,
     label: '登录账号管理',
     description: '管理全平台普通账号及登录状态。',
     domain: 'administration',
