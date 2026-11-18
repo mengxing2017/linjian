@@ -1,4 +1,4 @@
-import { mediaApi } from './api'
+import { mediaApi, type UploadPurpose, uploadKey } from './api'
 import { onScopeChange, scopeKey } from '../school-context/context'
 const files = new Map<string, Promise<string>>()
 const paths = new Set<string>()
@@ -11,7 +11,7 @@ onScopeChange(() => {
   for (const path of paths) unlink(path)
   paths.clear()
 })
-export async function uploadImage(school: string, filePath: string) {
+export async function uploadImage(school: string, filePath: string, purpose: UploadPurpose = "post_image", key = uploadKey()) {
   const bytes = await new Promise<ArrayBuffer>((resolve, reject) =>
     uni.getFileSystemManager().readFile({
       filePath,
@@ -21,7 +21,7 @@ export async function uploadImage(school: string, filePath: string) {
     }),
   )
   if (bytes.byteLength > 5 * 1024 * 1024) throw new Error('图片不能超过 5 MiB')
-  return mediaApi.upload(school, bytes)
+  return mediaApi.upload(school, bytes, purpose, key)
 }
 export function imagePath(school: string, source: string): Promise<string> {
   // Public external images carry no Authorization header.
@@ -51,4 +51,8 @@ export function imagePath(school: string, source: string): Promise<string> {
   })
   files.set(key, promise)
   return promise
+}
+
+export async function keepDraftImages(school: string, draft: string, sources: string[]) {
+  return mediaApi.lease(school, draft, sources.map(v => v.slice(v.lastIndexOf('/') + 1)))
 }

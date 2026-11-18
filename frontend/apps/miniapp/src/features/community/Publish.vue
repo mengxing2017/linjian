@@ -3,8 +3,9 @@ import { ref } from 'vue'
 import { communityApi, homeMenuApi, type HomeMenuTag, type Post } from './api'
 import { schoolContext, requireSchool, scopeKey, onScopeChange } from '../school-context/context'
 import { session } from '../identity/session'
-import { uploadImage } from '../media/files'
-import PrivateImage from '../media/PrivateImage.vue'
+import { keepDraftImages } from '../media/files'
+import { uuid } from '../operations/policy'
+import ImageUploads from '../media/ImageUploads.vue'
 import { usePage, confirm } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
 import { onUnmounted } from 'vue'
@@ -18,6 +19,7 @@ const title = ref(''),
   message = ref(''),
   candidates = ref<HomeMenuTag[]>([]),
   selectedCandidates = ref<HomeMenuTag[]>([])
+const uploading = ref(false)
 const { busy, error, run } = usePage(() => {
   title.value = ''
   content.value = ''
@@ -30,6 +32,8 @@ const { busy, error, run } = usePage(() => {
   selectedCandidates.value = []
 })
 const draftKey = () => `linjian:draft:${session.user?.id}:${schoolContext.id}:${props.id ?? 'new'}`
+const draftId = ref(uuid())
+const leaseMessage = ref('')
 function saveDraft() {
   if (
     !session.user ||
@@ -43,7 +47,10 @@ function saveDraft() {
     tags: tags.value,
     images: images.value,
     revision: revision.value,
+    draft_id: draftId.value,
   })
+  const scope = scopeKey()
+  void keepDraftImages(schoolContext.id, draftId.value, images.value).then(v => { if (scope === scopeKey()) leaseMessage.value = `草稿图片保留 ${v.lease_days} 天；恢复时重新核验。` }).catch(() => { if (scope === scopeKey()) leaseMessage.value = '草稿已保存本机，图片保留未确认，恢复时可能需要重新上传。' })
 }
 const stop = onScopeChange(() => {
   loaded.value = ''
@@ -76,6 +83,7 @@ function load() {
     ) {
       if (key !== scopeKey()) return
       const v = draft as Record<string, unknown>
+      if (typeof v.draft_id === 'string') draftId.value = v.draft_id
       title.value = typeof v.title === 'string' ? v.title : ''
       content.value = typeof v.content === 'string' ? v.content : ''
       tags.value = typeof v.tags === 'string' ? v.tags : ''
@@ -91,6 +99,10 @@ function load() {
         throw new Error('帖子已更新，请核对恢复的正文后再提交')
       }
     }
+    if (images.value.length) {
+      try { await keepDraftImages(schoolContext.id, draftId.value, images.value) }
+      catch { leaseMessage.value = '部分草稿图片已失效，请移除失效图片并重新上传。' }
+    }
     loaded.value = key
   })
 }
@@ -100,26 +112,7 @@ function addTag(tag: HomeMenuTag) {
   const current = tags.value.split(/[,，]/).map(v => v.trim()).filter(Boolean)
   if (!current.includes(name) && current.length < 10) { tags.value = [...current, name].join(','); selectedCandidates.value = [...selectedCandidates.value, tag] }
 }
-function choose() {
-  void run(async () => {
-    if (!(await requireSchool(props.school))) return
-    if (images.value.length >= 9) throw new Error('最多选择 9 张图片')
-    const key = scopeKey(),
-      s = schoolContext.id
-    const result = await uni.chooseImage({
-      count: 9 - images.value.length,
-      sizeType: ['compressed'],
-      sourceType: ['album', 'camera'],
-    })
-    for (const path of result.tempFilePaths) {
-      if (key !== scopeKey()) return
-      const media = await uploadImage(s, path)
-      if (key !== scopeKey()) return
-      images.value.push(media.url)
-      saveDraft()
-    }
-  })
-}
+
 function submit() {
   void run(async () => {
     if (!title.value.trim() || !content.value.trim()) throw new Error('请填写标题和正文')
@@ -190,20 +183,13 @@ defineExpose({ show: load, hide: saveDraft })
       />
       <view class="row"><text>可选标签：</text><button v-for="tag in candidates" :key="tag.id" size="mini" @tap="addTag(tag)">{{ tag.name }}</button></view>
       <input v-model="tags" class="input" placeholder="标签，使用逗号分隔" />
-      <view class="image-grid">
-        <view v-for="(src, i) in images" :key="src">
-          <PrivateImage :school="schoolContext.id" :source="src" />
-          <button size="mini" :disabled="busy" @tap="images.splice(i, 1)">移除</button>
-        </view>
-      </view>
-      <button :disabled="busy || images.length >= 9" @tap="choose">
-        选择图片（{{ images.length }}/9）
-      </button>
+      <ImageUploads v-model="images" purpose="post_image" :disabled="busy" @busy="uploading = $event" />
+      <text v-if="leaseMessage" class="muted">{{ leaseMessage }}</text>
       <view class="row">
-        <button size="mini" :disabled="busy" @tap="saveDraft">保存本地草稿</button>
-        <button size="mini" :disabled="busy" @tap="discard">丢弃草稿</button>
+        <button size="mini" :disabled="busy || uploading" @tap="saveDraft">保存本地草稿</button>
+        <button size="mini" :disabled="busy || uploading" @tap="discard">丢弃草稿</button>
       </view>
-      <button class="primary" :disabled="busy" :loading="busy" @tap="submit">发布</button>
+      <button class="primary" :disabled="busy || uploading" :loading="busy" @tap="submit">发布</button>
       <text class="muted">网络中断时请先在“我的发布”核对结果，再决定是否重新提交。</text>
     </view>
   </view>
