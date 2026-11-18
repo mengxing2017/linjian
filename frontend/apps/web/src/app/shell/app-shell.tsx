@@ -1,7 +1,7 @@
 import { schoolRoleLabel } from './role-label'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Avatar, Breadcrumb, Button, Dropdown, Menu, Tooltip } from 'antd'
-import { MenuFoldOutlined, MenuUnfoldOutlined, QuestionCircleOutlined } from '@ant-design/icons'
+import { DownOutlined, RightOutlined, MenuFoldOutlined, MenuUnfoldOutlined, QuestionCircleOutlined } from '@ant-design/icons'
 import { navigation, navigationDomains } from '../navigation'
 import { Link } from 'react-router-dom'
 import { helpHref } from './help'
@@ -30,6 +30,7 @@ export function AppShell({
   const [collapsed, setCollapsed] = useState(false)
   const [open, setOpen] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
+  const [closedDomains, setClosedDomains] = useState<string[]>([])
   const toggle = useRef<HTMLButtonElement>(null)
   const sidebar = useRef<HTMLElement>(null)
   const current = navigation.find((item) => item.key === active) ?? {
@@ -38,8 +39,11 @@ export function AppShell({
     description: '选择学校后使用已授权的管理功能。',
   }
   useEffect(() => {
+    setClosedDomains((previous) => previous.filter((domain) => domain !== current.domain))
+  }, [active, current.domain])
+  useEffect(() => {
     if (!open) return
-    sidebar.current?.querySelector<HTMLElement>('[role=menuitem]')?.focus()
+    sidebar.current?.querySelector<HTMLElement>('.navigation-group-toggle, [role=menuitem]')?.focus()
     const close = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setOpen(false)
@@ -135,6 +139,8 @@ export function AppShell({
             inlineCollapsed={collapsed && !open}
             selectedKeys={[active]}
             items={navigationDomains.flatMap(({ key: domain, label: domainLabel }) => {
+              const expanded = !closedDomains.includes(domain)
+              const compact = collapsed && !open
               const items = navigation.filter(
                 (item) => !item.hidden && item.domain === domain && allowedKeys.includes(item.key),
               )
@@ -143,8 +149,19 @@ export function AppShell({
                     {
                       type: 'group' as const,
                       key: domain,
-                      label: collapsed && !open ? null : domainLabel,
-                      children: items.map((item) => ({
+                      label: compact ? null : <button
+                        type="button"
+                        className="navigation-group-toggle"
+                        aria-label={domainLabel}
+                        aria-expanded={expanded}
+                        onClick={() => setClosedDomains((previous) => expanded
+                          ? [...previous, domain]
+                          : previous.filter((key) => key !== domain))}
+                      >
+                        <span>{domainLabel}</span>
+                        <span aria-hidden="true">{expanded ? <DownOutlined /> : <RightOutlined />}</span>
+                      </button>,
+                      children: (expanded || compact ? items : []).map((item) => ({
                         key: item.key,
                         label: item.label,
                         title: item.label,
