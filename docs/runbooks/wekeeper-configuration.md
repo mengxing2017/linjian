@@ -21,7 +21,7 @@ devbox run -- make dev-embedded
 | `LINJIAN_WEKEEPER_KEY_ID` | 从 WeKeeper“调用方凭据”复制的 `key_id`，与下面的 secret 属于同一条凭据。长度为 1–128 个字符，只含英文字母、数字、`-` 和 `_`。 |
 | `LINJIAN_WEKEEPER_SECRET` | 从同一条调用方凭据复制的原始 secret；格式为无填充的 Base64URL，解码后至少 32 字节。不要填写普通密码、存储主密钥或自行编造的示例字符串。 |
 
-三项必须同时填写，或全部留空。只配置 `LINJIAN_WEKEEPER_KEY_ID` 和 `LINJIAN_WEKEEPER_SECRET` 而遗漏 origin 也会导致启动失败。凭据仅供后端使用，不放入 `VITE_*`、Web 或小程序配置，不提交到版本库。`LINJIAN_PUBLIC_ORIGIN` 仍填写 Linjian 自己的公开论坛地址，不是 WeKeeper 地址。连接验证不读取或校验论坛地址，本地默认的 `http://localhost:5173` 不影响验证。
+三项必须同时填写，或全部留空。只配置 `LINJIAN_WEKEEPER_KEY_ID` 和 `LINJIAN_WEKEEPER_SECRET` 而遗漏 origin 也会导致启动失败。凭据仅供后端使用，不放入 `VITE_*`、Web 或小程序配置，不提交到版本库。管理入口使用 `LINJIAN_ADMIN_WEB_ORIGIN` 和 `LINJIAN_BROWSER_ORIGINS`，与 WeKeeper 地址独立。连接验证不读取或校验前端入口。
 
 如已将配置保存在本地 `.env` 文件中，可在同一终端用以下方式显式加载。仅加载自己维护且可信的文件，`source` 会执行其中的 shell 内容；值包含 shell 特殊字符时须正确加引号。
 
@@ -66,7 +66,7 @@ LINJIAN_WEKEEPER_KEY_ID=<WeKeeper 签发的 key_id>
 LINJIAN_WEKEEPER_SECRET=<同一条凭据的 secret>
 ```
 
-地址必须是规范 HTTPS origin，例如 `https://keeper.example.com`，允许显式端口；不要填写接口路径、末尾斜杠、query 或 fragment。不要将 `LINJIAN_PUBLIC_ORIGIN` 填成 WeKeeper 域名：它仍是 Linjian 自己的公开论坛地址，用于帖子详情链接。无需填写 source_id，内部归属由认证响应自动取得。
+地址必须是规范 HTTPS origin，例如 `https://keeper.example.com`，允许显式端口；不要填写接口路径、末尾斜杠、query 或 fragment。不要将 Linjian 的管理、H5 或公开 API 地址填成 WeKeeper 域名；小程序内容链接由发布流程独立生成。无需填写 source_id，内部归属由认证响应自动取得。
 
 三项全部留空时不启用连接；部分填写或格式错误时 API 启动会返回明确的配置错误码，不输出配置值。Compose 将三项传给 API 运行时，不传给 Web 或小程序构建。修改 `.env` 后执行：
 
@@ -79,7 +79,7 @@ docker compose --env-file .env up -d --build api
 
 ## 连接验证与内容发布的边界
 
-来源连接只配置 WeKeeper 地址、key_id 和 secret。无需额外配置论坛详情链接。`LINJIAN_PUBLIC_ORIGIN` 继续用于本项目浏览器 Origin/CSRF，与实际浏览器访问地址一致；本地 HTTP 开发无需为了验证上游凭据改成 HTTPS。
+来源连接只配置 WeKeeper 地址、key_id 和 secret。无需额外配置论坛详情链接。`LINJIAN_ADMIN_WEB_ORIGIN` 与 `LINJIAN_BROWSER_ORIGINS` 用于管理浏览器 Origin/CSRF，必须与实际访问来源一致；本地 HTTP 开发无需为了验证上游凭据改成 HTTPS。
 
 来源推送只投递本项目构造的完整 content（摘要加换行和原始链接），不发送 detail_url 或独立标题字段，不校验内容 URL、不探测链接或判断发送资格。连接验证不依赖内容地址。上游拒绝保留实际错误码，不代表凭据验证失败。
 

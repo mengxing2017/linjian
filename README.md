@@ -36,9 +36,9 @@ devbox run -- make dev-embedded
 make web-dev
 ```
 
-Web 默认 `http://localhost:5173`；API 默认 `127.0.0.1:8080`。嵌入式开发入口创建随机端口与密码的临时 PostgreSQL 17，忽略外部数据库配置，退出删除数据；首次可能下载数据库程序。若与原项目同时开发，可设置独立端口，并将 `LINJIAN_PUBLIC_ORIGIN`、`LINJIAN_BIND_ADDR`、`LINJIAN_API_ORIGIN` 与 Vite 端口同步调整。
+Web 默认 `http://localhost:5173`；API 默认 `127.0.0.1:8080`。嵌入式开发入口创建随机端口与密码的临时 PostgreSQL 17，忽略外部数据库配置，退出删除数据；首次可能下载数据库程序。若与原项目同时开发，可设置独立端口，并将 `LINJIAN_ADMIN_WEB_ORIGIN`、`LINJIAN_BROWSER_ORIGINS`、`LINJIAN_BIND_ADDR`、`LINJIAN_DEV_API_UPSTREAM` 与 Vite 端口同步调整。
 
-也可使用自己的独立数据库，设置 `LINJIAN_DATABASE_URL` 和 `LINJIAN_PUBLIC_ORIGIN` 后运行 `devbox run -- make api-dev`。管理员创建使用 `cargo run --manifest-path backend/Cargo.toml --bin linjian-api -- --create-admin <username>`，密码从 stdin 读取。生产不启用开发账号引导。
+也可使用自己的独立数据库，设置 `LINJIAN_DATABASE_URL`、`LINJIAN_ADMIN_WEB_ORIGIN`、`LINJIAN_BROWSER_ORIGINS`（JSON 数组），本地 HTTP 还需 `LINJIAN_INSECURE_LOCAL_AUTH=true` 后运行 `devbox run -- make api-dev`。管理员创建使用 `cargo run --manifest-path backend/Cargo.toml --bin linjian-api -- --create-admin <username>`，密码从 stdin 读取。生产不启用开发账号引导。
 
 浏览器 Cookie 名为 `linjian_session`，小程序存储键为 `linjian:miniapp:session`，独立数据库保存新会话；旧项目 Cookie 和会话不会迁入。
 
@@ -68,7 +68,7 @@ LINJIAN_POSTGRES_BIN=/path/to/postgresql17/bin python3 tools/test_migrations.py
 
 复制 `env.example` 到 `.env`，配置独立域名、数据库密码和平台应用凭据。执行 `docker compose --env-file .env config --quiet` 核对配置，再构建部署。Compose 只有 `web`、`api`、`postgres`，独立卷名称以 `linjian` 为前缀。Web 镜像仅构建 contract 和 Web，小程序不进入服务镜像。
 
-生产部署由 HTTPS 域名终止访问；LINJIAN_PUBLIC_ORIGIN 必须与实际浏览器 Origin 一致。默认宿主机端口为 8091/8444，可由现有反向代理转发或显式设置为域名对应的 80/443。API 和 PostgreSQL 不映射公共宿主机端口。
+生产部署由 HTTPS 域名终止访问；LINJIAN_ADMIN_WEB_ORIGIN 必须与实际管理浏览器 Origin 一致，并在 LINJIAN_BROWSER_ORIGINS JSON 数组中显式声明。默认宿主机端口为 8091/8444，可由现有反向代理转发或显式设置为域名对应的 80/443。API 和 PostgreSQL 不映射公共宿主机端口。
 
 小程序：填写 `frontend/apps/miniapp/src/manifest.json` 的 AppID，设置其 `.env.example` 中的 HTTPS API 域名为独立论坛地址，执行 `make check-miniapp`。用微信开发者工具导入 `frontend/apps/miniapp/dist/build/mp-weixin`；发布前配置微信平台合法请求域名。AppSecret 仅设置在后端，不进入 VITE_* 或构建产物。
 
@@ -79,3 +79,16 @@ LINJIAN_POSTGRES_BIN=/path/to/postgresql17/bin python3 tools/test_migrations.py
 Outbox 在帖子事务中生成事件，后台每 5 秒扫描，失败指数退避并持久保留。接收端未就绪时将 `LINJIAN_WEKEEPER_ORIGIN`、`LINJIAN_WEKEEPER_KEY_ID`、`LINJIAN_WEKEEPER_SECRET` 全部留空，论坛正常运行。填写三项并重建 API 后，在“WeKeeper 连接”验证配置、绑定学校路由；secret 只保存在后端部署配置，不入库，不需要本地加密主密钥。详见 [WeKeeper 部署配置](docs/runbooks/wekeeper-configuration.md)。接入后在管理后台“来源发件记录”查看收件与发送摘要、重试原事件。来源密钥不等于发送授权。
 
 协议、请求头及跨语言签名向量见 [来源推送协议](docs/references/source-protocol.md)。
+
+### 多端地址与认证
+
+管理 Web 使用本项目账号和 host-only Cookie；小程序使用独立 Bearer 会话，不集成企业微信通讯录、群消息或成员身份。管理登录仅接受管理入口来源，公众号/H5 来源不会获得管理登录权限。
+
+- `LINJIAN_ADMIN_WEB_ORIGIN`：管理入口；`LINJIAN_BROWSER_ORIGINS`：与启用的管理/H5/社区入口一致的 JSON 数组。未配置管理入口时关闭管理登录，生产不回退 localhost。
+- `LINJIAN_API_PUBLIC_ORIGIN`：小程序等原生客户端的 API 目标，使用 `LINJIAN_API_LISTEN` 配置 API-only 网关站点；不作为浏览器可信来源。
+- 小程序构建使用 `VITE_LINJIAN_API_BASE_URL`；Web 本地代理使用 `LINJIAN_DEV_API_UPSTREAM`。两者均不携带任何微信密钥。
+- `LINJIAN_OFFICIAL_ACCOUNT_WEB_ORIGIN`、`LINJIAN_COMMUNITY_WEB_ORIGIN` 为可选内容入口声明；配置地址本身不实现公众号登录，也不新增用户权限。
+
+默认浏览器同源代理 `/api`，不启用跨域凭据访问。公众号网页授权和跨 Origin 直连 API 是独立条件实施项，当前不声明支持。公众号菜单直接进入小程序可沿用现有小程序登录。若部署 H5，其页面、身份及用户学校权限需一并实现，不将管理 SPA 作为用户 H5 的替代。
+
+自备数据库本地示例：`LINJIAN_ADMIN_WEB_ORIGIN=http://localhost:5173`、`LINJIAN_BROWSER_ORIGINS='["http://localhost:5173"]'`、`LINJIAN_INSECURE_LOCAL_AUTH=true`。生产 origin 仅接受 HTTPS，不带末尾斜杠、路径、query 或 fragment。不同开发端口分别声明。所有旧地址参数直接移除，不提供回退。

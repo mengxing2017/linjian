@@ -23,13 +23,13 @@ Web 界面测试使用 JSDOM 31，并通过测试专用 ConfigProvider 设置 `m
 devbox run -- pnpm --dir frontend/apps/web exec vitest run --reporter=verbose
 ```
 
-Web 默认 `http://localhost:5173`，通过 Vite 代理请求 `LINJIAN_API_ORIGIN`（默认 `http://127.0.0.1:8080`）。根 `frontend dev` 继续转发参数给 Web，例如 `pnpm --dir frontend dev --host 127.0.0.1 --port 5174`。
+Web 默认 `http://localhost:5173`，通过 Vite 代理请求 `LINJIAN_DEV_API_UPSTREAM`（默认 `http://127.0.0.1:8080`）。根 `frontend dev` 继续转发参数给 Web，例如 `pnpm --dir frontend dev --host 127.0.0.1 --port 5174`。
 
 开发和构建通过 Vite 的精确入口别名读取仓库 `api-contract/` 源码，避免 pnpm `file:` 安装副本在接口更新后保留旧导出。修改契约源码可直接触发开发服务更新；新增 package exports 或修改 Vite 配置后重启开发服务。
 
 ## 微信小程序配置
 
-1. 将 `apps/miniapp/.env.example` 复制为同目录 `.env.local`，配置 `VITE_API_BASE_URL` 为实际 API 的 HTTPS origin，不带路径，不带凭据。这里使用与 Web 相同的 Rust API，不接 PHP 或 uniCloud。
+1. 将 `apps/miniapp/.env.example` 复制为同目录 `.env.local`，配置 `VITE_LINJIAN_API_BASE_URL` 为实际 API 的 HTTPS origin，不带路径，不带凭据。这里使用与 Web 相同的 Rust API，不接 PHP 或 uniCloud。
 2. 在 `apps/miniapp/src/manifest.json` 的 `mp-weixin.appid` 中设置自己的小程序 AppID。仓库不填示例真实身份，不包含 AppSecret。后端配置对应的 `LINJIAN_WX_APP_ID`、`LINJIAN_WX_SECRET`（准确配置名见根 env.example）。
 3. 微信后台配置对应请求域名；图片通过 `uni.request` 认证读取原始字节后写入本地临时文件，私有图片不依赖浏览器 Cookie，不向第三方图片地址发送 Bearer。
 4. 运行 `pnpm --dir frontend build:miniapp`，用微信开发者工具导入 `apps/miniapp/dist/build/mp-weixin`。开发模式输出位于 `dist/dev/mp-weixin`。

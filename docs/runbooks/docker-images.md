@@ -32,7 +32,9 @@ LINJIAN_WEB_BIND_HOST=127.0.0.1
 LINJIAN_HTTP_PORT=8091
 LINJIAN_HTTPS_PORT=8444
 LINJIAN_WEB_LISTEN=:80
-LINJIAN_PUBLIC_ORIGIN=http://127.0.0.1:8091
+LINJIAN_ADMIN_WEB_ORIGIN=http://127.0.0.1:8091
+LINJIAN_BROWSER_ORIGINS=["http://127.0.0.1:8091"]
+LINJIAN_API_PUBLIC_ORIGIN=http://127.0.0.1:8091
 LINJIAN_INSECURE_LOCAL_AUTH=true
 ```
 
@@ -117,7 +119,10 @@ LINJIAN_WEB_BIND_HOST=0.0.0.0
 LINJIAN_HTTP_PORT=80
 LINJIAN_HTTPS_PORT=443
 LINJIAN_WEB_LISTEN=forum.example.com
-LINJIAN_PUBLIC_ORIGIN=https://forum.example.com
+LINJIAN_ADMIN_WEB_ORIGIN=https://forum.example.com
+LINJIAN_BROWSER_ORIGINS=["https://forum.example.com"]
+LINJIAN_API_PUBLIC_ORIGIN=https://api.example.com
+LINJIAN_API_LISTEN=api.example.com
 LINJIAN_INSECURE_LOCAL_AUTH=false
 ```
 
@@ -145,7 +150,10 @@ LINJIAN_WEB_BIND_HOST=127.0.0.1
 LINJIAN_HTTP_PORT=8091
 LINJIAN_HTTPS_PORT=8444
 LINJIAN_WEB_LISTEN=:80
-LINJIAN_PUBLIC_ORIGIN=https://forum.example.com
+LINJIAN_ADMIN_WEB_ORIGIN=https://forum.example.com
+LINJIAN_BROWSER_ORIGINS=["https://forum.example.com"]
+LINJIAN_API_PUBLIC_ORIGIN=https://api.example.com
+LINJIAN_API_LISTEN=api.example.com
 LINJIAN_INSECURE_LOCAL_AUTH=false
 ```
 
@@ -177,7 +185,7 @@ docker compose --env-file .env up -d --no-build --pull never --wait --wait-timeo
 | 配置 | 填写位置 | 说明 |
 | --- | --- | --- |
 | 镜像标签、宿主机端口 | 部署 `.env` 的 `LINJIAN_*_IMAGE`、端口和 bind host | Compose 使用，不写进镜像。 |
-| 浏览器域名和登录模式 | `.env` 的 `LINJIAN_PUBLIC_ORIGIN`、`LINJIAN_INSECURE_LOCAL_AUTH` | 注入 API；Origin 必须匹配实际访问协议、主机、端口。 |
+| 浏览器域名和登录模式 | `.env` 的 `LINJIAN_ADMIN_WEB_ORIGIN`、`LINJIAN_BROWSER_ORIGINS`、`LINJIAN_API_PUBLIC_ORIGIN`、`LINJIAN_INSECURE_LOCAL_AUTH` | 注入 API；Origin 必须匹配实际访问协议、主机、端口。 |
 | 数据库密码 | `.env` 的 `LINJIAN_DATABASE_PASSWORD` | 同时配置 PostgreSQL 初始化和 API 连接。 |
 | 微信小程序身份 | `.env` 的 `LINJIAN_WX_APP_ID`、`LINJIAN_WX_SECRET` | 注入 API，小程序 AppID 另在其 manifest 设置；Secret 只在后端。 |
 | 可选平台接入 | `.env` 中对应的后端凭据 | 暂不用时全部留空，后续配置后重建 API 容器。 |

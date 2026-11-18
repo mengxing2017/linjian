@@ -24,4 +24,4 @@ WeKeeper 发布 POST `/api/v2/source-authentications`、POST `/api/v2/source-rou
 
 content_empty、content_too_long、forbidden_field、unsupported_event_type 等明确错误码保留用于诊断；429、网络和服务错误退避，鉴权或配置错误阻塞等待修复。确定性内容错误不能通过重试改写冻结字节。受理不表示实际发送成功，本项目不维护上游发送状态。
 
-所有认证、路由检查、消息提交和回执查询均由 Linjian 主动请求上游。WeKeeper 不回调或探测 Linjian，不配置下游可信网址或内容路径。连接认证不依赖 LINJIAN_PUBLIC_ORIGIN；浏览器 Origin/CSRF 校验继续独立生效。
+所有认证、路由检查、消息提交和回执查询均由 Linjian 主动请求上游。WeKeeper 不回调或探测 Linjian，不配置下游可信网址或内容路径。连接认证不依赖 LINJIAN_ADMIN_WEB_ORIGIN；浏览器 Origin/CSRF 校验继续独立生效。

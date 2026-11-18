@@ -29,13 +29,11 @@ pnpm --dir api-contract build
 pnpm --dir api-contract test
 ```
 
-`fixtures/system.json`、`wecom-status.json`、`post-created.json`、`not-found.json` 用于 client 的协议核对；Rust 路由测试验证独立项目标识、会话隔离和错误协议，miniapp-session 与来源签名 fixture 由两种语言共同核对。公开接口修改需同步后端、contract、fixture 与调用方。后端和前端必须同批发布，旧 client 不再兼容。
+`fixtures/system.json`、`post-created.json`、`not-found.json` 用于 client 的协议核对；Rust 路由测试验证独立项目标识、会话隔离和错误协议，miniapp-session 与来源签名 fixture 由两种语言共同核对。公开接口修改需同步后端、contract、fixture 与调用方。后端和前端必须同批发布，旧 client 不再兼容。
 
-## 企业通讯录
+## 管理账号
 
-`directory` client 提供平台目录状态、部门与成员分页筛选、同步任务、账号绑定与解绑。全目录仅平台管理员可访问；学校内绑定摘要遵循学校权限。绑定资源为 `wecom-bindings`，PUT 提交 member_id/revision，DELETE 用带引号的 If-Match 传递绑定版本。
-账号更新只接受 display_name/active，不能提交 wecom_userid。该字段在账号读取中仅是目录关联得到的只读显示值。
-`fixtures/wecom-directory-member.json` 由 Rust 序列化契约和 TypeScript client 共同验证。
+管理账号由 Linjian 自主管理，不提供企业微信通讯录、成员绑定或 OAuth 接口。
 
 ## 来源接入
 

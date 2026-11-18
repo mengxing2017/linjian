@@ -1,6 +1,6 @@
 # WeKeeper v2 来源适配
 
-在部署配置填写 `LINJIAN_WEKEEPER_ORIGIN`、`LINJIAN_WEKEEPER_KEY_ID` 和 `LINJIAN_WEKEEPER_SECRET`，同时填写或全部留空。secret 只从后端环境读取用于签名，不入库、不解密，不需要 Linjian 存储主密钥。规范 HTTPS origin 禁止路径、用户信息、query、fragment 和重定向；配置解析与连接匹配在 `configuration.rs`。连接认证不依赖 `LINJIAN_PUBLIC_ORIGIN`；该变量继续用于论坛浏览器 Origin/CSRF。来源推送将完整 `content` 中的链接作为不透明正文数据，不生成或校验内容 URL，不探测链接，也不判断发送资格；链接由内容发布投影提供。
+在部署配置填写 `LINJIAN_WEKEEPER_ORIGIN`、`LINJIAN_WEKEEPER_KEY_ID` 和 `LINJIAN_WEKEEPER_SECRET`，同时填写或全部留空。secret 只从后端环境读取用于签名，不入库、不解密，不需要 Linjian 存储主密钥。规范 HTTPS origin 禁止路径、用户信息、query、fragment 和重定向；配置解析与连接匹配在 `configuration.rs`。连接认证不依赖 `LINJIAN_ADMIN_WEB_ORIGIN`；该变量和 LINJIAN_BROWSER_ORIGINS 用于管理浏览器 Origin/CSRF。来源推送将完整 `content` 中的链接作为不透明正文数据，不生成或校验内容 URL，不探测链接，也不判断发送资格；链接由内容发布投影提供。
 
 后台“WeKeeper 连接”只查看配置和验证凭据，不录入 secret。验证认证响应后自动获取内部归属并保存不含密钥的连接元数据，复用相同 origin、key_id 的既有连接。启动前校验部署配置格式，不在启动时依赖上游网络可用性。部署及升级步骤见 `docs/runbooks/wekeeper-configuration.md`。
 
