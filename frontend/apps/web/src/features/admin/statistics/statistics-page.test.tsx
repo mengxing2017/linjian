@@ -3,6 +3,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { StatisticsPage } from './statistics-page'
+import { emptyReport } from './charts/test-fixtures'
 import { statisticsApi, type StatisticsReport, type StatisticsView } from './api'
 vi.mock('./api', () => ({ statisticsApi: { report: vi.fn(), export: vi.fn(), schools: vi.fn() } }))
 afterEach(() => {
@@ -95,83 +96,22 @@ it('does not request another school through a forged statistics URL', () => {
   expect(screen.getByText('无权查看该学校统计，请选择有管理授权的学校。')).toBeTruthy()
 })
 
-function emptyReport(): StatisticsReport {
-  const coverage = {
-    content: true,
-    registration: true,
-    registration_assignment: true,
-    registration_base: true,
-    activity: false,
-    content_from: null,
-    registration_from: null,
-    activity_from: null,
-    activity_through: null,
-    reasons: ['活跃采集未覆盖'],
-  }
-  const metrics = {
-    posts: 0,
-    comments: 0,
-    post_authors: 0,
-    comment_authors: 0,
-    participants: 0,
-    registrations: 0,
-    cumulative_registrations: 0,
-    new_participants: 0,
-    active_users: null,
-    registered_participants: null,
-    daily_posts: 0,
-    daily_comments: 0,
-    comment_post_ratio: null,
-    new_participation_rate: null,
-    participation_rate: null,
-  }
-  const window = {
-    key: 'summary',
-    start_at: '2026-11-15T16:00:00Z',
-    end_at: '2026-11-16T16:00:00Z',
-    actual_end_at: '2026-11-16T16:00:00Z',
-    state: 'complete' as const,
-  }
-  const state = { audit: { approved: 0 }, visibility: { visible: 0 }, public: 0 }
-  return {
-    view: 'overview',
-    school_count: 0,
-    id: 'snapshot',
-    school_id: null,
-    school_ids: [],
-    school_names: [],
-    full_site: true,
-    timezone: 'Asia/Shanghai',
-    period: 'month',
-    granularity: 'day',
-    window,
-    as_of: window.end_at,
-    expires_at: window.end_at,
-    definition_version: 1,
-    summary: metrics,
-    coverage,
-    buckets: [{ ...window, key: 'bucket-0', metrics, coverage }],
-    comparisons: [],
-    current_state: { posts: state, comments: state },
-    registration_groups: {},
-    schools: [],
-  }
-}
-it('keeps the overview empty state usable without loading charts, details or schools', async () => {
+it('charts overview summaries without fetching details or school rows', async () => {
   vi.mocked(statisticsApi.report).mockResolvedValue(emptyReport())
   show(true)
-  expect(await screen.findByText('当前范围暂无可展示的统计数据，可调整学校或日期。')).toBeTruthy()
+  expect(await screen.findByRole('figure', { name: '本期内容量' })).toBeTruthy()
+  expect(screen.getByRole('figure', { name: '新增注册与访问活跃' })).toBeTruthy()
   expect(screen.queryByRole('img', { name: /趋势/ })).toBeNull()
   expect(screen.queryByText('查看周期明细')).toBeNull()
   expect(screen.queryByText('导出当前周期 CSV')).toBeNull()
   expect(statisticsApi.schools).not.toHaveBeenCalled()
 })
-it('keeps zero content usable and reports expired exports without drawing empty charts', async () => {
+it('renders a known-zero content trend and still reports expired exports', async () => {
   vi.mocked(statisticsApi.report).mockResolvedValue({ ...emptyReport(), view: 'content' })
   vi.mocked(statisticsApi.export).mockRejectedValue(new Error('快照不可用，请刷新后重新导出'))
   show(true, '', 'content')
-  expect(await screen.findByText('所选期间暂无记录，可调整学校或日期。')).toBeTruthy()
-  expect(screen.queryByRole('img', { name: /发帖与评论趋势/ })).toBeNull()
+  expect(await screen.findByRole('figure', { name: '内容统计 · 内容量趋势' })).toBeTruthy()
+  expect(screen.getByText('所选期间已记录值均为 0；历史覆盖以数据说明为准。')).toBeTruthy()
   const { fireEvent } = await import('@testing-library/react')
   fireEvent.click(screen.getByRole('button', { name: '导出当前周期 CSV' }))
   expect(await screen.findByText('快照不可用，请刷新后重新导出')).toBeTruthy()
@@ -219,7 +159,7 @@ it('requests a comparison only after it is selected', async () => {
   const { fireEvent } = await import('@testing-library/react')
   vi.mocked(statisticsApi.report).mockResolvedValue({ ...emptyReport(), view: 'content' })
   show(true, '', 'content')
-  await screen.findByText('所选期间暂无记录，可调整学校或日期。')
+  await screen.findByRole('figure', { name: '内容统计 · 内容量趋势' })
   expect(statisticsApi.report).toHaveBeenLastCalledWith(
     undefined,
     expect.objectContaining({ view: 'content', comparison: 'none' }),
@@ -234,4 +174,37 @@ it('requests a comparison only after it is selected', async () => {
       expect.any(AbortSignal),
     ),
   )
+})
+
+it('switches registration modes without requests and preserves mode when refreshing the snapshot', async () => {
+  const { fireEvent } = await import('@testing-library/react')
+  const report = { ...emptyReport(), view: 'registration' as const }
+  vi.mocked(statisticsApi.report).mockResolvedValue(report)
+  show(true, '', 'registration')
+  await screen.findByRole('figure', { name: '注册统计 · 新增注册趋势' })
+  fireEvent.click(screen.getByLabelText('累计注册（截至桶末）'))
+  fireEvent.click(screen.getByLabelText('新注册参与人数'))
+  fireEvent.click(screen.getByLabelText('新注册参与率'))
+  expect(statisticsApi.report).toHaveBeenCalledTimes(1)
+  vi.mocked(statisticsApi.report).mockResolvedValue({
+    ...report,
+    id: 'fresh-snapshot',
+    as_of: '2026-11-17T16:00:00Z',
+  })
+  fireEvent.click(screen.getByRole('button', { name: /刷\s*新/ }))
+  await waitFor(() => expect(statisticsApi.report).toHaveBeenCalledTimes(2))
+  await screen.findByText(/上海时间；数据截至 2026\/11\/18 00:00/)
+  expect(screen.getByRole('figure', { name: '注册统计 · 新注册参与率趋势' })).toBeTruthy()
+  expect(statisticsApi.schools).not.toHaveBeenCalled()
+})
+
+it('removes cached charts when a refresh loses access to the school', async () => {
+  const { fireEvent } = await import('@testing-library/react')
+  vi.mocked(statisticsApi.report).mockResolvedValue({ ...emptyReport(), view: 'content' })
+  show(false, '', 'content')
+  await screen.findByRole('figure', { name: '内容统计 · 内容量趋势' })
+  vi.mocked(statisticsApi.report).mockRejectedValue(new Error('该学校管理授权已撤销'))
+  fireEvent.click(screen.getByRole('button', { name: /刷\s*新/ }))
+  await screen.findByText('该学校管理授权已撤销')
+  expect(screen.queryByRole('figure')).toBeNull()
 })
