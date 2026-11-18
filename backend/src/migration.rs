@@ -3,7 +3,7 @@
 use crate::business::{Error, Result, require};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use sqlx::{PgPool, Row};
+use sqlx::{Connection, PgPool, Row};
 use std::collections::BTreeMap;
 
 pub const TABLES: &[&str] = &[
@@ -72,11 +72,9 @@ pub async fn export(
     pool: &PgPool,
     files: &crate::media::south::adapter::filesystem::Files,
 ) -> Result<Snapshot> {
-    let mut tx = pool.begin().await?;
+    let mut lock = crate::media::south::adapter::lifecycle::FileLock::shared(pool).await?;
+    let mut tx = lock.connection.begin().await?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
-        .execute(&mut *tx)
-        .await?;
-    sqlx::query("SELECT pg_advisory_xact_lock_shared(78234610246)")
         .execute(&mut *tx)
         .await?;
     let mut payloads = BTreeMap::new();
@@ -106,8 +104,9 @@ pub async fn export(
         tables.insert((*table).into(), rows);
     }
     tx.commit().await?;
+    lock.release().await?;
     Ok(Snapshot {
-        schema_version: 2,
+        schema_version: 3,
         digest: digest(&tables),
         tables,
         files: payloads,
@@ -120,7 +119,7 @@ pub async fn import(
     files: &crate::media::south::adapter::filesystem::Files,
 ) -> Result<Value> {
     require(
-        snapshot.schema_version == 2 && snapshot.digest == digest(&snapshot.tables),
+        snapshot.schema_version == 3 && snapshot.digest == digest(&snapshot.tables),
         "快照版本或摘要不匹配",
     )?;
     require(
@@ -253,6 +252,9 @@ pub async fn import(
         .execute(&mut *tx)
         .await?;
     }
+    let invalid: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM file_asset_references r JOIN file_assets f ON f.id=r.asset_id LEFT JOIN posts p ON r.object_type='posts' AND p.id=r.object_id WHERE f.state<>'ready' OR NOT f.ever_bound OR f.gc_after IS NOT NULL OR (r.object_type='posts' AND (p.id IS NULL OR p.visibility='deleted')))")
+        .fetch_one(&mut *tx).await?;
+    require(!invalid, "快照图片引用或清理状态不一致")?;
     // Importing history does not enqueue it. Future content revisions continue at a stable version.
     sqlx::query("INSERT INTO forum_source_versions(school_id,post_id,sequence,available,delivery_intent) SELECT p.school_id,p.id,greatest(p.revision,1),p.audit_status='approved' AND p.visibility='visible' AND s.active,false FROM posts p JOIN schools s ON s.id=p.school_id").execute(&mut *tx).await?;
     sqlx::query("SELECT setval('legacy_public_id',greatest(1000000000000,coalesce((SELECT max(public_id) FROM legacy_aliases),0)),true)").execute(&mut *tx).await?;
