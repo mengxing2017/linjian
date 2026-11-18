@@ -3,8 +3,8 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { StatisticsPage } from './statistics-page'
-import { statisticsApi, type StatisticsReport } from './api'
-vi.mock('./api', () => ({ statisticsApi: { report: vi.fn(), export: vi.fn() } }))
+import { statisticsApi, type StatisticsReport, type StatisticsView } from './api'
+vi.mock('./api', () => ({ statisticsApi: { report: vi.fn(), export: vi.fn(), schools: vi.fn() } }))
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
@@ -13,14 +13,24 @@ const schools = [
   { id: 'a', name: '甲校', status: 'normal' },
   { id: 'b', name: '乙校', status: 'normal' },
 ]
-function show(platform: boolean, search = '') {
+function show(
+  platform: boolean,
+  search = '',
+  view: StatisticsView = 'overview',
+  schoolOptions = schools,
+) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[`/admin?view=statistics${search}`]}>
         <StatisticsPage
-          user={{ id: 'u', platform_admin: platform, grants: [{ school_id: 'a', role: 'admin' }] }}
-          schools={schools}
+          view={view}
+          user={{
+            id: 'u',
+            platform_admin: platform,
+            grants: platform ? [] : [{ school_id: 'a', role: 'admin' }],
+          }}
+          schools={schoolOptions}
         />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -32,11 +42,13 @@ it('opens platform statistics without choosing the first school', async () => {
   await waitFor(() =>
     expect(statisticsApi.report).toHaveBeenCalledWith(
       undefined,
-      expect.objectContaining({ period: 'month' }),
+      expect.objectContaining({ period: 'month', view: 'overview', comparison: 'none' }),
       expect.any(AbortSignal),
     ),
   )
   expect(screen.getByLabelText('统计学校范围')).toBeTruthy()
+  expect(screen.getByRole('heading', { name: '统计概览' })).toBeTruthy()
+  expect(statisticsApi.schools).not.toHaveBeenCalled()
 })
 it('fixes a school administrator to their authorized school', async () => {
   vi.mocked(statisticsApi.report).mockRejectedValue(new Error('历史覆盖未确认'))
@@ -52,13 +64,38 @@ it('fixes a school administrator to their authorized school', async () => {
   expect(screen.getByText('统计学校：甲校')).toBeTruthy()
   expect(await screen.findByText('历史覆盖未确认')).toBeTruthy()
 })
+it('allows a platform administrator to open a school before selector options load', async () => {
+  vi.mocked(statisticsApi.report).mockImplementation(() => new Promise<StatisticsReport>(() => {}))
+  show(true, '&statistics_school=b', 'overview', [])
+  await waitFor(() =>
+    expect(statisticsApi.report).toHaveBeenCalledWith(
+      'b',
+      expect.objectContaining({ view: 'overview' }),
+      expect.any(AbortSignal),
+    ),
+  )
+  expect(screen.queryByText('无权查看该学校统计，请选择有管理授权的学校。')).toBeNull()
+  expect(screen.getByLabelText('统计学校范围')).toBeTruthy()
+})
+it('keeps platform scope controls available when a direct-linked school is absent from the list', async () => {
+  vi.mocked(statisticsApi.report).mockRejectedValue(new Error('学校不存在'))
+  show(true, '&statistics_school=outside-list')
+  expect(await screen.findByText('学校不存在')).toBeTruthy()
+  expect(statisticsApi.report).toHaveBeenCalledWith(
+    'outside-list',
+    expect.anything(),
+    expect.any(AbortSignal),
+  )
+  expect(screen.queryByText('无权查看该学校统计，请选择有管理授权的学校。')).toBeNull()
+  expect(screen.getByLabelText('统计学校范围')).toBeTruthy()
+})
 it('does not request another school through a forged statistics URL', () => {
   show(false, '&statistics_school=b')
   expect(statisticsApi.report).not.toHaveBeenCalled()
   expect(screen.getByText('无权查看该学校统计，请选择有管理授权的学校。')).toBeTruthy()
 })
 
-it('renders known zeros separately from unavailable activity and reports expired exports', async () => {
+function emptyReport(): StatisticsReport {
   const coverage = {
     content: true,
     registration: true,
@@ -96,7 +133,9 @@ it('renders known zeros separately from unavailable activity and reports expired
     state: 'complete' as const,
   }
   const state = { audit: { approved: 0 }, visibility: { visible: 0 }, public: 0 }
-  vi.mocked(statisticsApi.report).mockResolvedValue({
+  return {
+    view: 'overview',
+    school_count: 0,
     id: 'snapshot',
     school_id: null,
     school_ids: [],
@@ -116,14 +155,83 @@ it('renders known zeros separately from unavailable activity and reports expired
     current_state: { posts: state, comments: state },
     registration_groups: {},
     schools: [],
-  })
-  vi.mocked(statisticsApi.export).mockRejectedValue(new Error('快照不可用，请刷新后重新导出'))
+  }
+}
+it('keeps the overview empty state usable without loading charts, details or schools', async () => {
+  vi.mocked(statisticsApi.report).mockResolvedValue(emptyReport())
   show(true)
-  expect(await screen.findByText('本期无新增帖子与评论')).toBeTruthy()
-  expect(screen.getAllByText('—').length).toBeGreaterThan(0)
-  expect(screen.getByRole('img', { name: /发帖与评论趋势/ })).toBeTruthy()
+  expect(await screen.findByText('当前范围暂无可展示的统计数据，可调整学校或日期。')).toBeTruthy()
+  expect(screen.queryByRole('img', { name: /趋势/ })).toBeNull()
+  expect(screen.queryByText('查看周期明细')).toBeNull()
+  expect(screen.queryByText('导出当前周期 CSV')).toBeNull()
+  expect(statisticsApi.schools).not.toHaveBeenCalled()
+})
+it('keeps zero content usable and reports expired exports without drawing empty charts', async () => {
+  vi.mocked(statisticsApi.report).mockResolvedValue({ ...emptyReport(), view: 'content' })
+  vi.mocked(statisticsApi.export).mockRejectedValue(new Error('快照不可用，请刷新后重新导出'))
+  show(true, '', 'content')
+  expect(await screen.findByText('所选期间暂无记录，可调整学校或日期。')).toBeTruthy()
+  expect(screen.queryByRole('img', { name: /发帖与评论趋势/ })).toBeNull()
   const { fireEvent } = await import('@testing-library/react')
   fireEvent.click(screen.getByRole('button', { name: '导出当前周期 CSV' }))
   expect(await screen.findByText('快照不可用，请刷新后重新导出')).toBeTruthy()
   expect(statisticsApi.export).toHaveBeenCalledWith(undefined, 'snapshot', 'periods')
+})
+
+it('loads only a page of school rows from the snapshot and requests another page on navigation', async () => {
+  const { fireEvent } = await import('@testing-library/react')
+  vi.mocked(statisticsApi.report).mockResolvedValue({
+    ...emptyReport(),
+    view: 'schools',
+    school_count: 41,
+  })
+  vi.mocked(statisticsApi.schools).mockResolvedValue({
+    items: [
+      {
+        id: 'a',
+        name: '甲校',
+        status: 'normal',
+        metrics: emptyReport().summary,
+        coverage: emptyReport().coverage,
+        changes: {},
+      },
+    ],
+    page: { number: 1, size: 20, has_more: true },
+  })
+  show(true, '', 'schools')
+  await waitFor(() =>
+    expect(statisticsApi.schools).toHaveBeenCalledWith(
+      'snapshot',
+      { page: 1, size: 20, sort: 'posts', descending: true },
+      expect.any(AbortSignal),
+    ),
+  )
+  fireEvent.click(await screen.findByTitle(/Next Page|下一页/))
+  await waitFor(() =>
+    expect(statisticsApi.schools).toHaveBeenLastCalledWith(
+      'snapshot',
+      expect.objectContaining({ page: 2, size: 20 }),
+      expect.any(AbortSignal),
+    ),
+  )
+})
+it('requests a comparison only after it is selected', async () => {
+  const { fireEvent } = await import('@testing-library/react')
+  vi.mocked(statisticsApi.report).mockResolvedValue({ ...emptyReport(), view: 'content' })
+  show(true, '', 'content')
+  await screen.findByText('所选期间暂无记录，可调整学校或日期。')
+  expect(statisticsApi.report).toHaveBeenLastCalledWith(
+    undefined,
+    expect.objectContaining({ view: 'content', comparison: 'none' }),
+    expect.any(AbortSignal),
+  )
+  fireEvent.mouseDown(screen.getByLabelText('图表对比期'))
+  fireEvent.click(await screen.findByText('同比'))
+  await waitFor(() =>
+    expect(statisticsApi.report).toHaveBeenLastCalledWith(
+      undefined,
+      expect.objectContaining({ view: 'content', comparison: 'year' }),
+      expect.any(AbortSignal),
+    ),
+  )
 })
