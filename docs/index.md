@@ -15,7 +15,7 @@ Linjian 是包含 Rust API、Web 管理后台与微信小程序的独立校园�
 - [内容全文审核](guide/content-review.md)
 - [小程序内容来源推送](guide/miniapp-publication.md)
 - [运营中心](guide/operations.md)
-- [业务统计](guide/business-statistics.md)
+- [统计概览](guide/business-statistics.md)
 
 ## 开发参考
 

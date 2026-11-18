@@ -9,3 +9,7 @@ Reports use one repeatable-read transaction, then persist only aggregate results
 The worker records sealed time ranges and failed intervals. It retries bounded batches, preserves crash/overflow gaps, and starts a new interval after recovery. Verified client deployment is required before claiming complete access coverage. No statistics operation increments browse, creates Outbox, or gates forum readiness.
 
 See `docs/guide/business-statistics.md` and `report/论坛业务统计实施方案.md` for configuration, definitions and validation. Database tests run through `make test-integration` with an explicit isolated `LINJIAN_TEST_DATABASE_URL`; `backend/examples/test_database.rs` provisions a fresh temporary server for that target.
+
+Report queries are scoped by `view=overview|content|registration|activity|schools` (default overview). Overview computes only one aggregate window, with no trend buckets, state breakdown or school rows. Other views execute only their required metric families. Comparisons default to none. Only schools view materializes school aggregates, which HTTP exposes through snapshot pagination (20 by default, at most 100), never an inline school list. CSV is explicit and bound to the appropriate view snapshot.
+
+Definition version 2 distinguishes existing observed content/verified-time registration counts from verified historical totals through coverage flags. Partial history remains inspectable, but comparisons mask incomplete dependencies. Activity gaps and unknown registration school assignment continue to yield unavailable values.

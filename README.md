@@ -16,7 +16,7 @@
 
 运营中心的二维码、广告、客户配置和投诉反馈见 [运营中心](docs/guide/operations.md)。
 
-全站与学校的内容、注册和活跃趋势及汇总导出见 [业务统计](docs/guide/business-statistics.md)。
+全站与学校的内容、注册和活跃趋势及汇总导出见 [统计概览](docs/guide/business-statistics.md)。
 
 ## 目录
 
