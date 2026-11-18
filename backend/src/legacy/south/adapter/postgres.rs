@@ -38,10 +38,15 @@ impl Repository {
             .and_then(|x| x.parse::<Uuid>().ok())
             .ok_or(Error::NotFound)?;
         let token = secret();
-        sqlx::query("DELETE FROM media_access_tokens WHERE expires_at<now()")
-            .execute(&self.0)
-            .await?;
-        sqlx::query("INSERT INTO media_access_tokens(token_hash,school_id,asset_id,expires_at,post_id) SELECT $1,$2,m.id,now()+interval '15 minutes',p.id FROM media_assets m JOIN file_assets f ON f.id=m.id AND f.purpose='post_image' AND f.state='ready' JOIN posts p ON p.school_id=m.school_id AND p.images @> jsonb_build_array('/api/v1/schools/'||m.school_id||'/media/'||m.id) WHERE m.school_id=$2 AND m.id=$3 AND p.audit_status='approved' AND p.visibility='visible' LIMIT 1").bind(hash(&token)).bind(s).bind(id).execute(&self.0).await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
+        // Business object first, then asset: match post writers and file cleanup.
+        let post: Uuid = sqlx::query_scalar("SELECT p.id FROM posts p JOIN schools s ON s.id=p.school_id WHERE p.school_id=$1 AND s.active AND p.audit_status='approved' AND p.visibility='visible' AND p.images @> jsonb_build_array($2::text) ORDER BY p.id LIMIT 1 FOR SHARE OF p")
+            .bind(s).bind(path).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
+        sqlx::query("SELECT id FROM file_assets WHERE id=$1 AND school_id=$2 AND state='ready' AND purpose='post_image' FOR UPDATE")
+            .bind(id).bind(s).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
+        sqlx::query("INSERT INTO media_access_tokens(token_hash,school_id,asset_id,expires_at,post_id) VALUES($1,$2,$3,now()+interval '15 minutes',$4)")
+            .bind(hash(&token)).bind(s).bind(id).bind(post).execute(&mut *tx).await?;
+        tx.commit().await?;
         Ok(format!("{origin}/api/legacy/media/{token}"))
     }
     pub async fn media(
@@ -58,7 +63,7 @@ impl Repository {
         Ok(sqlx::query_scalar("SELECT active AND coalesce((config->>'public_read')::boolean,false) FROM schools WHERE id=$1").bind(s).fetch_optional(&self.0).await?.unwrap_or(false))
     }
     pub async fn comment_like(&self, a: &Actor, s: Uuid, id: Uuid) -> Result<Value> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         sqlx::query("SELECT c.id FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.school_id=$1 AND c.id=$2 AND c.audit_status='approved' AND c.visibility='visible' AND NOT c.deleted AND p.audit_status='approved' AND p.visibility='visible' FOR UPDATE OF c").bind(s).bind(id).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
         let removed = sqlx::query(
             "DELETE FROM comment_reactions WHERE school_id=$1 AND comment_id=$2 AND account_id=$3",
