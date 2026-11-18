@@ -29,3 +29,20 @@
   file_server
  }
 }
+
+# Native clients use this API-only hostname. No SPA fallback or CORS policy.
+{$LINJIAN_API_LISTEN:http://localhost:8081} {
+ encode zstd gzip
+ header {
+  X-Content-Type-Options nosniff
+  Cache-Control no-store
+  -Server
+ }
+ @api path /api /api/* /healthz /readyz
+ handle @api {
+  reverse_proxy api:8080
+ }
+ handle {
+  respond "Not Found" 404
+ }
+}

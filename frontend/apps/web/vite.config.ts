@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { apiContractAliases, apiContractRoot, frontendRoot } from '../../tools/api-contract-aliases'
 
-const apiOrigin = process.env.LINJIAN_API_ORIGIN ?? 'http://127.0.0.1:8080'
+const apiOrigin = process.env.LINJIAN_DEV_API_UPSTREAM ?? 'http://127.0.0.1:8080'
 
 export default defineConfig({
   plugins: [react()],
