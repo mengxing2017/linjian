@@ -33,7 +33,7 @@ async fn approve_post(pool: &PgPool, actor: &linjian_api::business::Actor, post:
         .fetch_one(pool)
         .await
         .unwrap();
-    bootstrap::build_application(pool.clone()).community.moderate(actor, row["school_id"].as_str().unwrap().parse().unwrap(), post,
+    bootstrap::build_application(pool.clone(), bootstrap::Options::local()).community.moderate(actor, row["school_id"].as_str().unwrap().parse().unwrap(), post,
         serde_json::from_value(json!({"decision":"approved","reason":"测试审核","revision":row["revision"],"review_digest":linjian_api::community::domain::review::digest(&row).unwrap()})).unwrap(), false).await.unwrap()
 }
 
@@ -49,7 +49,7 @@ async fn full_text_review_read_only_scope_and_version_fencing() {
     let schema = format!("forum_review_{}", Uuid::new_v4().simple());
     let pool = isolated(&admin, &schema).await;
     database::migrate(&pool).await.unwrap();
-    let app = bootstrap::build_application(pool.clone());
+    let app = bootstrap::build_application(pool.clone(), bootstrap::Options::local());
     let root = app
         .identity
         .bootstrap("root", "后台显示名", "test-password-at-least-12", true)
@@ -58,7 +58,11 @@ async fn full_text_review_read_only_scope_and_version_fencing() {
     let (token, actor) = app
         .identity
         .0
-        .session(root, "browser", false)
+        .session(
+            root,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
         .await
         .unwrap();
     let school: Uuid = app.schools.create(&actor, "全文审核校").await.unwrap()["id"]
@@ -111,7 +115,7 @@ async fn full_text_review_read_only_scope_and_version_fencing() {
         "review reads must have no business side effects"
     );
     let mut bearer = actor.clone();
-    bearer.browser = false;
+    bearer.session_kind = linjian_api::business::SessionKind::Miniapp;
     assert!(app.community.review(&bearer, school, id).await.is_err());
     let mut member = actor.clone();
     member.platform_admin = false;
@@ -256,7 +260,7 @@ async fn forum_migration_auth_and_outbox() {
     database::migrate(&source).await.unwrap();
     database::migrate(&source).await.unwrap();
     database::migrate(&target).await.unwrap();
-    let app = bootstrap::build_application(source.clone());
+    let app = bootstrap::build_application(source.clone(), bootstrap::Options::local());
     let root = app
         .identity
         .bootstrap("root", "管理员", "test-password-at-least-12", true)
@@ -265,7 +269,11 @@ async fn forum_migration_auth_and_outbox() {
     let (_, actor) = app
         .identity
         .0
-        .session(root, "browser", false)
+        .session(
+            root,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
         .await
         .unwrap();
     let school = app.schools.create(&actor, "甲学校").await.unwrap()["id"]
@@ -295,7 +303,7 @@ async fn forum_migration_auth_and_outbox() {
     let (_, member) = app
         .identity
         .0
-        .session(user, "miniapp", false)
+        .session(user, linjian_api::business::SessionKind::Miniapp, None)
         .await
         .unwrap();
     assert!(app.schools.members(&member, school).await.is_err());
@@ -399,13 +407,16 @@ async fn forum_migration_auth_and_outbox() {
         .await
         .unwrap();
     assert_eq!(session_count, 0);
-    let target_app = bootstrap::build_application(target.clone());
+    let target_app = bootstrap::build_application(target.clone(), bootstrap::Options::local());
     let (_, new_actor) = target_app
         .identity
-        .login(linjian_api::identity::north::local::Login {
-            username: "root".into(),
-            password: "test-password-at-least-12".into(),
-        })
+        .login(
+            linjian_api::identity::north::local::Login {
+                username: "root".into(),
+                password: "test-password-at-least-12".into(),
+            },
+            "http://localhost:5173",
+        )
         .await
         .unwrap();
     assert!(new_actor.platform_admin);
@@ -512,7 +523,7 @@ async fn complete_source_messages_acceptance_leases_cancellation_and_school_scop
     let name = format!("forum_messages_{}", Uuid::new_v4().simple());
     let pool = isolated(&admin, &name).await;
     database::migrate(&pool).await.unwrap();
-    let app = bootstrap::build_application(pool.clone());
+    let app = bootstrap::build_application(pool.clone(), bootstrap::Options::local());
     let root = app
         .identity
         .bootstrap("root", "管理员", "test-password-at-least-12", true)
@@ -521,7 +532,11 @@ async fn complete_source_messages_acceptance_leases_cancellation_and_school_scop
     let (_, actor) = app
         .identity
         .0
-        .session(root, "browser", false)
+        .session(
+            root,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
         .await
         .unwrap();
     let school: Uuid = app.schools.create(&actor, "来源消息校").await.unwrap()["id"]
@@ -707,7 +722,7 @@ async fn reviewed_miniapp_publication_freezing_and_fencing() {
     let name = format!("forum_publication_{}", Uuid::new_v4().simple());
     let pool = isolated(&admin, &name).await;
     database::migrate(&pool).await.unwrap();
-    let app = bootstrap::build_application(pool.clone());
+    let app = bootstrap::build_application(pool.clone(), bootstrap::Options::local());
     let root = app
         .identity
         .bootstrap("root", "管理员", "test-password-at-least-12", true)
@@ -716,7 +731,11 @@ async fn reviewed_miniapp_publication_freezing_and_fencing() {
     let (_, actor) = app
         .identity
         .0
-        .session(root, "browser", false)
+        .session(
+            root,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
         .await
         .unwrap();
     let school: Uuid = app.schools.create(&actor, "发布测试校").await.unwrap()["id"]
@@ -736,7 +755,7 @@ async fn reviewed_miniapp_publication_freezing_and_fencing() {
     let (_, mini) = app
         .identity
         .0
-        .session(root, "miniapp", false)
+        .session(root, linjian_api::business::SessionKind::Miniapp, None)
         .await
         .unwrap();
     sqlx::query(
@@ -1131,7 +1150,7 @@ async fn miniapp_users_registration_school_scope_and_ban() {
     let name = format!("miniapp_users_{}", Uuid::new_v4().simple());
     let pool = isolated(&admin, &name).await;
     database::migrate(&pool).await.unwrap();
-    let app = bootstrap::build_application(pool.clone());
+    let app = bootstrap::build_application(pool.clone(), bootstrap::Options::local());
     let root = app
         .identity
         .bootstrap("root", "管理员", "test-password-at-least-12", true)
@@ -1140,7 +1159,11 @@ async fn miniapp_users_registration_school_scope_and_ban() {
     let (_, actor) = app
         .identity
         .0
-        .session(root, "browser", false)
+        .session(
+            root,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
         .await
         .unwrap();
     let school: Uuid = app.schools.create(&actor, "甲校").await.unwrap()["id"]
@@ -1182,11 +1205,20 @@ async fn miniapp_users_registration_school_scope_and_ban() {
             .is_err(),
         "cannot provision a backend password for a pure miniapp user"
     );
-    let (token, mini) = app.identity.0.session(id, "miniapp", false).await.unwrap();
+    let (token, mini) = app
+        .identity
+        .0
+        .session(id, linjian_api::business::SessionKind::Miniapp, None)
+        .await
+        .unwrap();
     assert!(!mini.platform_admin);
     assert!(mini.platform().is_err());
     app.schools.bind(&mini, school).await.unwrap();
-    let mini = app.identity.authenticate(&token, "miniapp").await.unwrap();
+    let mini = app
+        .identity
+        .authenticate(&token, linjian_api::business::SessionKind::Miniapp)
+        .await
+        .unwrap();
     let own = repo.own(id).await.unwrap();
     assert_eq!(own.school_id, Some(school));
     assert_eq!(own.status, "normal");
@@ -1278,7 +1310,7 @@ async fn miniapp_users_registration_school_scope_and_ban() {
     let (_, outsider) = app
         .identity
         .0
-        .session(different, "miniapp", false)
+        .session(different, linjian_api::business::SessionKind::Miniapp, None)
         .await
         .unwrap();
     assert!(repo.avatar(&outsider, asset).await.is_err());
@@ -1332,7 +1364,11 @@ async fn miniapp_users_registration_school_scope_and_ban() {
     let (_, manager) = app
         .identity
         .0
-        .session(manager_id, "browser", false)
+        .session(
+            manager_id,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
         .await
         .unwrap();
     let sorted = repo
@@ -1399,9 +1435,17 @@ async fn miniapp_users_registration_school_scope_and_ban() {
     )
     .await
     .unwrap();
-    assert!(app.identity.authenticate(&token, "miniapp").await.is_err());
+    assert!(
+        app.identity
+            .authenticate(&token, linjian_api::business::SessionKind::Miniapp)
+            .await
+            .is_err()
+    );
     assert!(matches!(
-        app.identity.0.session(id, "miniapp", false).await,
+        app.identity
+            .0
+            .session(id, linjian_api::business::SessionKind::Miniapp, None)
+            .await,
         Err(linjian_api::business::Error::MiniappBanned)
     ));
     assert_eq!(
@@ -1485,9 +1529,24 @@ async fn miniapp_users_registration_school_scope_and_ban() {
     )
     .await
     .unwrap();
-    assert!(app.identity.authenticate(&token, "miniapp").await.is_err());
-    let (fresh, _) = app.identity.0.session(id, "miniapp", false).await.unwrap();
-    assert!(app.identity.authenticate(&fresh, "miniapp").await.is_ok());
+    assert!(
+        app.identity
+            .authenticate(&token, linjian_api::business::SessionKind::Miniapp)
+            .await
+            .is_err()
+    );
+    let (fresh, _) = app
+        .identity
+        .0
+        .session(id, linjian_api::business::SessionKind::Miniapp, None)
+        .await
+        .unwrap();
+    assert!(
+        app.identity
+            .authenticate(&fresh, linjian_api::business::SessionKind::Miniapp)
+            .await
+            .is_ok()
+    );
     // A dual identity retains browser privileges while miniapp never inherits them.
     sqlx::query("INSERT INTO miniapp_users(account_id,nickname) VALUES($1,'管理员的小程序身份')")
         .bind(root)
@@ -1501,7 +1560,7 @@ async fn miniapp_users_registration_school_scope_and_ban() {
     let (root_token, root_mini) = app
         .identity
         .0
-        .session(root, "miniapp", false)
+        .session(root, linjian_api::business::SessionKind::Miniapp, None)
         .await
         .unwrap();
     assert!(!root_mini.can(other, "admin"));
@@ -1509,11 +1568,18 @@ async fn miniapp_users_registration_school_scope_and_ban() {
     let (browser_token, root_browser) = app
         .identity
         .0
-        .session(root, "browser", false)
+        .session(
+            root,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
         .await
         .unwrap();
     let race = repo.own(root).await.unwrap();
-    let issue = app.identity.0.session(root, "miniapp", false);
+    let issue = app
+        .identity
+        .0
+        .session(root, linjian_api::business::SessionKind::Miniapp, None);
     let ban = repo.status(
         &actor,
         None,
@@ -1527,17 +1593,25 @@ async fn miniapp_users_registration_school_scope_and_ban() {
     let (issued, result) = tokio::join!(issue, ban);
     result.unwrap();
     if let Ok((raced, _)) = issued {
-        assert!(app.identity.authenticate(&raced, "miniapp").await.is_err())
+        assert!(
+            app.identity
+                .authenticate(&raced, linjian_api::business::SessionKind::Miniapp)
+                .await
+                .is_err()
+        )
     }
     assert!(
         app.identity
-            .authenticate(&root_token, "miniapp")
+            .authenticate(&root_token, linjian_api::business::SessionKind::Miniapp)
             .await
             .is_err()
     );
     assert!(
         app.identity
-            .authenticate(&browser_token, "browser")
+            .authenticate(
+                &browser_token,
+                linjian_api::business::SessionKind::AdminBrowser
+            )
             .await
             .is_ok(),
         "miniapp ban preserves browser sessions"
@@ -1576,7 +1650,7 @@ async fn school_profiles_visibility_artwork_and_transactions() {
     let schema = format!("school_profiles_{}", Uuid::new_v4().simple());
     let pool = isolated(&admin, &schema).await;
     database::migrate(&pool).await.unwrap();
-    let app = bootstrap::build_application(pool.clone());
+    let app = bootstrap::build_application(pool.clone(), bootstrap::Options::local());
     let root = app
         .identity
         .bootstrap("root", "管理员", "test-password-at-least-12", true)
@@ -1585,7 +1659,11 @@ async fn school_profiles_visibility_artwork_and_transactions() {
     let (token, actor) = app
         .identity
         .0
-        .session(root, "browser", false)
+        .session(
+            root,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
         .await
         .unwrap();
     let resource_operations =
@@ -1620,7 +1698,11 @@ async fn school_profiles_visibility_artwork_and_transactions() {
     let (_, manager) = app
         .identity
         .0
-        .session(manager_id, "browser", false)
+        .session(
+            manager_id,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
         .await
         .unwrap();
     let operator_id = app
@@ -1635,7 +1717,11 @@ async fn school_profiles_visibility_artwork_and_transactions() {
     let (_, operator) = app
         .identity
         .0
-        .session(operator_id, "browser", false)
+        .session(
+            operator_id,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
         .await
         .unwrap();
     assert!(
@@ -1667,7 +1753,7 @@ async fn school_profiles_visibility_artwork_and_transactions() {
     let (mini_token, mini) = app
         .identity
         .0
-        .session(mini_id, "miniapp", false)
+        .session(mini_id, linjian_api::business::SessionKind::Miniapp, None)
         .await
         .unwrap();
     let directory = repo
@@ -1722,7 +1808,7 @@ async fn school_profiles_visibility_artwork_and_transactions() {
     app.schools.bind(&mini, id).await.unwrap();
     let mini = app
         .identity
-        .authenticate(&mini_token, "miniapp")
+        .authenticate(&mini_token, linjian_api::business::SessionKind::Miniapp)
         .await
         .unwrap();
     // Establish a real source route and already published content, without contacting an upstream.
@@ -1730,7 +1816,7 @@ async fn school_profiles_visibility_artwork_and_transactions() {
     let cv = Uuid::new_v4();
     let source = Uuid::new_v4();
     sqlx::query("INSERT INTO source_connections(id,name,source_id,origin,key_id,checked_at) VALUES($1,'test',$2,'https://keeper.example.com','test-key',now())").bind(c).bind(source).execute(&pool).await.unwrap();
-    sqlx::query("INSERT INTO source_connection_versions(id,connection_id,revision,source_id,origin,public_origin) VALUES($1,$2,1,$3,'https://keeper.example.com','https://forum.example.com')").bind(cv).bind(c).bind(source).execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO source_connection_versions(id,connection_id,revision,source_id,origin) VALUES($1,$2,1,$3,'https://keeper.example.com')").bind(cv).bind(c).bind(source).execute(&pool).await.unwrap();
     sqlx::query("UPDATE source_active_configuration SET connection_id=$1")
         .bind(c)
         .execute(&pool)
@@ -1806,7 +1892,7 @@ async fn school_profiles_visibility_artwork_and_transactions() {
     let _ = edit;
     assert!(
         app.identity
-            .authenticate(&mini_token, "miniapp")
+            .authenticate(&mini_token, linjian_api::business::SessionKind::Miniapp)
             .await
             .is_ok(),
         "hidden school preserves user login"
@@ -1922,7 +2008,7 @@ async fn moderation_modes_preserve_policy_evidence_and_publication_boundaries() 
     let schema = format!("forum_modes_{}", Uuid::new_v4().simple());
     let pool = isolated(&admin, &schema).await;
     database::migrate(&pool).await.unwrap();
-    let app = bootstrap::build_application(pool.clone());
+    let app = bootstrap::build_application(pool.clone(), bootstrap::Options::local());
     let root = app
         .identity
         .bootstrap("root", "管理员", "test-password-at-least-12", true)
@@ -1931,7 +2017,11 @@ async fn moderation_modes_preserve_policy_evidence_and_publication_boundaries() 
     let (_, actor) = app
         .identity
         .0
-        .session(root, "browser", false)
+        .session(
+            root,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
         .await
         .unwrap();
     let school: Uuid = app.schools.create(&actor, "自动审核校").await.unwrap()["id"]
@@ -1956,7 +2046,7 @@ async fn moderation_modes_preserve_policy_evidence_and_publication_boundaries() 
     let (_, mini) = app
         .identity
         .0
-        .session(root, "miniapp", false)
+        .session(root, linjian_api::business::SessionKind::Miniapp, None)
         .await
         .unwrap();
     let operator_id = app
@@ -1971,7 +2061,11 @@ async fn moderation_modes_preserve_policy_evidence_and_publication_boundaries() 
     let (_, operator) = app
         .identity
         .0
-        .session(operator_id, "browser", false)
+        .session(
+            operator_id,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
         .await
         .unwrap();
     let viewer_id = app
@@ -1986,7 +2080,11 @@ async fn moderation_modes_preserve_policy_evidence_and_publication_boundaries() 
     let (_, viewer) = app
         .identity
         .0
-        .session(viewer_id, "browser", false)
+        .session(
+            viewer_id,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
         .await
         .unwrap();
     let profile = app.schools.0.school_detail(&actor, school).await.unwrap();
@@ -2705,18 +2803,19 @@ async fn case_management_projection_handling_and_upgrade() {
     for migration in &migrations[..target] {
         sqlx::raw_sql(&migration.sql).execute(&pool).await.unwrap();
     }
-    let app = bootstrap::build_application(pool.clone());
+    let app = bootstrap::build_application(pool.clone(), bootstrap::Options::local());
     let root = app
         .identity
         .bootstrap("case-root", "显示名", "test-password-at-least-12", true)
         .await
         .unwrap();
-    let (_, actor) = app
-        .identity
-        .0
-        .session(root, "browser", false)
-        .await
-        .unwrap();
+    // This test intentionally exercises an intermediate schema, before session scoping.
+    // Use a domain actor fixture; authenticate only against the complete schema.
+    let actor: linjian_api::business::Actor = serde_json::from_value(json!({
+        "id":root,"username":"test-admin","display_name":"测试管理员",
+        "platform_admin":true,"bound_school_id":null,"grants":[]
+    }))
+    .unwrap();
     let school: Uuid = app.schools.create(&actor, "案件所属学校").await.unwrap()["id"]
         .as_str()
         .unwrap()
@@ -2845,7 +2944,7 @@ async fn case_management_projection_handling_and_upgrade() {
         2
     );
     let mut mini = actor.clone();
-    mini.browser = false;
+    mini.session_kind = linjian_api::business::SessionKind::Miniapp;
     let mini_rows = app
         .community
         .cases(&mini, school, Page::default())
@@ -3057,7 +3156,7 @@ async fn post_management_order_status_import_and_live_permissions() {
     let schema = format!("forum_management_{}", Uuid::new_v4().simple());
     let pool = isolated(&admin, &schema).await;
     database::migrate(&pool).await.unwrap();
-    let app = bootstrap::build_application(pool.clone());
+    let app = bootstrap::build_application(pool.clone(), bootstrap::Options::local());
     let root = app
         .identity
         .bootstrap("root", "管理昵称", "test-password-at-least-12", true)
@@ -3066,7 +3165,11 @@ async fn post_management_order_status_import_and_live_permissions() {
     let (token, actor) = app
         .identity
         .0
-        .session(root, "browser", false)
+        .session(
+            root,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
         .await
         .unwrap();
     let school: Uuid = app.schools.create(&actor, "管理甲校").await.unwrap()["id"]
@@ -3455,7 +3558,11 @@ async fn post_management_order_status_import_and_live_permissions() {
     let (_, mut operator) = app
         .identity
         .0
-        .session(operator_id, "browser", false)
+        .session(
+            operator_id,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
         .await
         .unwrap();
     operator.grants = vec![Grant {
@@ -3514,7 +3621,7 @@ async fn post_management_order_status_import_and_live_permissions() {
             .is_err()
     );
     let mut bearer = actor.clone();
-    bearer.browser = false;
+    bearer.session_kind = linjian_api::business::SessionKind::Miniapp;
     assert!(
         app.community
             .management_list(&bearer, school, Default::default())
@@ -3664,13 +3771,14 @@ async fn post_management_upgrade_and_concurrent_reorders() {
     .await
     .unwrap();
     assert_eq!(counters, after);
-    let app = bootstrap::build_application(pool.clone());
-    let (_, actor) = app
-        .identity
-        .0
-        .session(account, "browser", false)
-        .await
-        .unwrap();
+    let app = bootstrap::build_application(pool.clone(), bootstrap::Options::local());
+    // This test intentionally exercises an intermediate schema, before session scoping.
+    // Use a domain actor fixture; authenticate only against the complete schema.
+    let actor: linjian_api::business::Actor = serde_json::from_value(json!({
+        "id":account,"username":"test-admin","display_name":"测试管理员",
+        "platform_admin":true,"bound_school_id":null,"grants":[]
+    }))
+    .unwrap();
     let list = app
         .community
         .management_list(
@@ -3740,7 +3848,7 @@ async fn home_menu_scope_import_and_revision_fencing() {
     let schema = format!("forum_home_menu_{}", Uuid::new_v4().simple());
     let pool = isolated(&admin, &schema).await;
     database::migrate(&pool).await.unwrap();
-    let app = bootstrap::build_application(pool.clone());
+    let app = bootstrap::build_application(pool.clone(), bootstrap::Options::local());
     let root = app
         .identity
         .bootstrap("root", "管理员", "test-password-at-least-12", true)
@@ -3749,7 +3857,11 @@ async fn home_menu_scope_import_and_revision_fencing() {
     let (_, actor) = app
         .identity
         .0
-        .session(root, "browser", false)
+        .session(
+            root,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
         .await
         .unwrap();
     let school: Uuid = app.schools.create(&actor, "甲校").await.unwrap()["id"]
@@ -3862,7 +3974,7 @@ async fn blocked_words_scope_import_and_order_fencing() {
     let schema = format!("forum_words_{}", Uuid::new_v4().simple());
     let pool = isolated(&admin, &schema).await;
     database::migrate(&pool).await.unwrap();
-    let app = bootstrap::build_application(pool.clone());
+    let app = bootstrap::build_application(pool.clone(), bootstrap::Options::local());
     let root = app
         .identity
         .bootstrap("root", "管理员", "test-password-at-least-12", true)
@@ -3871,7 +3983,11 @@ async fn blocked_words_scope_import_and_order_fencing() {
     let (_, actor) = app
         .identity
         .0
-        .session(root, "browser", false)
+        .session(
+            root,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
         .await
         .unwrap();
     let school: Uuid = app.schools.create(&actor, "甲校").await.unwrap()["id"]
@@ -4085,7 +4201,7 @@ async fn operations_scope_metrics_configuration_and_feedback_deletion() {
     let schema = format!("forum_operations_{}", Uuid::new_v4().simple());
     let pool = isolated(&admin, &schema).await;
     database::migrate(&pool).await.unwrap();
-    let app = bootstrap::build_application(pool.clone());
+    let app = bootstrap::build_application(pool.clone(), bootstrap::Options::local());
     let root = app
         .identity
         .bootstrap("root", "管理员", "test-password-at-least-12", true)
@@ -4094,7 +4210,11 @@ async fn operations_scope_metrics_configuration_and_feedback_deletion() {
     let (token, actor) = app
         .identity
         .0
-        .session(root, "browser", false)
+        .session(
+            root,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
         .await
         .unwrap();
     let s: Uuid = app.schools.create(&actor, "运营学校").await.unwrap()["id"]
@@ -4249,7 +4369,16 @@ async fn operations_scope_metrics_configuration_and_feedback_deletion() {
         .grant(&actor, s, uid, "operator")
         .await
         .unwrap();
-    let (_, operator) = app.identity.0.session(uid, "browser", false).await.unwrap();
+    let (_, operator) = app
+        .identity
+        .0
+        .session(
+            uid,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
+        .await
+        .unwrap();
     assert!(
         ops.execute(
             &operator,
@@ -4495,4 +4624,194 @@ async fn operations_scope_metrics_configuration_and_feedback_deletion() {
         .execute(&admin)
         .await
         .unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
+async fn management_sessions_bind_origin_and_remove_enterprise_directory() {
+    use linjian_api::business::SessionKind;
+    let admin = PgPool::connect(
+        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
+    )
+    .await
+    .unwrap();
+    let schema = format!("forum_origins_{}", Uuid::new_v4().simple());
+    let pool = isolated(&admin, &schema).await;
+    database::migrate(&pool).await.unwrap();
+    let remaining: i64 = sqlx::query_scalar("SELECT count(*) FROM information_schema.tables WHERE table_schema=current_schema() AND (table_name LIKE 'wecom_%' OR table_name IN ('oauth_states','forum_publication_configuration'))").fetch_one(&pool).await.unwrap();
+    assert_eq!(remaining, 0);
+    let remaining: i64 = sqlx::query_scalar("SELECT count(*) FROM information_schema.columns WHERE table_schema=current_schema() AND (column_name LIKE 'wecom_%' OR (table_name='source_connection_versions' AND column_name='public_origin'))").fetch_one(&pool).await.unwrap();
+    assert_eq!(remaining, 0);
+    let mut options = bootstrap::Options::local();
+    options.endpoints = linjian_api::config::origins::PublicEndpoints::parse(
+        |key| match key {
+            "LINJIAN_ADMIN_WEB_ORIGIN" => Some("https://admin.example.com".into()),
+            "LINJIAN_OFFICIAL_ACCOUNT_WEB_ORIGIN" => Some("https://m.example.com".into()),
+            "LINJIAN_BROWSER_ORIGINS" => {
+                Some(r#"["https://m.example.com","https://admin.example.com"]"#.into())
+            }
+            _ => None,
+        },
+        false,
+    )
+    .unwrap();
+    options.insecure_local_auth = false;
+    let app = bootstrap::build_application(pool.clone(), options);
+    let id = app
+        .identity
+        .bootstrap("admin", "管理员", "test-password-at-least-12", true)
+        .await
+        .unwrap();
+    let router = linjian_api::http::app_router(app.clone());
+    let login = json!({"data":{"type":"sessions","attributes":{"username":"admin","password":"test-password-at-least-12"}}});
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/auth/sessions")
+                .header("Content-Type", "application/vnd.api+json")
+                .header("Origin", "https://admin.example.com:443")
+                .body(Body::from(login.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let cookie = response.headers()["set-cookie"]
+        .to_str()
+        .unwrap()
+        .to_owned();
+    assert!(
+        cookie.contains("HttpOnly") && cookie.contains("Secure") && cookie.contains("SameSite=Lax")
+    );
+    assert!(!cookie.contains("Domain="));
+    let document: Value =
+        serde_json::from_slice(&to_bytes(response.into_body(), 8192).await.unwrap()).unwrap();
+    assert!(
+        document["data"]["attributes"]["user"]
+            .get("wecom_authenticated")
+            .is_none()
+    );
+    let csrf = document["data"]["attributes"]["csrf"].as_str().unwrap();
+    let token = cookie
+        .split(';')
+        .next()
+        .unwrap()
+        .strip_prefix("linjian_session=")
+        .unwrap();
+    let actor = app
+        .identity
+        .authenticate(token, SessionKind::AdminBrowser)
+        .await
+        .unwrap();
+    assert_eq!(
+        actor.login_origin.as_deref(),
+        Some("https://admin.example.com")
+    );
+    assert!(
+        app.identity
+            .authenticate(token, SessionKind::Miniapp)
+            .await
+            .is_err()
+    );
+    for (origin, supplied_csrf, expected) in [
+        (None, Some(csrf), StatusCode::FORBIDDEN),
+        (
+            Some("https://m.example.com"),
+            Some(csrf),
+            StatusCode::FORBIDDEN,
+        ),
+        (
+            Some("https://admin.example.com"),
+            None,
+            StatusCode::FORBIDDEN,
+        ),
+        (
+            Some("https://admin.example.com"),
+            Some("forged"),
+            StatusCode::FORBIDDEN,
+        ),
+        (
+            Some("https://admin.example.com"),
+            Some(csrf),
+            StatusCode::OK,
+        ),
+    ] {
+        let mut request = Request::builder()
+            .method("PUT")
+            .uri("/api/v1/profile")
+            .header("Content-Type", "application/vnd.api+json")
+            .header("Cookie", format!("linjian_session={token}"));
+        if let Some(origin) = origin {
+            request = request.header("Origin", origin);
+        }
+        if let Some(csrf) = supplied_csrf {
+            request = request.header("X-CSRF-Token", csrf);
+        }
+        let response = router
+            .clone()
+            .oneshot(
+                request
+                    .body(Body::from(
+                        json!({"data":{"type":"accounts","attributes":{"display_name":"新名称"}}})
+                            .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), expected);
+    }
+    // A global source-set change cannot move an existing session to another admin entrance.
+    let (other_token, other_origin_actor) = app
+        .identity
+        .0
+        .session(
+            id,
+            SessionKind::AdminBrowser,
+            Some("https://other.example.com"),
+        )
+        .await
+        .unwrap();
+    assert_ne!(other_origin_actor.login_origin, actor.login_origin);
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri("/api/v1/profile")
+                .header("Content-Type", "application/vnd.api+json")
+                .header("Origin", "https://admin.example.com")
+                .header("Cookie", format!("linjian_session={other_token}"))
+                .header("X-CSRF-Token", &other_origin_actor.csrf)
+                .body(Body::from(
+                    json!({"data":{"type":"accounts","attributes":{"display_name":"不应生效"}}})
+                        .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    app.identity
+        .0
+        .reset_password(
+            id,
+            &linjian_api::identity::domain::password_hash("new-password-at-least-12").unwrap(),
+        )
+        .await
+        .unwrap();
+    assert!(
+        app.identity
+            .authenticate(token, SessionKind::AdminBrowser)
+            .await
+            .is_err()
+    );
+    pool.close().await;
+    sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
+        .execute(&admin)
+        .await
+        .unwrap();
+    admin.close().await;
 }

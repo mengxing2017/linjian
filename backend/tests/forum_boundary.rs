@@ -24,12 +24,19 @@ async fn routing_has_no_sender_or_shared_session_dependency() {
     let pool = sqlx::postgres::PgPoolOptions::new()
         .connect_lazy("postgresql://unused:unused@127.0.0.1:1/unused")
         .unwrap();
-    let router = http::app_router(bootstrap::build_application(pool));
+    let router = http::app_router(bootstrap::build_application(
+        pool,
+        bootstrap::Options::local(),
+    ));
     for path in [
         "/api/v1/platform/execution-devices",
         "/api/v1/schools/s/mobile-execution/shared-tasks",
         "/api/v1/schools/s/broadcast-tasks",
         "/api/v1/schools/s/groups",
+        "/api/v1/wecom/status",
+        "/api/v1/wecom/oauth/start",
+        "/api/v1/wecom/oauth/callback",
+        "/api/v1/platform/wecom-directory/status",
     ] {
         let response = router
             .clone()
@@ -63,6 +70,55 @@ async fn routing_has_no_sender_or_shared_session_dependency() {
     let doc: serde_json::Value =
         serde_json::from_slice(&to_bytes(response.into_body(), 8192).await.unwrap()).unwrap();
     assert_eq!(doc["data"]["attributes"]["application"], "linjian");
+}
+
+#[tokio::test]
+async fn browser_login_and_miniapp_login_have_distinct_source_rules() {
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .connect_lazy("postgresql://unused:unused@127.0.0.1:1/unused")
+        .unwrap();
+    let endpoints = linjian_api::config::origins::PublicEndpoints::parse(
+        |key| match key {
+            "LINJIAN_ADMIN_WEB_ORIGIN" => Some("https://admin.example.com".into()),
+            "LINJIAN_OFFICIAL_ACCOUNT_WEB_ORIGIN" => Some("https://m.example.com".into()),
+            "LINJIAN_BROWSER_ORIGINS" => {
+                Some(r#"["https://admin.example.com","https://m.example.com"]"#.into())
+            }
+            _ => None,
+        },
+        false,
+    )
+    .unwrap();
+    let router = http::app_router(bootstrap::build_application(
+        pool,
+        bootstrap::Options {
+            endpoints,
+            insecure_local_auth: false,
+        },
+    ));
+    for path in ["/api/v1/auth/sessions", "/api/v1/auth/miniapp"] {
+        let body = if path.ends_with("miniapp") {
+            r#"{"data":{"type":"sessions","attributes":{"code":"unused"}}}"#
+        } else {
+            r#"{"data":{"type":"sessions","attributes":{"username":"unused","password":"unused"}}}"#
+        };
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(path)
+                    .header("Content-Type", "application/vnd.api+json")
+                    .header("Origin", "https://m.example.com")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        // Reject the trusted H5 source before any database or upstream access.
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        assert!(!response.headers().contains_key("set-cookie"));
+    }
 }
 
 #[tokio::test]

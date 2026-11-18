@@ -15,7 +15,7 @@ fn decode(v: Value) -> Result<UserView> {
     serde_json::from_value(v).map_err(|_| Error::Unavailable)
 }
 pub fn authorize(a: &Actor, school: Option<Uuid>, write: bool) -> Result<()> {
-    if !a.browser {
+    if !a.is_admin_browser() {
         return Err(Error::Forbidden);
     }
     if let Some(s) = school {
@@ -177,7 +177,7 @@ impl Repository {
         Ok(())
     }
     pub async fn profile(&self, a: &Actor, v: ProfileInput) -> Result<UserView> {
-        require(!a.browser, "请使用小程序身份")?;
+        require(!a.is_admin_browser(), "请使用小程序身份")?;
         let nickname = text(&v.nickname, 1, 100)?;
         let mut tx = self.0.begin().await?;
         let (school, status, revision) = lock_user(&mut tx, a.id).await?;
@@ -214,7 +214,7 @@ impl Repository {
         if admin {
             a.platform()?;
         } else {
-            require(!a.browser && a.id == id, "请使用本人小程序身份")?;
+            require(!a.is_admin_browser() && a.id == id, "请使用本人小程序身份")?;
             require(v.reason.is_none(), "登记不接受管理字段")?;
         }
         let value = mobile(&v.mobile)?;
@@ -310,7 +310,7 @@ impl Repository {
         Ok(())
     }
     pub async fn upload(&self, a: &Actor, bytes: Vec<u8>) -> Result<Uuid> {
-        require(!a.browser, "请使用小程序身份")?;
+        require(!a.is_admin_browser(), "请使用小程序身份")?;
         let (mime, _, _) = crate::media::domain::validate(&bytes)?;
         let mut tx = self.0.begin().await?;
         let (_, status, _) = lock_user(&mut tx, a.id).await?;
@@ -333,7 +333,7 @@ impl Repository {
     }
     pub async fn avatar(&self, a: &Actor, id: Uuid) -> Result<(String, Vec<u8>)> {
         let row=sqlx::query("SELECT x.mime_type,x.content FROM miniapp_avatar_assets x JOIN accounts owner ON owner.id=x.owner_id WHERE x.id=$1 AND (x.owner_id=$2 OR ($3 AND EXISTS(SELECT 1 FROM miniapp_users u WHERE u.account_id=owner.id AND u.avatar_asset_id=x.id) AND ($4 OR owner.bound_school_id=ANY($5))))")
-  .bind(id).bind(a.id).bind(a.browser).bind(a.platform_admin).bind(a.grants.iter().filter(|g|matches!(g.role.as_str(),"admin"|"operator")).map(|g|g.school_id).collect::<Vec<_>>()).fetch_optional(&self.0).await?.ok_or(Error::NotFound)?;
+  .bind(id).bind(a.id).bind(a.is_admin_browser()).bind(a.platform_admin).bind(a.grants.iter().filter(|g|matches!(g.role.as_str(),"admin"|"operator")).map(|g|g.school_id).collect::<Vec<_>>()).fetch_optional(&self.0).await?.ok_or(Error::NotFound)?;
         Ok((row.get("mime_type"), row.get("content")))
     }
     pub async fn cleanup(&self) -> Result<()> {
@@ -360,7 +360,7 @@ pub async fn guard_write(
     a: &Actor,
     school: Uuid,
 ) -> Result<()> {
-    if a.browser {
+    if a.is_admin_browser() {
         return crate::schools::south::adapter::postgres::profiles::lock_active_school(tx, school)
             .await;
     }

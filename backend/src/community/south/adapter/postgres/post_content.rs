@@ -61,7 +61,7 @@ pub(super) async fn create(
     let id = Uuid::now_v7();
     let item=sqlx::query_scalar("INSERT INTO posts(id,school_id,author_id,title,content,images,tags,audit_status,created_via,source_projection) VALUES($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9) RETURNING to_jsonb(posts)")
  .bind(id).bind(s).bind(a.id).bind(v.title.trim()).bind(v.content.trim()).bind(json!(v.images)).bind(json!(v.tags))
- .bind(if a.browser {"web"} else {"miniapp"}).bind("message_v1").fetch_one(&mut **tx).await?;
+ .bind(if a.is_admin_browser() {"web"} else {"miniapp"}).bind("message_v1").fetch_one(&mut **tx).await?;
     let item = decisions::automatically_approve(tx, item, policy).await?;
     crate::audit::record(
         tx,

@@ -44,7 +44,7 @@ async fn detail(
     Path(s): Path<Uuid>,
 ) -> Result<ApiResponse> {
     let row = Repository(a.pool).school_detail(&actor, s).await?;
-    if actor.browser && actor.can(s, "operator") {
+    if actor.is_admin_browser() && actor.can(s, "operator") {
         Ok(resource("schools", row))
     } else {
         Ok(resource("schools", row.directory()))

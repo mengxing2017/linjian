@@ -11,7 +11,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut password = String::new();
         std::io::stdin().read_to_string(&mut password)?;
         linjian_api::database::migrate(&pool).await?;
-        let a = linjian_api::bootstrap::build_application(pool.clone());
+        let a = linjian_api::bootstrap::build_application(pool.clone(), Default::default());
         let id = a
             .identity
             .bootstrap(&username, &username, password.trim_end(), true)

@@ -18,7 +18,7 @@ impl<R: Store> Service<R> {
         s: Uuid,
         page: Page,
     ) -> Result<Vec<crate::community::domain::review::PostReview>> {
-        if !a.browser {
+        if !a.is_admin_browser() {
             return Err(crate::business::Error::Forbidden);
         }
         a.authorize(s, "operator")?;
@@ -30,7 +30,7 @@ impl<R: Store> Service<R> {
         s: Uuid,
         id: Uuid,
     ) -> Result<crate::community::domain::review::PostReview> {
-        if !a.browser {
+        if !a.is_admin_browser() {
             return Err(crate::business::Error::Forbidden);
         }
         a.authorize(s, "operator")?;
@@ -121,7 +121,7 @@ impl<R: Store> Service<R> {
         id: Option<Uuid>,
         p: crate::business::Page,
     ) -> Result<Vec<Value>> {
-        if id.is_none() && !a.browser {
+        if id.is_none() && !a.is_admin_browser() {
             return Err(crate::business::Error::Forbidden);
         }
         a.authorize(s, if id.is_some() { "member" } else { "operator" })?;
@@ -146,7 +146,7 @@ impl<R: Store> Service<R> {
         id: Uuid,
         v: crate::community::domain::SetCommentVisibility,
     ) -> Result<Value> {
-        if !a.browser {
+        if !a.is_admin_browser() {
             return Err(crate::business::Error::Forbidden);
         }
         a.authorize(s, "operator")?;

@@ -101,7 +101,7 @@ async fn platform_status(
     Ok(completed())
 }
 async fn profile(State(a): State<Application>, actor: Actor) -> Result<ApiResponse> {
-    crate::business::require(!actor.browser, "请使用小程序身份")?;
+    crate::business::require(!actor.is_admin_browser(), "请使用小程序身份")?;
     Ok(resource(
         "miniapp-profiles",
         Repository(a.pool).own(actor.id).await?,

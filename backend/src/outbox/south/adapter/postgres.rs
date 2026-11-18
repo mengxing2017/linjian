@@ -26,7 +26,7 @@ fn public(mut v: Value) -> Result<Value> {
     serde_json::to_value(view).map_err(|e| Error::Database(e.to_string()))
 }
 fn authorize(actor: &Actor, school: Uuid) -> Result<()> {
-    if actor.browser && actor.can(school, "operator") {
+    if actor.is_admin_browser() && actor.can(school, "operator") {
         Ok(())
     } else {
         Err(Error::NotFound)

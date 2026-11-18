@@ -1,5 +1,5 @@
 use super::super::{domain, south::adapter::postgres::Repository};
-use crate::business::{Actor, Error, Result, require, text};
+use crate::business::{Actor, Error, Result, SessionKind, require, text};
 use crate::identity::south::port::Store;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -24,7 +24,7 @@ pub struct AccountUpdate {
     pub active: bool,
 }
 impl<R: Store> Service<R> {
-    pub async fn login(&self, input: Login) -> Result<(String, Actor)> {
+    pub async fn login(&self, input: Login, origin: &str) -> Result<(String, Actor)> {
         let name = text(&input.username, 1, 100)?;
         require(input.password.len() <= 128, "密码过长")?;
         self.0.throttle(&name).await?;
@@ -43,7 +43,11 @@ impl<R: Store> Service<R> {
             return Err(Error::Unauthorized);
         }
         self.0
-            .session(row.expect("verified account").0, "browser", false)
+            .session(
+                row.expect("verified account").0,
+                SessionKind::AdminBrowser,
+                Some(origin),
+            )
             .await
     }
     pub async fn create(&self, actor: &Actor, input: NewAccount) -> Result<Value> {
@@ -83,14 +87,14 @@ impl<R: Store> Service<R> {
 }
 
 impl<R: Store> Service<R> {
-    pub async fn authenticate(&self, token: &str, kind: &str) -> Result<Actor> {
+    pub async fn authenticate(&self, token: &str, kind: SessionKind) -> Result<Actor> {
         self.0.authenticate(token, kind).await
     }
     pub async fn logout(&self, a: &Actor) -> Result<()> {
         self.0.logout(&a.session_hash).await
     }
     pub async fn profile(&self, a: &Actor, name: &str) -> Result<Value> {
-        require(a.browser, "小程序请使用独立用户资料接口")?;
+        require(a.is_admin_browser(), "小程序请使用独立用户资料接口")?;
         self.0.profile(a.id, &text(name, 1, 100)?).await
     }
 }

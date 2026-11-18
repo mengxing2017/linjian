@@ -41,6 +41,20 @@ pub struct Grant {
     pub school_id: Uuid,
     pub role: String,
 }
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SessionKind {
+    #[default]
+    AdminBrowser,
+    Miniapp,
+}
+impl SessionKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::AdminBrowser => "admin_browser",
+            Self::Miniapp => "miniapp",
+        }
+    }
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Actor {
     pub id: Uuid,
@@ -56,14 +70,17 @@ pub struct Actor {
     #[serde(skip)]
     pub request_id: String,
     #[serde(skip)]
-    pub browser: bool,
-    pub wecom_authenticated: bool,
+    pub session_kind: SessionKind,
     #[serde(skip)]
-    pub wecom_binding_revision: i64,
+    pub login_origin: Option<String>,
 }
 impl Actor {
+    pub fn is_admin_browser(&self) -> bool {
+        self.session_kind == SessionKind::AdminBrowser
+    }
+
     pub fn can(&self, school: Uuid, role: &str) -> bool {
-        (self.browser || role == "member")
+        (self.is_admin_browser() || role == "member")
             && (self.platform_admin
                 || self.grants.iter().any(|g| {
                     g.school_id == school
@@ -80,7 +97,7 @@ impl Actor {
         }
     }
     pub fn platform(&self) -> Result<()> {
-        if self.browser && self.platform_admin {
+        if self.is_admin_browser() && self.platform_admin {
             Ok(())
         } else {
             Err(Error::Forbidden)

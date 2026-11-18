@@ -1,7 +1,7 @@
 use super::local::{AccountUpdate, Login, NewAccount};
 use crate::{
     bootstrap::Application,
-    business::{Actor, Error, Result},
+    business::{Actor, Error, Result, SessionKind},
     http::jsonapi::{ApiResponse, Input, completed, resource, singleton},
 };
 use axum::{
@@ -16,28 +16,8 @@ use uuid::Uuid;
 impl FromRequestParts<Application> for Actor {
     type Rejection = Error;
     async fn from_request_parts(parts: &mut Parts, state: &Application) -> Result<Self> {
-        let bearer = parts
-            .headers
-            .get(header::AUTHORIZATION)
-            .and_then(|s| s.to_str().ok())
-            .and_then(|s| s.strip_prefix("Bearer "));
-        let cookie = parts
-            .headers
-            .get(header::COOKIE)
-            .and_then(|s| s.to_str().ok())
-            .and_then(|s| {
-                s.split(';')
-                    .find_map(|v| v.trim().strip_prefix("linjian_session="))
-            });
-        let (token, kind) = if let Some(t) = bearer {
-            (t, "miniapp")
-        } else {
-            (cookie.ok_or(Error::Unauthorized)?, "browser")
-        };
+        let (token, kind) = credentials(&parts.headers)?;
         let mut actor = state.identity.authenticate(token, kind).await?;
-        if actor.wecom_authenticated {
-            state.integrations.directory().ensure_config().await?;
-        }
         let segments: Vec<_> = parts
             .uri
             .path()
@@ -49,7 +29,7 @@ impl FromRequestParts<Application> for Actor {
         {
             let entity = segments.len() == 4;
             let artwork = segments.get(4) == Some(&"resource-artwork");
-            if !(actor.browser && actor.platform_admin && (entity || artwork)) {
+            if !(actor.is_admin_browser() && actor.platform_admin && (entity || artwork)) {
                 crate::schools::south::adapter::postgres::Repository(state.pool.clone())
                     .require_active(id)
                     .await?;
@@ -63,8 +43,12 @@ impl FromRequestParts<Application> for Actor {
             .chars()
             .take(64)
             .collect();
-        if actor.browser && !matches!(parts.method.as_str(), "GET" | "HEAD" | "OPTIONS") {
-            check_origin(&parts.headers, state)?;
+        if actor.is_admin_browser() && !matches!(parts.method.as_str(), "GET" | "HEAD" | "OPTIONS")
+        {
+            let origin = check_origin(&parts.headers, state)?;
+            if actor.login_origin.as_deref() != Some(origin.as_str()) {
+                return Err(Error::Forbidden);
+            }
             if parts
                 .headers
                 .get("x-csrf-token")
@@ -77,41 +61,56 @@ impl FromRequestParts<Application> for Actor {
         Ok(actor)
     }
 }
-pub fn check_origin(h: &HeaderMap, a: &Application) -> Result<()> {
-    let origin = h.get(header::ORIGIN).and_then(|s| s.to_str().ok());
-    if origin.is_some_and(|origin| origin_allowed(origin, &a.options)) {
-        Ok(())
+fn credentials(headers: &HeaderMap) -> Result<(&str, SessionKind)> {
+    let mut cookies = headers
+        .get_all(header::COOKIE)
+        .iter()
+        .filter_map(|value| value.to_str().ok())
+        .flat_map(|value| value.split(';'))
+        .filter_map(|value| value.trim().strip_prefix("linjian_session="));
+    let cookie = cookies.next();
+    if cookies.next().is_some() || headers.get_all(header::AUTHORIZATION).iter().count() > 1 {
+        return Err(Error::Unauthorized);
+    }
+    if let Some(value) = headers.get(header::AUTHORIZATION) {
+        if cookie.is_some() {
+            return Err(Error::Unauthorized);
+        }
+        let token = value
+            .to_str()
+            .ok()
+            .and_then(|value| value.strip_prefix("Bearer "))
+            .filter(|token| !token.is_empty() && !token.chars().any(char::is_whitespace))
+            .ok_or(Error::Unauthorized)?;
+        Ok((token, SessionKind::Miniapp))
     } else {
-        tracing::warn!("request Origin does not match LINJIAN_PUBLIC_ORIGIN");
-        Err(Error::Forbidden)
+        Ok((
+            cookie
+                .filter(|token| !token.is_empty())
+                .ok_or(Error::Unauthorized)?,
+            SessionKind::AdminBrowser,
+        ))
     }
 }
 
-fn origin_allowed(origin: &str, options: &crate::bootstrap::Options) -> bool {
-    if origin == options.public_origin {
-        return true;
+pub fn check_origin(h: &HeaderMap, a: &Application) -> Result<String> {
+    if h.get_all(header::ORIGIN).iter().count() != 1 {
+        return Err(Error::Forbidden);
     }
-    if !options.insecure_local_auth {
-        return false;
+    let origin = h
+        .get(header::ORIGIN)
+        .and_then(|value| value.to_str().ok())
+        .ok_or(Error::Forbidden)?;
+    if !a
+        .options
+        .endpoints
+        .allows_admin(origin, a.options.insecure_local_auth)
+    {
+        return Err(Error::Forbidden);
     }
-    // Only explicit loopback aliases are interchangeable, with the same scheme
-    // and port. Never trust arbitrary Host/Forwarded headers or other ports.
-    for scheme in ["http", "https"] {
-        for host in ["localhost", "127.0.0.1", "[::1]"] {
-            let prefix = format!("{scheme}://{host}");
-            if let Some(suffix) = options.public_origin.strip_prefix(&prefix)
-                && (suffix.is_empty()
-                    || suffix
-                        .strip_prefix(':')
-                        .is_some_and(|port| port.parse::<u16>().is_ok()))
-            {
-                return ["localhost", "127.0.0.1", "[::1]"]
-                    .iter()
-                    .any(|alias| origin == format!("{scheme}://{alias}{suffix}"));
-            }
-        }
-    }
-    false
+    crate::config::origins::CanonicalOrigin::parse(origin, a.options.insecure_local_auth)
+        .map(|origin| origin.as_str().to_owned())
+        .map_err(|_| Error::Forbidden)
 }
 
 pub fn cookie(token: &str, secure: bool, max_age: u32) -> String {
@@ -126,8 +125,8 @@ async fn login(
     input_document: Input,
 ) -> Result<Response> {
     let input = input_document.decode::<Login>("sessions")?;
-    check_origin(&headers, &a)?;
-    let (t, user) = a.identity.login(input).await?;
+    let origin = check_origin(&headers, &a)?;
+    let (t, user) = a.identity.login(input, &origin).await?;
     let c = cookie(&t, !a.options.insecure_local_auth, 28800);
     Ok((
         [
@@ -150,6 +149,9 @@ async fn session(State(_a): State<Application>, actor: Actor) -> impl IntoRespon
 }
 async fn logout(State(a): State<Application>, actor: Actor) -> Result<Response> {
     a.identity.logout(&actor).await?;
+    if !actor.is_admin_browser() {
+        return Ok(completed().into_response());
+    }
     Ok((
         [(
             header::SET_COOKIE,
@@ -215,37 +217,23 @@ pub fn router() -> Router<Application> {
 }
 
 #[cfg(test)]
-mod origin_tests {
+mod tests {
     use super::*;
-
     #[test]
-    fn loopback_aliases_only_in_local_mode_with_matching_scheme_and_port() {
-        let mut options = crate::bootstrap::Options {
-            public_origin: "http://localhost:5173".into(),
-            insecure_local_auth: true,
-        };
-        for origin in [
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-            "http://[::1]:5173",
-        ] {
-            assert!(origin_allowed(origin, &options));
-        }
-        for origin in [
-            "null",
-            "http://localhost:5174",
-            "https://localhost:5173",
-            "http://localhost.evil.test:5173",
-            "http://evil.test:5173",
-            "http://127.0.0.1:5173/path",
-        ] {
-            assert!(!origin_allowed(origin, &options));
-        }
-        options.insecure_local_auth = false;
-        assert!(!origin_allowed("http://127.0.0.1:5173", &options));
-        assert!(origin_allowed("http://localhost:5173", &options));
-        options.insecure_local_auth = true;
-        options.public_origin = "https://example.com".into();
-        assert!(!origin_allowed("http://localhost:5173", &options));
+    fn credentials_do_not_downgrade_or_mix_identities() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::COOKIE, "linjian_session=valid".parse().unwrap());
+        assert_eq!(credentials(&headers).unwrap().1, SessionKind::AdminBrowser);
+        headers.insert(header::AUTHORIZATION, "Basic invalid".parse().unwrap());
+        assert!(credentials(&headers).is_err());
+        headers.insert(header::AUTHORIZATION, "Bearer token".parse().unwrap());
+        assert!(credentials(&headers).is_err());
+        headers.remove(header::COOKIE);
+        assert_eq!(
+            credentials(&headers).unwrap(),
+            ("token", SessionKind::Miniapp)
+        );
+        headers.append(header::AUTHORIZATION, "Bearer other".parse().unwrap());
+        assert!(credentials(&headers).is_err());
     }
 }

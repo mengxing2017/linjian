@@ -1,17 +1,21 @@
 use crate::system::{north::local::SystemService, south::adapter::postgres::PostgresReadiness};
 use sqlx::PgPool;
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Options {
-    pub public_origin: String,
+    pub endpoints: crate::config::origins::PublicEndpoints,
     pub insecure_local_auth: bool,
 }
-impl Default for Options {
-    fn default() -> Self {
+impl Options {
+    pub fn from_env(local: bool) -> Result<Self, String> {
+        Ok(Self {
+            endpoints: crate::config::origins::PublicEndpoints::from_env(local)?,
+            insecure_local_auth: local,
+        })
+    }
+    pub fn local() -> Self {
         Self {
-            public_origin: std::env::var("LINJIAN_PUBLIC_ORIGIN")
-                .unwrap_or_else(|_| "http://localhost:5173".into()),
-            insecure_local_auth: std::env::var("LINJIAN_INSECURE_LOCAL_AUTH")
-                .is_ok_and(|v| v == "true"),
+            endpoints: crate::config::origins::PublicEndpoints::local_admin(),
+            insecure_local_auth: true,
         }
     }
 }
@@ -27,11 +31,11 @@ pub struct Application {
     pub integrations: crate::integrations::north::local::Service,
     pub media: crate::media::north::local::Service,
 }
-pub fn build_application(pool: PgPool) -> Application {
+pub fn build_application(pool: PgPool, options: Options) -> Application {
     Application {
         legacy: crate::legacy::south::adapter::postgres::Repository(pool.clone()),
         system: SystemService::new(PostgresReadiness::new(pool.clone())),
-        options: Options::default(),
+        options,
         identity: crate::identity::north::local::Service(
             crate::identity::south::adapter::postgres::Repository(pool.clone()),
         ),

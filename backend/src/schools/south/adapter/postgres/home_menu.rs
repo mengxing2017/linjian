@@ -12,7 +12,7 @@ async fn guard(
     s: Uuid,
     role: &str,
 ) -> Result<()> {
-    if role != "member" && !a.browser {
+    if role != "member" && !a.is_admin_browser() {
         return Err(Error::Forbidden);
     }
     preview::authorize(tx, a, Some(s), role).await?;

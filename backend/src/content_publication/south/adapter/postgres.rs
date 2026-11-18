@@ -12,7 +12,7 @@ use uuid::Uuid;
 pub struct Repository(pub PgPool);
 impl Repository {
     pub async fn retry(&self, a: &Actor, school: Uuid, id: Uuid, input: Retry) -> Result<()> {
-        if !a.browser || !a.can(school, "operator") {
+        if !a.is_admin_browser() || !a.can(school, "operator") {
             return Err(Error::NotFound);
         }
         let reason = text(&input.reason, 1, 500)?;

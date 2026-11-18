@@ -1,4 +1,4 @@
-use crate::business::{Actor, Result};
+use crate::business::{Actor, Result, SessionKind};
 use serde_json::Value;
 use uuid::Uuid;
 pub trait Store: Clone + Send + Sync + 'static {
@@ -11,13 +11,13 @@ pub trait Store: Clone + Send + Sync + 'static {
     fn session(
         &self,
         id: Uuid,
-        kind: &str,
-        wecom: bool,
+        kind: SessionKind,
+        origin: Option<&str>,
     ) -> impl std::future::Future<Output = Result<(String, Actor)>> + Send;
     fn authenticate(
         &self,
         token: &str,
-        kind: &str,
+        kind: SessionKind,
     ) -> impl std::future::Future<Output = Result<Actor>> + Send;
     fn logout(&self, h: &str) -> impl std::future::Future<Output = Result<()>> + Send;
     fn create(

@@ -44,12 +44,12 @@ impl Repository {
         decode(v)
     }
     pub async fn school_list(&self, a: &Actor) -> Result<Vec<Value>> {
-        let all = a.browser && a.platform_admin;
+        let all = a.is_admin_browser() && a.platform_admin;
         let rows:Vec<Value>=sqlx::query_scalar(&format!("SELECT to_jsonb(v) FROM ({VIEW} WHERE ($1 OR (s.active AND s.id IN(SELECT school_id FROM school_memberships WHERE account_id=$2 AND role<>'revoked'))) ORDER BY s.name,s.id) v")).bind(all).bind(a.id).fetch_all(&self.0).await?;
         rows.into_iter()
             .map(|v| {
                 let s = decode(v)?;
-                if a.browser && a.can(s.id, "operator") {
+                if a.is_admin_browser() && a.can(s.id, "operator") {
                     serde_json::to_value(s).map_err(|_| Error::Unavailable)
                 } else {
                     Ok(s.directory())
@@ -86,7 +86,7 @@ impl Repository {
             .collect()
     }
     pub async fn save_school(&self, a: &Actor, id: Option<Uuid>, raw: Value) -> Result<SchoolView> {
-        require(a.browser, "请使用后台身份")?;
+        require(a.is_admin_browser(), "请使用后台身份")?;
         let supplied = SchoolInput::parse(raw.clone())?;
         if id.is_none() {
             a.platform()?;

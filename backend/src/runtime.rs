@@ -39,18 +39,31 @@ async fn serve_inner(
     std::env::var("LINJIAN_MINIAPP_SOURCE_ENABLED")
         .unwrap_or_else(|_| "true".into())
         .parse::<bool>()?;
+    let local = embedded || std::env::var("LINJIAN_INSECURE_LOCAL_AUTH").is_ok_and(|v| v == "true");
+    let options = if embedded
+        && [
+            "LINJIAN_ADMIN_WEB_ORIGIN",
+            "LINJIAN_BROWSER_ORIGINS",
+            "LINJIAN_OFFICIAL_ACCOUNT_WEB_ORIGIN",
+            "LINJIAN_COMMUNITY_WEB_ORIGIN",
+            "LINJIAN_API_PUBLIC_ORIGIN",
+        ]
+        .iter()
+        .all(|key| std::env::var(key).is_err())
+    {
+        bootstrap::Options::local()
+    } else {
+        bootstrap::Options::from_env(local).map_err(std::io::Error::other)?
+    };
     database::migrate(&pool).await?;
     crate::source_access::south::adapter::postgres::Repository(pool.clone())
         .publish_environment()
         .await
         .map_err(|fault| std::io::Error::other(fault.0))?;
-    let mut application = bootstrap::build_application(pool.clone());
+    let application = bootstrap::build_application(pool.clone(), options);
     let configured_password = std::env::var("LINJIAN_DEV_ADMIN_PASSWORD").ok();
     let generated_password = (embedded && configured_password.is_none())
         .then(|| uuid::Uuid::new_v4().simple().to_string());
-    if embedded {
-        application.options.insecure_local_auth = true;
-    }
     if let Some(password) = configured_password.as_ref().or(generated_password.as_ref()) {
         if !application.options.insecure_local_auth {
             return Err("development bootstrap requires LINJIAN_INSECURE_LOCAL_AUTH=true".into());
@@ -64,7 +77,9 @@ async fn serve_inner(
     }
     let listener = tokio::net::TcpListener::bind(bind_addr).await?;
     if embedded {
-        eprintln!("本地管理后台：{}/admin", application.options.public_origin);
+        if let Some(origin) = &application.options.endpoints.admin {
+            eprintln!("本地管理后台：{}/admin", origin.as_str());
+        }
         eprintln!("管理员用户名：admin");
         if let Some(password) = generated_password {
             eprintln!("本次临时管理员密码：{password}");
@@ -73,33 +88,6 @@ async fn serve_inner(
         }
     }
     info!(address = %listener.local_addr()?, "Linjian API listening");
-    let directory = application.integrations.directory();
-    let interval = std::env::var("LINJIAN_WECOM_DIRECTORY_INTERVAL_SECONDS")
-        .ok()
-        .and_then(|v| v.parse::<i64>().ok())
-        .unwrap_or(1800);
-    if interval != 0 && interval < 60 {
-        return Err("directory interval must be 0 or at least 60 seconds".into());
-    }
-    tracing::info!(
-        server_configured = directory.server_configured,
-        interval_seconds = interval,
-        poll_seconds = 5,
-        "wecom directory worker initialized; interval 0 disables scheduled sync only"
-    );
-    let worker = tokio::spawn(async move {
-        loop {
-            if directory.server_configured
-                && let Err(error) = directory.run_once(interval).await
-            {
-                tracing::warn!(
-                    error_code = crate::integrations::north::directory::error_code(&error),
-                    "wecom directory worker failed; inspect task logs and directory configuration"
-                );
-            }
-            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-        }
-    });
     let artwork = crate::schools::south::adapter::postgres::Repository(application.pool.clone());
     let avatar_cleanup =
         crate::miniapp_users::south::adapter::postgres::Repository(application.pool.clone());
@@ -172,8 +160,6 @@ async fn serve_inner(
     for task in publication_tasks {
         task.abort();
     }
-    worker.abort();
-    let _ = worker.await;
     result?;
     Ok(())
 }

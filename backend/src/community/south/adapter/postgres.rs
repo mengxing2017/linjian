@@ -97,7 +97,7 @@ impl Repository {
     ) -> Result<Value> {
         let mut tx = self.0.begin().await?;
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
-        if !a.browser {
+        if !a.is_admin_browser() {
             return Err(Error::Forbidden);
         }
         let allowed: bool = sqlx::query_scalar(reviews::AUTHORIZATION)
@@ -117,7 +117,7 @@ impl Repository {
             return Err(Error::Conflict);
         }
         let managed = !comment && current["source_projection"] == "message_v1";
-        if managed && !a.browser {
+        if managed && !a.is_admin_browser() {
             return Err(Error::Forbidden);
         }
         sqlx::query("SELECT id FROM schools WHERE id=$1 FOR UPDATE")
@@ -221,7 +221,7 @@ impl Repository {
             .require_active(s)
             .await?;
         let (l, o) = p.fetch_bounds()?;
-        Ok(sqlx::query_scalar("SELECT to_jsonb(c)||jsonb_build_object('author_name',coalesce((SELECT nickname FROM miniapp_users WHERE account_id=a.id),a.display_name),'post_title',p.title)||CASE WHEN $3 THEN forum_decision_details(c.school_id,c.id,'comment',c.decision_revision,c.audit_status) ELSE '{}'::jsonb END FROM comments c JOIN posts p ON p.id=c.post_id JOIN accounts a ON a.id=c.author_id WHERE c.school_id=$1 AND ($2::uuid IS NULL OR c.post_id=$2) AND NOT c.deleted AND ($3 OR (p.visibility='visible' AND p.audit_status='approved' AND c.visibility='visible' AND (c.audit_status='approved' OR c.author_id=$4))) AND ($9::text IS NULL OR $9='' OR c.visibility=$9) AND ($5::text IS NULL OR $5='' OR c.audit_status=$5) AND (c.content ILIKE $8 OR p.title ILIKE $8) ORDER BY c.created_at DESC,c.id DESC LIMIT $6 OFFSET $7").bind(s).bind(id).bind(a.browser && a.can(s,"operator")).bind(a.id).bind(p.status).bind(l).bind(o).bind(format!("%{}%",p.search.unwrap_or_default())).bind(p.visibility).fetch_all(&self.0).await?)
+        Ok(sqlx::query_scalar("SELECT to_jsonb(c)||jsonb_build_object('author_name',coalesce((SELECT nickname FROM miniapp_users WHERE account_id=a.id),a.display_name),'post_title',p.title)||CASE WHEN $3 THEN forum_decision_details(c.school_id,c.id,'comment',c.decision_revision,c.audit_status) ELSE '{}'::jsonb END FROM comments c JOIN posts p ON p.id=c.post_id JOIN accounts a ON a.id=c.author_id WHERE c.school_id=$1 AND ($2::uuid IS NULL OR c.post_id=$2) AND NOT c.deleted AND ($3 OR (p.visibility='visible' AND p.audit_status='approved' AND c.visibility='visible' AND (c.audit_status='approved' OR c.author_id=$4))) AND ($9::text IS NULL OR $9='' OR c.visibility=$9) AND ($5::text IS NULL OR $5='' OR c.audit_status=$5) AND (c.content ILIKE $8 OR p.title ILIKE $8) ORDER BY c.created_at DESC,c.id DESC LIMIT $6 OFFSET $7").bind(s).bind(id).bind(a.is_admin_browser() && a.can(s,"operator")).bind(a.id).bind(p.status).bind(l).bind(o).bind(format!("%{}%",p.search.unwrap_or_default())).bind(p.visibility).fetch_all(&self.0).await?)
     }
     pub async fn comment(&self, a: &Actor, s: Uuid, id: Uuid, v: CommentInput) -> Result<Value> {
         let mut tx = self.0.begin().await?;
@@ -274,7 +274,7 @@ impl Repository {
             .bind(s)
             .fetch_one(&mut *tx)
             .await?;
-        if !a.browser || !allowed {
+        if !a.is_admin_browser() || !allowed {
             return Err(Error::Forbidden);
         }
         let current: Value = sqlx::query_scalar("SELECT to_jsonb(c) FROM comments c WHERE school_id=$1 AND id=$2 AND NOT deleted FOR UPDATE")

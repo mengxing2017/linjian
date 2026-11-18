@@ -16,7 +16,7 @@ impl Repository {
         page: Page,
         id: Option<Uuid>,
     ) -> Result<Vec<PostReview>> {
-        if !a.browser {
+        if !a.is_admin_browser() {
             return Err(crate::business::Error::Forbidden);
         }
         a.authorize(school, "operator")?;
