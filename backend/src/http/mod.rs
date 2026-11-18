@@ -29,7 +29,7 @@ pub fn app_router(application: Application) -> Router {
 .merge(crate::schools::north::resource_remote::router())
 .merge(crate::community::north::remote::router())
 .merge(crate::integrations::north::remote::router())
-.merge(crate::integrations::north::directory_remote::router())
+
 .merge(crate::legacy::north::remote::router())
 .merge(crate::media::north::remote::router())
 .merge(crate::operations::north::remote::router())

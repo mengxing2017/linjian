@@ -8,8 +8,6 @@ use std::collections::BTreeMap;
 
 pub const TABLES: &[&str] = &[
     "schools",
-    "wecom_departments",
-    "wecom_members",
     "accounts",
     "school_memberships",
     "posts",
@@ -47,7 +45,7 @@ fn digest(tables: &BTreeMap<String, Vec<Value>>) -> String {
 fn filter(table: &str) -> &'static str {
     match table {
         "audit_events" => {
-            " WHERE action LIKE 'post.%' OR action LIKE 'comment.%' OR action LIKE 'case.%' OR action LIKE 'school.%' OR action LIKE 'account.%' OR action LIKE 'resource.%' OR action LIKE 'wecom.binding%'"
+            " WHERE action LIKE 'post.%' OR action LIKE 'comment.%' OR action LIKE 'case.%' OR action LIKE 'school.%' OR action LIKE 'account.%' OR action LIKE 'resource.%'"
         }
         "legacy_id_map" => {
             " WHERE source_table IN ('accounts','schools','posts','comments','cases','school_resources')"
@@ -67,14 +65,6 @@ pub async fn export(pool: &PgPool) -> Result<Snapshot> {
     for table in TABLES {
         let query = format!("SELECT to_jsonb(t) FROM {table} t{}", filter(table));
         let mut rows: Vec<Value> = sqlx::query_scalar(&query).fetch_all(&mut *tx).await?;
-        // Identity mappings survive, but a copied directory snapshot is not fresh verification.
-        if *table == "wecom_members" {
-            for row in &mut rows {
-                row["verification"] = json!("unverified");
-                row["checked_at"] = Value::Null;
-                row["snapshot_id"] = Value::Null;
-            }
-        }
         normalize(&mut rows);
         tables.insert((*table).into(), rows);
     }
