@@ -36,7 +36,7 @@ describe('platform-independent clients', () => {
       display_name: 'A',
     })
     const bytes = new Uint8Array([137, 80, 78, 71, 0, 255]).buffer
-    await createMediaClient(mini).upload('school', bytes)
+    await createMediaClient(mini).upload('school', bytes, 'post_image')
     expect(a.mock.calls[0][0].headers['X-CSRF-Token']).toBe('browser-csrf')
     expect(b.mock.calls[0][0].headers).not.toHaveProperty('X-CSRF-Token')
     expect(b.mock.calls[0][0].body).toBe(bytes)

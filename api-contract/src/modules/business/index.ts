@@ -1,3 +1,4 @@
+import { uploadKey } from '../media'
 import { requestResource, requestCollection, requestBinary, setCsrf } from '../../http';
 export { ApiError } from '../../http';
 export * from './types'
@@ -47,7 +48,7 @@ export const workspace = {
     mutate: <T = Row>(s: string, path: string, body?: unknown, method = 'POST') => requestResource<T>(scope(s, path), method, body),
     upload: (s: string, file: Blob) => requestResource<{
         url: string;
-    }>(scope(s, 'media'), 'POST', file),
+    }>(scope(s, 'media') + `?purpose=post_image&key=${encodeURIComponent(uploadKey())}`, 'POST', file),
 
 };
 

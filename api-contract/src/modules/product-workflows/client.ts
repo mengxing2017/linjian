@@ -15,7 +15,7 @@ export function createProductClient(client:Pick<Client,'requestResource'|'reques
  preview:(school:string|undefined,input:ResourceInput)=>r<BusinessPreview<ResourceInput>>(`${root(school)}/resource-previews`,'POST',{...input,id:input.id??undefined}),
  confirm:(school:string|undefined,input:Confirmation)=>r<{id:string;published:boolean}>(`${root(school)}/resource-publications`,'POST',input),
  upload:(school:string|undefined,bytes:ArrayBuffer)=>r<Artwork>(`${root(school)}/resource-artwork`,'POST',bytes),
- artwork:(school?:string)=>r<Artwork[]>(`${root(school)}/resource-artwork`),
+ artwork:(school?:string,page=1)=>client.requestCollection<Artwork>(`${root(school)}/resource-artwork?page[number]=${page}&page[size]=30`),
  qr:(school:string|undefined,url:string)=>r<Artwork>(`${root(school)}/resource-qrcodes`,'POST',{url}),
  },
  }
