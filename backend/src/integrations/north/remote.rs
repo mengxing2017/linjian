@@ -33,6 +33,7 @@ async fn mini(
         .0
         .session(id, crate::business::SessionKind::Miniapp, None)
         .await?;
+    a.activity.event(&user, None, "login", None, None);
     Ok(miniapp_session_response(token, user))
 }
 fn miniapp_session_response(token: String, user: Actor) -> Response {

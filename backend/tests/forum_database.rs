@@ -4815,3 +4815,6 @@ async fn management_sessions_bind_origin_and_remove_enterprise_directory() {
         .unwrap();
     admin.close().await;
 }
+
+#[path = "statistics/mod.rs"]
+mod statistics_tests;

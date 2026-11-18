@@ -147,12 +147,19 @@ async fn serve_inner(
             tokio::time::sleep(std::time::Duration::from_secs(5)).await;
         }
     });
+    let activity = application.activity.clone();
+    let statistics_pool = pool.clone();
+    let statistics_config = application.options.statistics.clone();
+    let statistics_task =
+        tokio::spawn(async move { activity.run(statistics_pool, statistics_config).await });
     let result = axum::serve(
         listener,
         http::app_router(application).into_make_service_with_connect_info::<SocketAddr>(),
     )
     .with_graceful_shutdown(shutdown_signal())
     .await;
+    statistics_task.abort();
+    let _ = statistics_task.await;
     outbox_task.abort();
     let _ = outbox_task.await;
     artwork_worker.abort();

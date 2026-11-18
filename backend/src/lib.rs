@@ -23,3 +23,5 @@ pub mod content_publication;
 pub mod miniapp_users;
 
 pub mod operations;
+
+pub mod statistics;

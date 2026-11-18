@@ -75,10 +75,15 @@ async fn create(
     input_document: Input,
 ) -> Result<ApiResponse> {
     let v = input_document.decode::<PostInput>("posts")?;
-    Ok(resource(
-        "posts",
-        a.community.post(&actor, s, None, v).await?,
-    ))
+    let result = a.community.post(&actor, s, None, v).await?;
+    a.activity.event(
+        &actor,
+        Some(s),
+        "post_create",
+        None,
+        result["id"].as_str().and_then(|id| id.parse().ok()),
+    );
+    Ok(resource("posts", result))
 }
 async fn update(
     State(a): State<Application>,
@@ -171,10 +176,10 @@ async fn comment(
     input_document: Input,
 ) -> Result<ApiResponse> {
     let v = input_document.decode::<CommentInput>("comments")?;
-    Ok(resource(
-        "comments",
-        a.community.comment(&actor, s, id, v).await?,
-    ))
+    let result = a.community.comment(&actor, s, id, v).await?;
+    a.activity
+        .event(&actor, Some(s), "comment_create", None, Some(id));
+    Ok(resource("comments", result))
 }
 async fn delete_comment(
     State(a): State<Application>,

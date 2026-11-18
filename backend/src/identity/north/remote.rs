@@ -29,7 +29,11 @@ impl FromRequestParts<Application> for Actor {
         {
             let entity = segments.len() == 4;
             let artwork = segments.get(4) == Some(&"resource-artwork");
-            if !(actor.is_admin_browser() && actor.platform_admin && (entity || artwork)) {
+            let statistics = segments.get(4) == Some(&"statistics");
+            if !(actor.is_admin_browser()
+                && actor.platform_admin
+                && (entity || artwork || statistics))
+            {
                 crate::schools::south::adapter::postgres::Repository(state.pool.clone())
                     .require_active(id)
                     .await?;

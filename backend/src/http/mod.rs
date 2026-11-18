@@ -23,6 +23,7 @@ pub fn app_router(application: Application) -> Router {
         .route("/readyz", get(remote::readiness))
         .route("/api/v1/system", get(remote::system_info))
         .merge(crate::identity::north::remote::router())
+        .merge(crate::statistics::north::remote::router())
 .merge(crate::schools::north::remote::router())
 .merge(crate::schools::north::home_menu_remote::router())
 .merge(crate::schools::north::blocked_words_remote::router())
