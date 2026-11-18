@@ -20,9 +20,12 @@ enum Command {
     },
 }
 async fn execute(pool: &PgPool, command: Command) -> Result<(), Box<dyn std::error::Error>> {
+    let files = linjian_api::media::south::adapter::filesystem::Files::open(
+        linjian_api::media::config::Config::from_env()?,
+    )?;
     match command {
         Command::Export { file } => {
-            let snapshot = migration::export(pool).await?;
+            let snapshot = migration::export(pool, &files).await?;
             let mut options = std::fs::OpenOptions::new();
             options.write(true).create_new(true);
             #[cfg(unix)]
@@ -55,7 +58,7 @@ async fn execute(pool: &PgPool, command: Command) -> Result<(), Box<dyn std::err
             database::migrate(pool).await?;
             println!(
                 "{}",
-                migration::import(pool, &snapshot, same_wechat_app).await?
+                migration::import(pool, &snapshot, same_wechat_app, &files).await?
             );
         }
     }

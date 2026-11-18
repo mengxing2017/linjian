@@ -385,16 +385,36 @@ async fn forum_migration_auth_and_outbox() {
         "school disable does not send withdrawals"
     );
     // Both media stores, social content and permissions travel in the same verified snapshot.
-    sqlx::query("INSERT INTO media_assets(id,school_id,owner_id,mime_type,size_bytes,content) VALUES($1,$2,$3,'image/png',3,$4)").bind(Uuid::new_v4()).bind(school).bind(user).bind(vec![0_u8,1,255]).execute(&source).await.unwrap();
-    let snapshot = migration::export(&source).await.unwrap();
+    // Snapshot packages contain verified files, not removed BYTEA columns.
+    let bytes = {
+        let mut b = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::new_rgb8(2, 2)
+            .write_to(&mut b, image::ImageFormat::Png)
+            .unwrap();
+        b.into_inner()
+    };
+    let media_id = Uuid::new_v4();
+    let files = linjian_api::media::south::adapter::filesystem::Files::default();
+    files.write(media_id, bytes.clone()).await.unwrap();
+    sqlx::query("INSERT INTO file_assets(id,school_id,owner_id,purpose,store_id,mime_type,size_bytes,width,height,sha256,state,idempotency_key,expires_at) VALUES($1,$2,$3,'post_image',$4,'image/png',$5,2,2,$6,'ready',$1,now()+interval '1 day')").bind(media_id).bind(school).bind(user).bind(files.store_id).bind(bytes.len() as i64).bind(linjian_api::media::south::adapter::filesystem::digest(&bytes)).execute(&source).await.unwrap();
+    sqlx::query("INSERT INTO media_assets(id,school_id,owner_id,mime_type,size_bytes) VALUES($1,$2,$3,'image/png',$4)").bind(media_id).bind(school).bind(user).bind(bytes.len() as i64).execute(&source).await.unwrap();
+    let snapshot = migration::export(&source, &Default::default())
+        .await
+        .unwrap();
     assert!(!snapshot.tables.contains_key("sessions"));
     assert!(!snapshot.tables.contains_key("forum_outbox"));
-    let report = migration::import(&target, &snapshot, false).await.unwrap();
+    let report = migration::import(&target, &snapshot, false, &Default::default())
+        .await
+        .unwrap();
     assert_eq!(report["history_enqueued"], false);
-    let reexport = migration::export(&target).await.unwrap();
+    let reexport = migration::export(&target, &Default::default())
+        .await
+        .unwrap();
     assert_eq!(snapshot.digest, reexport.digest);
     assert!(
-        migration::import(&target, &snapshot, false).await.is_err(),
+        migration::import(&target, &snapshot, false, &Default::default())
+            .await
+            .is_err(),
         "nonempty target must not be overwritten"
     );
     let outbox: i64 = sqlx::query_scalar("SELECT count(*) FROM forum_outbox")
@@ -1295,7 +1315,10 @@ async fn miniapp_users_registration_school_scope_and_ban() {
         .write_to(&mut image, image::ImageFormat::Png)
         .unwrap();
     let png = image.into_inner();
-    let asset = repo.upload(&mini, png.clone()).await.unwrap();
+    let asset = repo
+        .upload(&mini, png.clone(), Default::default())
+        .await
+        .unwrap();
     let profile = repo
         .profile(
             &mini,
@@ -1313,7 +1336,11 @@ async fn miniapp_users_registration_school_scope_and_ban() {
         .session(different, linjian_api::business::SessionKind::Miniapp, None)
         .await
         .unwrap();
-    assert!(repo.avatar(&outsider, asset).await.is_err());
+    assert!(
+        repo.avatar(&outsider, asset, Default::default())
+            .await
+            .is_err()
+    );
     assert!(
         repo.profile(
             &outsider,
@@ -1326,7 +1353,7 @@ async fn miniapp_users_registration_school_scope_and_ban() {
         .await
         .is_err()
     );
-    assert!(repo.avatar(&actor, asset).await.is_ok());
+    assert!(repo.avatar(&actor, asset, Default::default()).await.is_ok());
     for (title, status, visibility) in [
         ("待审", "pending", "visible"),
         ("通过", "approved", "visible"),
@@ -1498,7 +1525,7 @@ async fn miniapp_users_registration_school_scope_and_ban() {
     .unwrap();
     assert!(
         matches!(
-            repo.upload(&mini, png.clone()).await,
+            repo.upload(&mini, png.clone(), Default::default()).await,
             Err(linjian_api::business::Error::Unauthorized)
         ),
         "a revoked actor cannot upload after unban"
@@ -1776,7 +1803,7 @@ async fn school_profiles_visibility_artwork_and_transactions() {
         .unwrap();
     let bytes = image.into_inner();
     let image = resource_operations
-        .upload(&actor, Some(id), bytes.clone())
+        .upload(&actor, Some(id), bytes.clone(), Default::default())
         .await
         .unwrap();
     let asset: Uuid = image["id"].as_str().unwrap().parse().unwrap();
@@ -1792,7 +1819,13 @@ async fn school_profiles_visibility_artwork_and_transactions() {
     let school=repo.save_school(&manager,Some(id),json!({"logo_asset_id":asset,"header_bg_asset_id":asset,"revision":1,"config":{"post_audit_mode":"manual"}})).await.unwrap();
     assert_eq!(school.short_name, "示大");
     assert_eq!(school.revision, 2);
-    assert_eq!(repo.branding(id, "logo").await.unwrap().1, bytes);
+    assert_eq!(
+        repo.branding(id, "logo", Default::default())
+            .await
+            .unwrap()
+            .1,
+        bytes
+    );
     assert!(matches!(
         repo.save_school(&manager, Some(id), json!({"name":"旧修订","revision":1}))
             .await,
@@ -1804,7 +1837,11 @@ async fn school_profiles_visibility_artwork_and_transactions() {
         .await
         .unwrap();
     repo.cleanup_artwork().await.unwrap();
-    assert!(repo.branding(id, "header").await.is_ok());
+    assert!(
+        repo.branding(id, "header", Default::default())
+            .await
+            .is_ok()
+    );
     app.schools.bind(&mini, id).await.unwrap();
     let mini = app
         .identity
@@ -1909,7 +1946,7 @@ async fn school_profiles_visibility_artwork_and_transactions() {
             .await
             .is_err()
     );
-    assert!(repo.branding(id, "logo").await.is_err());
+    assert!(repo.branding(id, "logo", Default::default()).await.is_err());
     assert!(
         repo.search_schools(
             &mini,
@@ -1945,7 +1982,7 @@ async fn school_profiles_visibility_artwork_and_transactions() {
     );
     // Platform can maintain hidden branding and restore the school, even without active school grants.
     resource_operations
-        .upload(&actor, Some(id), bytes)
+        .upload(&actor, Some(id), bytes, Default::default())
         .await
         .unwrap();
     let before: i64 = sqlx::query_scalar("SELECT count(*) FROM forum_outbox")
@@ -4235,14 +4272,14 @@ async fn operations_scope_metrics_configuration_and_feedback_deletion() {
         .write_to(&mut png, image::ImageFormat::Png)
         .unwrap();
     let asset = media
-        .upload(&actor, Some(s), png.get_ref().clone())
+        .upload(&actor, Some(s), png.get_ref().clone(), Default::default())
         .await
         .unwrap();
     let global = media
-        .upload(&actor, None, png.get_ref().clone())
+        .upload(&actor, None, png.get_ref().clone(), Default::default())
         .await
         .unwrap();
-    let ops = Service(Repository(pool.clone()));
+    let ops = Service(Repository(pool.clone(), Default::default()));
     let input = |image: Value, title: &str| {
         serde_json::from_value(json!({"revision":0,"title":title,"content":"说明","image_ref":image,"action":{"kind":"none"},"active":true,"sort_order":0,"starts_at":null,"ends_at":null,"popup_strategy":"daily","popup_interval_days":1})).unwrap()
     };
@@ -4452,7 +4489,18 @@ async fn operations_scope_metrics_configuration_and_feedback_deletion() {
             .await
             .is_ok()
     );
-    let image = app.media.put(&actor, s, png.into_inner()).await.unwrap();
+    let image = app
+        .media
+        .put(
+            &actor,
+            s,
+            "feedback_evidence",
+            png.into_inner(),
+            Uuid::new_v4(),
+        )
+        .await
+        .unwrap();
+    let image = image["url"].as_str().unwrap().to_owned();
     let submission = Uuid::new_v4();
     let feedback = || {
         serde_json::from_value(json!({"feedback_type":"bug_report","content":"页面问题","contact":"微信联系","images":[image],"submission_key":submission})).unwrap()

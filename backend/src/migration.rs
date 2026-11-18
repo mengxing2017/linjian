@@ -10,6 +10,10 @@ pub const TABLES: &[&str] = &[
     "schools",
     "accounts",
     "school_memberships",
+    "file_assets",
+    "miniapp_avatar_assets",
+    "miniapp_users",
+    "miniapp_identities",
     "posts",
     "comments",
     "post_reactions",
@@ -28,6 +32,7 @@ pub const TABLES: &[&str] = &[
     "audit_events",
     "legacy_id_map",
     "legacy_aliases",
+    "file_asset_references",
 ];
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -35,8 +40,14 @@ pub struct Snapshot {
     pub schema_version: u32,
     pub tables: BTreeMap<String, Vec<Value>>,
     pub digest: String,
+    pub files: BTreeMap<uuid::Uuid, Vec<u8>>,
 }
 fn normalize(rows: &mut [Value]) {
+    for row in rows.iter_mut() {
+        if row.get("store_id").is_some() {
+            row["store_id"] = json!(uuid::Uuid::nil());
+        }
+    }
     rows.sort_by_cached_key(Value::to_string);
 }
 fn digest(tables: &BTreeMap<String, Vec<Value>>) -> String {
@@ -44,6 +55,7 @@ fn digest(tables: &BTreeMap<String, Vec<Value>>) -> String {
 }
 fn filter(table: &str) -> &'static str {
     match table {
+        "file_asset_references" => " WHERE object_type <> 'product_previews'",
         "audit_events" => {
             " WHERE action LIKE 'post.%' OR action LIKE 'comment.%' OR action LIKE 'case.%' OR action LIKE 'school.%' OR action LIKE 'account.%' OR action LIKE 'resource.%'"
         }
@@ -56,11 +68,36 @@ fn filter(table: &str) -> &'static str {
         _ => "",
     }
 }
-pub async fn export(pool: &PgPool) -> Result<Snapshot> {
+pub async fn export(
+    pool: &PgPool,
+    files: &crate::media::south::adapter::filesystem::Files,
+) -> Result<Snapshot> {
     let mut tx = pool.begin().await?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         .execute(&mut *tx)
         .await?;
+    sqlx::query("SELECT pg_advisory_xact_lock_shared(78234610246)")
+        .execute(&mut *tx)
+        .await?;
+    let mut payloads = BTreeMap::new();
+    let rows =
+        sqlx::query("SELECT id,store_id,size_bytes,sha256 FROM file_assets WHERE state='ready'")
+            .fetch_all(&mut *tx)
+            .await?;
+    for row in rows {
+        let id: uuid::Uuid = row.get("id");
+        payloads.insert(
+            id,
+            files
+                .read(
+                    row.get("store_id"),
+                    id,
+                    row.get("size_bytes"),
+                    row.get("sha256"),
+                )
+                .await?,
+        );
+    }
     let mut tables = BTreeMap::new();
     for table in TABLES {
         let query = format!("SELECT to_jsonb(t) FROM {table} t{}", filter(table));
@@ -70,14 +107,20 @@ pub async fn export(pool: &PgPool) -> Result<Snapshot> {
     }
     tx.commit().await?;
     Ok(Snapshot {
-        schema_version: 1,
+        schema_version: 2,
         digest: digest(&tables),
         tables,
+        files: payloads,
     })
 }
-pub async fn import(pool: &PgPool, snapshot: &Snapshot, same_wechat_app: bool) -> Result<Value> {
+pub async fn import(
+    pool: &PgPool,
+    snapshot: &Snapshot,
+    same_wechat_app: bool,
+    files: &crate::media::south::adapter::filesystem::Files,
+) -> Result<Value> {
     require(
-        snapshot.schema_version == 1 && snapshot.digest == digest(&snapshot.tables),
+        snapshot.schema_version == 2 && snapshot.digest == digest(&snapshot.tables),
         "快照版本或摘要不匹配",
     )?;
     require(
@@ -116,6 +159,43 @@ pub async fn import(pool: &PgPool, snapshot: &Snapshot, same_wechat_app: bool) -
     sqlx::query("SET CONSTRAINTS ALL DEFERRED")
         .execute(&mut *tx)
         .await?;
+    let expected_files: Vec<&Value> = snapshot.tables["file_assets"]
+        .iter()
+        .filter(|v| v["state"] == "ready")
+        .collect();
+    require(
+        expected_files.len() == snapshot.files.len(),
+        "文件包清单不完整",
+    )?;
+    for asset in expected_files {
+        let id = crate::business::uuid(asset, "id")?;
+        let bytes = snapshot
+            .files
+            .get(&id)
+            .ok_or(Error::Invalid("文件缺失".into()))?;
+        require(
+            Some(bytes.len() as u64) == asset["size_bytes"].as_u64()
+                && Some(crate::media::south::adapter::filesystem::digest(bytes).as_str())
+                    == asset["sha256"].as_str(),
+            "文件摘要或大小不匹配",
+        )?;
+        files.write(id, bytes.clone()).await?;
+    }
+    for table in [
+        "schools",
+        "miniapp_users",
+        "posts",
+        "cases",
+        "school_resources",
+        "resource_publications",
+        "forum_publication_snapshots",
+    ] {
+        sqlx::query(&format!(
+            "ALTER TABLE {table} DISABLE TRIGGER file_references"
+        ))
+        .execute(&mut *tx)
+        .await?;
+    }
     // Restore immutable review evidence without applying today's live authorization policy.
     // This offline operation already requires an empty target and an exact snapshot digest.
     for (table, trigger) in [
@@ -137,7 +217,11 @@ pub async fn import(pool: &PgPool, snapshot: &Snapshot, same_wechat_app: bool) -
             .collect::<Vec<_>>()
             .join(",");
         for row in &snapshot.tables[*table] {
-            sqlx::query(&format!("INSERT INTO {table}({quoted}) SELECT {quoted} FROM jsonb_populate_record(NULL::{table},$1)")).bind(row).execute(&mut *tx).await?;
+            let mut row = row.clone();
+            if *table == "file_assets" {
+                row["store_id"] = json!(files.store_id);
+            }
+            sqlx::query(&format!("INSERT INTO {table}({quoted}) SELECT {quoted} FROM jsonb_populate_record(NULL::{table},$1)")).bind(&row).execute(&mut *tx).await?;
         }
     }
     // Validate the restored cyclic references before altering trigger configuration.
@@ -153,6 +237,21 @@ pub async fn import(pool: &PgPool, snapshot: &Snapshot, same_wechat_app: bool) -
         sqlx::query(&format!("ALTER TABLE {table} ENABLE TRIGGER {trigger}"))
             .execute(&mut *tx)
             .await?;
+    }
+    for table in [
+        "schools",
+        "miniapp_users",
+        "posts",
+        "cases",
+        "school_resources",
+        "resource_publications",
+        "forum_publication_snapshots",
+    ] {
+        sqlx::query(&format!(
+            "ALTER TABLE {table} ENABLE TRIGGER file_references"
+        ))
+        .execute(&mut *tx)
+        .await?;
     }
     // Importing history does not enqueue it. Future content revisions continue at a stable version.
     sqlx::query("INSERT INTO forum_source_versions(school_id,post_id,sequence,available,delivery_intent) SELECT p.school_id,p.id,greatest(p.revision,1),p.audit_status='approved' AND p.visibility='visible' AND s.active,false FROM posts p JOIN schools s ON s.id=p.school_id").execute(&mut *tx).await?;
