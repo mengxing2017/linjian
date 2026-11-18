@@ -22,9 +22,17 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
   const visibleSchools = q.data?.filter((s) => user.platform_admin || s.status === 'normal')
   const school = visibleSchools?.find((s) => s.id === (selected || visibleSchools[0]?.id))
   const role = school?.status === 'normal' ? user.grants.find((g) => g.school_id === school.id)?.role : undefined
-  const allowedKeys = visibleNavigationKeys(user.platform_admin, role)
+  const allowedKeys = Array.from(new Set([
+    ...visibleNavigationKeys(user.platform_admin, role),
+    ...navigation.filter((item) => item.domain === 'statistics' &&
+      (user.platform_admin || (item.capability !== 'global.manage' && user.grants.some((g) =>
+        ['admin', 'operator'].includes(g.role) && visibleSchools?.some((s) => s.id === g.school_id),
+      )))).map((item) => item.key),
+  ]))
   const requestedTab = params.get('view') ?? allowedKeys[0] ?? ''
   const knownPage = navigation.find(n => n.key === requestedTab)
+  const statisticsView = requestedTab === 'statistics' ? 'overview' : requestedTab.replace('statistics-', '')
+  const isStatistics = knownPage?.domain === 'statistics'
   const tab = requestedTab
   const denied = !allowedKeys.includes(tab)
   const globalScope = knownPage?.scope === 'global'
@@ -77,7 +85,7 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
         <>请核对当前学校与角色，或从导航选择已授权功能。<Button onClick={fallback}>返回可用功能</Button></>
       } />
     }
-    if (tab === 'statistics') return <StatisticsPage user={user} schools={q.data ?? []} />
+    if (isStatistics) return <StatisticsPage key={tab} view={statisticsView as 'overview' | 'content' | 'registration' | 'activity' | 'schools'} user={user} schools={q.data ?? []} />
     if (tab === 'customer-config' && user.platform_admin) return <CustomerConfiguration />
     if (tab === 'group-qrcodes' || tab === 'home-banners') return <OperationResources key={`${school?.id}:${tab}`} module={tab} school={school?.id} platformAdmin={user.platform_admin} schoolAdmin={user.platform_admin || role === 'admin'} />
     if (tab === 'feedback' && school) return <OperationFeedback key={school.id} school={school.id} canDelete={user.platform_admin || role === 'admin'} />
@@ -128,7 +136,7 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
       schoolRole={role}
       pageExtra={
         <div className="scope-toolbar">
-          {tab === 'statistics' ? <Tag>业务统计</Tag> : globalScope ? <Tag>范围：全平台</Tag> : <>
+          {isStatistics ? <Tag>数据统计</Tag> : globalScope ? <Tag>范围：全平台</Tag> : <>
             <div>
               <span className="field-caption">当前学校</span>
               <Select
