@@ -18,3 +18,6 @@ docs/.vitepress/cache/
 # Migration snapshots contain account hashes and media. Store them outside the repo.
 *forum-snapshot*.json
 report/
+
+# Local private file storage.
+.linjian-media/

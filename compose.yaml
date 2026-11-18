@@ -20,6 +20,16 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     environment:
+      LINJIAN_MEDIA_ROOT: /data/media
+      LINJIAN_MEDIA_MAX_IMAGE_BYTES: ${LINJIAN_MEDIA_MAX_IMAGE_BYTES:-5242880}
+      LINJIAN_MEDIA_MAX_WIDTH: ${LINJIAN_MEDIA_MAX_WIDTH:-8192}
+      LINJIAN_MEDIA_MAX_HEIGHT: ${LINJIAN_MEDIA_MAX_HEIGHT:-8192}
+      LINJIAN_MEDIA_MAX_PIXELS: ${LINJIAN_MEDIA_MAX_PIXELS:-24000000}
+      LINJIAN_MEDIA_DECODE_CONCURRENCY: ${LINJIAN_MEDIA_DECODE_CONCURRENCY:-2}
+      LINJIAN_MEDIA_UNBOUND_TTL_HOURS: ${LINJIAN_MEDIA_UNBOUND_TTL_HOURS:-24}
+      LINJIAN_MEDIA_ARTWORK_UNBOUND_TTL_HOURS: ${LINJIAN_MEDIA_ARTWORK_UNBOUND_TTL_HOURS:-168}
+      LINJIAN_MEDIA_DRAFT_LEASE_DAYS: ${LINJIAN_MEDIA_DRAFT_LEASE_DAYS:-30}
+      LINJIAN_MEDIA_CLEANUP_BATCH_SIZE: ${LINJIAN_MEDIA_CLEANUP_BATCH_SIZE:-100}
       LINJIAN_BIND_ADDR: 0.0.0.0:8080
       LINJIAN_DATABASE_HOST: postgres
       LINJIAN_DATABASE_NAME: linjian
@@ -52,6 +62,8 @@ services:
       LINJIAN_WEKEEPER_ORIGIN: ${LINJIAN_WEKEEPER_ORIGIN:-}
       LINJIAN_WEKEEPER_KEY_ID: ${LINJIAN_WEKEEPER_KEY_ID:-}
       LINJIAN_WEKEEPER_SECRET: ${LINJIAN_WEKEEPER_SECRET:-}
+    volumes:
+      - media-data:/data/media
     depends_on:
       postgres:
         condition: service_healthy
@@ -80,6 +92,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
 volumes:
+  media-data:
   postgres-data:
   caddy-data:
   caddy-config:

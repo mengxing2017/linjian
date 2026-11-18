@@ -28,6 +28,8 @@ RUN if [ -f /etc/apt/sources.list ]; then \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 10001 --no-create-home linjian
 COPY --from=builder /tmp/linjian-api /tmp/forum-snapshot /usr/local/bin/
+ENV LINJIAN_MEDIA_ROOT=/data/media
+RUN mkdir -p /data/media && chown 10001:10001 /data/media
 USER 10001:10001
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/linjian-api"]
