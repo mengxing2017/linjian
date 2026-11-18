@@ -147,7 +147,7 @@ export const navigation: NavigationItem[] = [
     key: 'accounts',
     icon: <UserOutlined />,
     label: '登录账号管理',
-    description: '管理全平台普通账号、登录状态与企业微信身份映射。',
+    description: '管理全平台普通账号及登录状态。',
     domain: 'administration',
     scope: 'global',
     capability: 'global.manage',

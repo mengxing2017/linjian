@@ -5,12 +5,10 @@ import { SignIn } from './sign-in'
 import { identity, subscribeUnauthorized, type User } from './api'
 export function SessionGate({
   children,
-  wecom = false,
   showSessionBar = true,
 }: {
   children: (user: User, logout: () => Promise<void>) => ReactNode
   showSessionBar?: boolean
-  wecom?: boolean
 }) {
   const cache = useQueryClient()
   const q = useQuery({ queryKey: ['session'], queryFn: identity.session, retry: false })
@@ -59,7 +57,7 @@ export function SessionGate({
         正在确认登录状态…
       </div>
     )
-  if (!q.data) return <SignIn error={error} busy={busy} wecom={wecom} onLogin={login} />
+  if (!q.data) return <SignIn error={error} busy={busy} onLogin={login} />
   return (
     <>
       {showSessionBar && (

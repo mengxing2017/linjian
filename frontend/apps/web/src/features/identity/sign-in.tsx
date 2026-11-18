@@ -4,12 +4,10 @@ import { Field } from '../../shared/field'
 export function SignIn({
   error,
   busy,
-  wecom,
   onLogin,
 }: {
   error: string
   busy: boolean
-  wecom: boolean
   onLogin: (values: { username: string; password: string }) => Promise<void>
 }) {
   return (
@@ -44,7 +42,6 @@ export function SignIn({
             {busy ? '正在登录…' : '登录'}
           </Button>
         </Form>
-        {wecom && <a href="/api/v1/wecom/oauth/start">使用企业微信身份登录</a>}
         <p className="auth-caption">使用管理员分配的账号进入工作空间</p>
         <a href="/docs/guide/quick-start">登录与使用帮助</a>
       </section>

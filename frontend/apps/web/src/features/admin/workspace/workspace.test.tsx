@@ -17,7 +17,7 @@ import {beforeEach} from 'vitest'
 beforeEach(()=>{vi.mocked(workspace.postManagement.list).mockImplementation(async (s,f={},signal)=>{const result=await workspace.list(s,'posts','?'+new URLSearchParams({'page[number]':String(f.page??1)}),signal); return {...result,items:[],order_revision:1}});vi.mocked(workspace.cases).mockImplementation((s,q,signal)=>workspace.list(s,'cases',q,signal) as ReturnType<typeof workspace.cases>);vi.mocked(workspace.schoolProfiles.detail).mockImplementation(async id => (await workspace.schools()).find(s => s.id === id)!);vi.mocked(workspace.reviews).mockImplementation((s,q,signal)=>workspace.list(s,'posts',q,signal) as ReturnType<typeof workspace.reviews>);vi.mocked(product.resources.artwork).mockResolvedValue([]);vi.mocked(workspace.schoolProfiles.platform).mockImplementation(async(filters={})=>{const all=await workspace.schools();const filtered=all.filter(s=>!filters.search||s.name.includes(filters.search));const n=filters.page??1;return {items:filtered.slice((n-1)*10,n*10),page:{number:n,size:10,has_more:n*10<filtered.length}}})})
 Object.defineProperty(window, 'matchMedia', { writable: true, value: (query: string) => ({ matches: false, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }) })
 it('restores the selected school and business page from its URL', async () => {
-  vi.mocked(identity.session).mockResolvedValue({csrf:'csrf',user:{id:'u',username:'admin',display_name:'管理员',platform_admin:true,bound_school_id:null,grants:[],wecom_authenticated:false}})
+  vi.mocked(identity.session).mockResolvedValue({csrf:'csrf',user:{id:'u',username:'admin',display_name:'管理员',platform_admin:true,bound_school_id:null,grants:[]}})
   vi.mocked(workspace.schools).mockResolvedValue([{id:'school',name:'测试学校',...schoolDefaults,revision:1,config:{}}])
   vi.mocked(workspace.list).mockResolvedValue({items:[], page:{number:1,size:30,has_more:false}})
   vi.mocked(identity.accounts).mockResolvedValue([])
@@ -41,12 +41,12 @@ function LocationProbe() {
 }
 
 function showManagement(view: string, platformAdmin = true, role: 'member' | 'operator' | 'admin' = 'admin') {
-  vi.mocked(identity.session).mockResolvedValue({csrf:'csrf',user:{id:'u',username:'root',display_name:'Root',platform_admin:platformAdmin,bound_school_id:null,grants:[{school_id:'school',role}],wecom_authenticated:false}})
+  vi.mocked(identity.session).mockResolvedValue({csrf:'csrf',user:{id:'u',username:'root',display_name:'Root',platform_admin:platformAdmin,bound_school_id:null,grants:[{school_id:'school',role}]}})
   vi.mocked(workspace.schools).mockResolvedValue([{id:'school',name:'甲学校',...schoolDefaults,revision:1,config:{}}, {id:'other',name:'乙学校',...schoolDefaults,revision:1,config:{}}])
   vi.mocked(workspace.list).mockResolvedValue({items:[]})
   vi.mocked(identity.accounts).mockResolvedValue([
     {id:'u',username:'root',display_name:'平台维护者',platform_admin:true,active:true},
-    {id:'ordinary',username:'ordinary',display_name:'本地管理员',platform_admin:false,active:true,wecom_userid:'wx-user'},
+    {id:'ordinary',username:'ordinary',display_name:'本地管理员',platform_admin:false,active:true},
   ])
   const client = new QueryClient({defaultOptions:{queries:{retry:false}}})
   render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/admin?school=school&view=${view}`]}><Workspace/><LocationProbe/></MemoryRouter></QueryClientProvider>)

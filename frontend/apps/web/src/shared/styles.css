@@ -319,9 +319,6 @@ a:focus-visible {
 .table-title-with-tag .ant-tag {
   flex-shrink: 0;
 }
-.directory-binding-summary {
-  overflow-wrap: anywhere;
-}
 .workspace-content .ant-table-tbody > tr > td {
   vertical-align: middle;
 }
@@ -458,8 +455,7 @@ a:focus-visible {
 .empty-state {
   padding: 32px 16px;
 }
-.community-shell .ant-alert,
-.wecom-workspace .ant-alert {
+.community-shell .ant-alert {
   margin-block: 12px;
 }
 .auth-page {
@@ -550,8 +546,7 @@ code {
   margin: auto;
   padding: 24px;
 }
-.community-shell > header,
-.wecom-header {
+.community-shell > header {
   display: flex;
   align-items: center;
   gap: 16px;
@@ -590,16 +585,6 @@ code {
   font-size: 12px;
   color: var(--color-text-muted);
 }
-.wecom-shell {
-  max-width: 760px;
-  min-height: 100dvh;
-  margin: auto;
-  padding: 0 24px 40px;
-}
-.wecom-header {
-  justify-content: space-between;
-  margin-bottom: 26px;
-}
 .brand {
   display: flex;
   align-items: center;
@@ -608,62 +593,8 @@ code {
   font-size: 20px;
   font-weight: 700;
 }
-.wecom-header > span {
-  color: var(--color-text-muted);
-  font-size: 12px;
-}
-.wecom-shell > section {
-  background: white;
-  border: 1px solid var(--color-border);
-  border-radius: 5px;
-  padding: 24px;
-}
-.wecom-shell section > p {
-  color: var(--color-text-secondary);
-}
 .draft-preview {
   margin: 20px 0;
-}
-.wecom-shell small {
-  color: var(--color-text-muted);
-  overflow-wrap: anywhere;
-}
-.wecom-shell section > p {
-  overflow-wrap: anywhere;
-}
-.wecom-title h1 {
-  margin: 16px 0 8px;
-}
-.wecom-title p {
-  color: var(--color-text-secondary);
-}
-.wecom-steps {
-  margin-bottom: 22px;
-}
-.wecom-notice {
-  margin-bottom: 18px;
-}
-.wecom-notice h2 {
-  font-size: 15px;
-}
-.wecom-notice p {
-  font-size: 13px;
-  margin: 8px 0;
-}
-.wecom-identity {
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--color-border);
-}
-.wecom-attempt {
-  margin: 10px 0;
-}
-.wecom-attempt small {
-  display: block;
-  margin-top: 6px;
-}
-.community-shell .ant-alert,
-.wecom-workspace .ant-alert {
-  margin-block: 12px;
 }
 .community-card .ant-card-body > p:not(.text-content) {
   color: var(--color-text-muted);
@@ -758,12 +689,8 @@ code {
   .auth-panel {
     padding: 26px;
   }
-  .community-shell,
-  .wecom-shell {
+  .community-shell {
     padding: 0 16px 28px;
-  }
-  .wecom-shell > section {
-    padding: 18px;
   }
   .module-grid {
     grid-template-columns: 1fr;

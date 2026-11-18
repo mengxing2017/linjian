@@ -8,10 +8,3 @@ export function parseDate(value: unknown): Date | undefined {
 export function formatDate(value: unknown, empty = '-'): string {
   return parseDate(value)?.toLocaleString('zh-CN') ?? empty
 }
-
-/** WeCom group membership timestamps are Unix seconds, not milliseconds. */
-export function formatUnixSeconds(value: unknown): string {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return '-'
-  const date = new Date(value * 1000)
-  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('zh-CN')
-}

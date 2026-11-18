@@ -5,7 +5,6 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Input, Select, Space, Table } from 'antd'
 import { identity, workspace, type Row, type School } from './api'
-import { memberStatus, verificationName } from './directory'
 import { schoolRoleLabel } from '../../../app/shell'
 
 export function Members({
@@ -137,18 +136,6 @@ export function Members({
           },
           { title: '昵称', width: 160, render: (_, a) => String(a.display_name ?? '') },
           {
-            title: '企业姓名 / 部门',
-            width: 260,
-            render: (_, a) =>
-              `${a.wecom_name ?? '未绑定'} · ${Array.isArray(a.wecom_departments) ? a.wecom_departments.join(' / ') : ''}`,
-          },
-          {
-            title: '企业状态',
-            width: 180,
-            render: (_, a) =>
-              `${memberStatus(typeof a.wecom_status === 'number' ? a.wecom_status : null)} · ${verificationName(String(a.wecom_verification ?? 'unverified'))}`,
-          },
-          {
             title: '本校角色',
             width: 140,
             render: (_, a) =>
@@ -157,12 +144,6 @@ export function Members({
           ...(platformAdmin
             ? [
                 { title: '账号状态', width: 120, render: (_: unknown, a: Row) => (a.active ? '启用' : '停用') },
-                {
-                  title: '企业微信',
-                  width: 200,
-                  render: (_: unknown, a: Row) =>
-                    a.wecom_userid ? String(a.wecom_userid) : '未绑定',
-                },
               ]
             : []),
         ]}

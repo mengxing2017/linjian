@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Descriptions, Drawer, Input, Modal, Select, Space, Table, Tag } from 'antd'
 import { identity, workspace, type Row, type School, type User } from './api'
-import { WecomBinding } from './directory'
 import { Editor } from './editor'
 import { schoolRoleLabel } from '../../../app/shell'
 
@@ -73,11 +72,10 @@ export function Accounts({
   const q = useQuery({ queryKey: ['accounts'], queryFn: identity.accounts })
   const [search, setSearch] = useState(''),
     [status, setStatus] = useState(''),
-    [binding, setBinding] = useState(''),
     [page, setPage] = useState(1)
   const [creating, setCreating] = useState(false),
     [selected, setSelected] = useState<string>(),
-    [action, setAction] = useState<'details' | 'edit' | 'password' | 'binding'>('details')
+    [action, setAction] = useState<'details' | 'edit' | 'password'>('details')
   const refresh = () => cache.invalidateQueries({ queryKey: ['accounts'] })
   const records = q.data?.filter((a) => Boolean(a.platform_admin) === administrators) ?? []
   const rows = records.filter(
@@ -85,8 +83,7 @@ export function Accounts({
       `${value(a, 'username')} ${value(a, 'display_name')}`
         .toLocaleLowerCase()
         .includes(search.toLocaleLowerCase()) &&
-      (!status || String(a.active) === status) &&
-      (!binding || String(Boolean(a.wecom_userid)) === binding),
+      (!status || String(a.active) === status),
   )
   const account = records.find((a) => a.id === selected)
   const open = (a: Row, next: typeof action) => {
@@ -131,19 +128,7 @@ export function Accounts({
                 setPage(1)
               }}
             />
-            <Select
-              aria-label="企微绑定筛选"
-              value={binding}
-              options={[
-                { value: '', label: '全部绑定状态' },
-                { value: 'true', label: '已绑定企微' },
-                { value: 'false', label: '未绑定企微' },
-              ]}
-              onChange={(v) => {
-                setBinding(v)
-                setPage(1)
-              }}
-            />
+
           </Space>
         </>
       }
@@ -184,14 +169,6 @@ export function Accounts({
             ),
           },
           {
-            title: '企业微信',
-            width: 320,
-            render: (_, a) =>
-              a.wecom_userid
-                ? `${value(a, 'wecom_name')} · ${value(a, 'wecom_userid')} · ${value(a, 'wecom_verification')}`
-                : '未绑定',
-          },
-          {
             title: '操作',
             width: 320,
             render: (_, a) => (
@@ -204,9 +181,7 @@ export function Accounts({
                     <Button type="link" onClick={() => open(a, 'edit')}>
                       编辑账号
                     </Button>
-                    <Button type="link" onClick={() => open(a, 'binding')}>
-                      绑定企微成员
-                    </Button>
+
                   </>
                 )}
                 <Button type="link" onClick={() => open(a, 'password')}>
@@ -291,9 +266,6 @@ export function Accounts({
                 await refresh()
               }}
             />
-          )}
-          {action === 'binding' && !administrators && (
-            <WecomBinding key={account.id} account={account} refresh={refresh} />
           )}
           {action === 'password' && (
             <>

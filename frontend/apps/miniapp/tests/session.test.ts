@@ -15,7 +15,6 @@ const user = {
   bound_school_id: 's',
   grants: [],
   platform_admin: false,
-  wecom_authenticated: false,
 }
 beforeEach(() => {
   vi.stubGlobal('uni', {

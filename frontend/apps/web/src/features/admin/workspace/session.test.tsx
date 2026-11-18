@@ -21,7 +21,6 @@ it('validates login fields and submits the entered credentials through the exist
       platform_admin: false,
       bound_school_id: null,
       grants: [],
-      wecom_authenticated: false,
     },
   })
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })

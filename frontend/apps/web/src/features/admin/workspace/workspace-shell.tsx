@@ -6,7 +6,6 @@ import { AppShell } from '../../../app/shell'
 import { useSchools } from '../../school-context'
 import { MiniappUsers } from '../miniapp-users'
 import { SourceBindings, SourceConnections } from '../source-access'
-import { Directory } from './directory'
 import { Accounts, Schools } from './platform'
 import { OperationResources, CustomerConfiguration, OperationFeedback } from '../operations'
 import { GlobalResources } from './global-resources'
@@ -91,7 +90,6 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
     if (user.platform_admin) {
       switch (tab) {
         case 'accounts':
-          if (params.get('subview') === 'directory') return <Directory />
           return <Accounts key={tab} administrators={false} user={user} schools={q.data ?? []} />
         case 'administrators':
           return <Accounts key={tab} administrators user={user} schools={q.data ?? []} />

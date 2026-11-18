@@ -6,7 +6,7 @@ import { identity, type User } from './api'
 
 const user: User = {
   id: 'user', username: 'operator', display_name: '运营', platform_admin: false,
-  bound_school_id: null, grants: [], wecom_authenticated: false,
+  bound_school_id: null, grants: [],
 }
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
