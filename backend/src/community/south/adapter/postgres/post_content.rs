@@ -32,7 +32,7 @@ pub(super) async fn validate(
             .and_then(|v| v.parse::<Uuid>().ok())
             .ok_or_else(|| Error::Invalid("图片地址无效".into()))?;
         let exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM file_assets f WHERE f.id=$2 AND f.school_id=$1 AND f.purpose='post_image' AND f.state='ready' AND (f.owner_id=$3 OR EXISTS(SELECT 1 FROM file_asset_references r WHERE r.asset_id=f.id AND r.object_type='posts' AND r.object_id=$4)) AND (f.expires_at>now() OR EXISTS(SELECT 1 FROM file_asset_references r WHERE r.asset_id=f.id) OR EXISTS(SELECT 1 FROM file_asset_leases l WHERE l.asset_id=f.id AND l.owner_id=$3 AND l.expires_at>now())))"
+            "SELECT EXISTS(SELECT 1 FROM file_assets f WHERE f.id=$2 AND f.school_id=$1 AND f.purpose='post_image' AND f.state='ready' AND (f.owner_id=$3 OR EXISTS(SELECT 1 FROM file_asset_references r WHERE r.asset_id=f.id AND r.object_type='posts' AND r.object_id=$4)) AND ((NOT f.ever_bound AND f.expires_at>now()) OR EXISTS(SELECT 1 FROM file_asset_references r WHERE r.asset_id=f.id) OR EXISTS(SELECT 1 FROM file_asset_leases l WHERE l.asset_id=f.id AND l.owner_id=$3 AND l.expires_at>now())))"
         ).bind(s).bind(id).bind(a.id).bind(current_post).fetch_one(&mut **tx).await?;
         require(exists, "图片不存在或属于其他学校")?;
     }

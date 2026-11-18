@@ -175,7 +175,7 @@ impl Repository {
         s: Uuid,
         id: Uuid,
     ) -> Result<PostManagementView> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         guard(&mut tx, a, s, false).await?;
         let item = detail(&mut tx, s, id).await?;
         tx.commit().await?;
@@ -188,7 +188,7 @@ impl Repository {
         id: Option<Uuid>,
         v: PostInput,
     ) -> Result<PostManagementView> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         guard(&mut tx, a, s, id.is_none()).await?;
         let row = if let Some(id) = id {
             require(v.revision.is_some_and(|v| v > 0), "版本号无效")?;
@@ -208,7 +208,7 @@ impl Repository {
         id: Uuid,
         v: PinPostInput,
     ) -> Result<PostManagementView> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         guard(&mut tx, a, s, false).await?;
         change(&mut tx, a, (s, id), v.revision, None, Some(v.is_top), "").await?;
         let item = detail(&mut tx, s, id).await?;
@@ -231,7 +231,7 @@ impl Repository {
             },
             2000,
         )?;
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         guard(&mut tx, a, s, false).await?;
         change(
             &mut tx,
@@ -254,7 +254,7 @@ impl Repository {
         id: Uuid,
         revision: i64,
     ) -> Result<()> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         guard(&mut tx, a, s, false).await?;
         change(
             &mut tx,
@@ -296,7 +296,7 @@ pub(super) async fn legacy_visibility(
         "可见状态或置顶参数无效",
     )?;
     let manager = a.can(s, "operator");
-    let mut tx = repo.0.begin().await?;
+    let mut tx = crate::media::south::adapter::lifecycle::begin(&repo.0).await?;
     if manager {
         guard(&mut tx, a, s, false).await?;
     } else {

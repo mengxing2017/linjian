@@ -9,7 +9,7 @@ impl Repository {
         self.school_list(a).await
     }
     pub async fn bind(&self, a: &Actor, school: Uuid) -> Result<()> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         if !a.is_admin_browser() {
             let (_, status, _) =
                 crate::miniapp_users::south::adapter::postgres::lock_user(&mut tx, a.id).await?;
@@ -52,7 +52,7 @@ impl Repository {
         Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',a.id,'username',a.username,'display_name',a.display_name,'role',m.role) FROM school_memberships m JOIN accounts a ON a.id=m.account_id WHERE school_id=$1 ORDER BY a.username").bind(school).fetch_all(&self.0).await?)
     }
     pub async fn grant(&self, a: &Actor, school: Uuid, id: Uuid, role: &str) -> Result<()> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         if role == "revoked" {
             sqlx::query(
                 "UPDATE school_memberships SET role='revoked' WHERE school_id=$1 AND account_id=$2",

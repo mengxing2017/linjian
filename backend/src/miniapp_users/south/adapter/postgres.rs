@@ -47,7 +47,7 @@ pub async fn lock_user(
 }
 impl RegistrationStore for Repository {
     async fn register(&self, app: &str, openid: &str) -> Result<Uuid> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,73109))")
             .bind(json!([app, openid]).to_string())
             .execute(&mut *tx)
@@ -147,7 +147,7 @@ impl Repository {
             "用户状态无效",
         )?;
         let reason = reason(&v.reason)?;
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         let (bound, status, revision) = lock_user(&mut tx, id).await?;
         if school.is_some() && bound != school {
             return Err(Error::NotFound);
@@ -179,7 +179,7 @@ impl Repository {
     pub async fn profile(&self, a: &Actor, v: ProfileInput) -> Result<UserView> {
         require(!a.is_admin_browser(), "请使用小程序身份")?;
         let nickname = text(&v.nickname, 1, 100)?;
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         let (school, status, revision) = lock_user(&mut tx, a.id).await?;
         if status != "normal" {
             return Err(Error::MiniappBanned);
@@ -223,7 +223,7 @@ impl Repository {
         } else {
             None
         };
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         let (school, status, revision) = lock_user(&mut tx, id).await?;
         if !admin && status != "normal" {
             return Err(Error::MiniappBanned);
@@ -261,7 +261,7 @@ impl Repository {
     pub async fn school(&self, a: &Actor, id: Uuid, v: SchoolInput) -> Result<()> {
         a.platform()?;
         let reason = reason(&v.reason)?;
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         let (old, _, revision) = lock_user(&mut tx, id).await?;
         if revision != v.revision {
             return Err(Error::Conflict);

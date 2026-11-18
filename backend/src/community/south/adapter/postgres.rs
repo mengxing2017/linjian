@@ -63,7 +63,7 @@ impl Repository {
         Ok(v)
     }
     pub async fn create(&self, a: &Actor, s: Uuid, v: PostInput) -> Result<Value> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         if a.can(s, "operator") {
             post_management::guard(&mut tx, a, s, false).await?;
         } else {
@@ -74,7 +74,7 @@ impl Repository {
         Ok(item)
     }
     pub async fn update(&self, a: &Actor, s: Uuid, id: Uuid, v: PostInput) -> Result<Value> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         if a.can(s, "operator") {
             post_management::guard(&mut tx, a, s, false).await?;
         } else {
@@ -95,7 +95,7 @@ impl Repository {
         v: Decision,
         comment: bool,
     ) -> Result<Value> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
         if !a.is_admin_browser() {
             return Err(Error::Forbidden);
@@ -183,7 +183,7 @@ impl Repository {
         Ok(item)
     }
     pub async fn react(&self, a: &Actor, s: Uuid, id: Uuid, kind: &str, add: bool) -> Result<()> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
         let exists:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM posts WHERE school_id=$1 AND id=$2 AND audit_status='approved' AND visibility='visible')").bind(s).bind(id).fetch_one(&mut *tx).await?;
         if !exists {
@@ -224,7 +224,7 @@ impl Repository {
         Ok(sqlx::query_scalar("SELECT to_jsonb(c)||jsonb_build_object('author_name',coalesce((SELECT nickname FROM miniapp_users WHERE account_id=a.id),a.display_name),'post_title',p.title)||CASE WHEN $3 THEN forum_decision_details(c.school_id,c.id,'comment',c.decision_revision,c.audit_status) ELSE '{}'::jsonb END FROM comments c JOIN posts p ON p.id=c.post_id JOIN accounts a ON a.id=c.author_id WHERE c.school_id=$1 AND ($2::uuid IS NULL OR c.post_id=$2) AND NOT c.deleted AND ($3 OR (p.visibility='visible' AND p.audit_status='approved' AND c.visibility='visible' AND (c.audit_status='approved' OR c.author_id=$4))) AND ($9::text IS NULL OR $9='' OR c.visibility=$9) AND ($5::text IS NULL OR $5='' OR c.audit_status=$5) AND (c.content ILIKE $8 OR p.title ILIKE $8) ORDER BY c.created_at DESC,c.id DESC LIMIT $6 OFFSET $7").bind(s).bind(id).bind(a.is_admin_browser() && a.can(s,"operator")).bind(a.id).bind(p.status).bind(l).bind(o).bind(format!("%{}%",p.search.unwrap_or_default())).bind(p.visibility).fetch_all(&self.0).await?)
     }
     pub async fn comment(&self, a: &Actor, s: Uuid, id: Uuid, v: CommentInput) -> Result<Value> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
         let post=sqlx::query("SELECT p.author_id FROM posts p WHERE p.id=$1 AND p.school_id=$2 AND p.audit_status='approved' AND p.visibility='visible' FOR SHARE OF p").bind(id).bind(s).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
         if let Some(parent) = v.parent_id {
@@ -267,7 +267,7 @@ impl Repository {
         id: Uuid,
         v: crate::community::domain::SetCommentVisibility,
     ) -> Result<Value> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
         let allowed: bool = sqlx::query_scalar(reviews::AUTHORIZATION)
             .bind(a.id)
@@ -297,7 +297,7 @@ impl Repository {
         Ok(item)
     }
     pub async fn delete_comment(&self, a: &Actor, s: Uuid, id: Uuid, revision: i64) -> Result<()> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
         let n=sqlx::query("UPDATE comments SET deleted=true,revision=revision+1 WHERE school_id=$1 AND id=$2 AND revision=$3 AND (author_id=$4 OR $5)").bind(s).bind(id).bind(revision).bind(a.id).bind(a.can(s,"operator")).execute(&mut *tx).await?.rows_affected();
         if n == 0 {
@@ -307,7 +307,7 @@ impl Repository {
         Ok(())
     }
     pub async fn follow(&self, a: &Actor, s: Uuid, id: Uuid, add: bool) -> Result<()> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
         let exists:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM school_memberships m JOIN accounts a ON a.id=m.account_id WHERE m.school_id=$1 AND a.id=$2 AND a.active AND m.role<>'revoked')").bind(s).bind(id).fetch_one(&mut *tx).await?;
         if !exists {
@@ -348,14 +348,14 @@ impl Repository {
         Ok(sqlx::query_scalar("SELECT to_jsonb(n) FROM notifications n WHERE school_id=$1 AND account_id=$2 AND (n.kind NOT IN ('comment','moderation') OR EXISTS(SELECT 1 FROM posts p WHERE p.id=n.object_id AND p.school_id=n.school_id AND (p.author_id=$2 OR (p.audit_status='approved' AND p.visibility='visible'))) OR EXISTS(SELECT 1 FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.id=n.object_id AND c.school_id=n.school_id AND NOT c.deleted AND c.visibility='visible' AND p.audit_status='approved' AND p.visibility='visible' AND (c.audit_status='approved' OR c.author_id=$2))) ORDER BY created_at DESC,id DESC LIMIT $3 OFFSET $4").bind(s).bind(a.id).bind(limit).bind(offset).fetch_all(&self.0).await?)
     }
     pub async fn read(&self, a: &Actor, s: Uuid, id: Uuid) -> Result<()> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
         sqlx::query("UPDATE notifications SET read_at=coalesce(read_at,now()) WHERE school_id=$1 AND account_id=$2 AND id=$3").bind(s).bind(a.id).bind(id).execute(&mut *tx).await?;
         tx.commit().await?;
         Ok(())
     }
     pub async fn case(&self, a: &Actor, s: Uuid, v: Value) -> Result<Value> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
         let post = v["post_id"].as_str().and_then(|x| x.parse::<Uuid>().ok());
         if let Some(id) = post {

@@ -43,7 +43,7 @@ async fn resource_check(
 }
 impl Store for Repository {
     async fn command(&self, a: &Actor, s: Option<Uuid>, command: Command) -> Result<Value> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         preview::authorize(&mut tx, a, s, "admin").await?;
         sqlx::query("SELECT pg_advisory_xact_lock(78234610244)")
             .execute(&mut *tx)
@@ -100,7 +100,7 @@ impl Store for Repository {
         s: Option<Uuid>,
         page: crate::business::Page,
     ) -> Result<Vec<Value>> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         preview::authorize(&mut tx, a, s, "admin").await?;
         let (limit, offset) = page.fetch_bounds()?;
         Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',id,'image_ref',jsonb_build_object('kind','asset','id',id),'width',width,'height',height,'size_bytes',size_bytes,'created_at',created_at,'url',CASE WHEN school_id IS NULL THEN '/api/v1/platform/resource-artwork/' ELSE '/api/v1/schools/'||school_id||'/resource-artwork/' END||id) FROM operational_media WHERE school_id IS NOT DISTINCT FROM $1 ORDER BY created_at DESC,id DESC LIMIT $2 OFFSET $3").bind(s).bind(limit).bind(offset).fetch_all(&mut *tx).await?)
@@ -113,7 +113,7 @@ impl Store for Repository {
         published: bool,
         files: crate::media::south::adapter::filesystem::Files,
     ) -> Result<(String, Vec<u8>)> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         preview::authorize(&mut tx, a, s, if published { "member" } else { "admin" }).await?;
         let row=if published{
  let s=s.ok_or(Error::Forbidden)?;

@@ -10,7 +10,7 @@ fn decode(row: Value) -> Result<PostImportPreview> {
 }
 impl Repository {
     pub async fn check_post_import_access(&self, a: &Actor, s: Uuid) -> Result<()> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         guard(&mut tx, a, s, true).await?;
         tx.commit().await?;
         Ok(())
@@ -31,7 +31,7 @@ impl Repository {
         rows: Vec<ImportRow>,
         errors: Vec<ImportRowError>,
     ) -> Result<PostImportPreview> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         guard(&mut tx, a, s, true).await?;
         // Scrub expired payloads on use; no runtime dependency on an external cleanup worker.
         sqlx::query("UPDATE post_import_jobs SET rows='[]',errors='[]',state='expired' WHERE state='preview' AND expires_at<=now() AND actor_id=$1").bind(a.id).execute(&mut *tx).await?;
@@ -44,7 +44,7 @@ impl Repository {
         decode(row)
     }
     pub async fn import_detail(&self, a: &Actor, s: Uuid, id: Uuid) -> Result<PostImportPreview> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         guard(&mut tx, a, s, true).await?;
         sqlx::query("UPDATE post_import_jobs SET rows='[]',errors='[]',state='expired' WHERE id=$1 AND school_id=$2 AND actor_id=$3 AND state='preview' AND expires_at<=now()").bind(id).bind(s).bind(a.id).execute(&mut *tx).await?;
         let row:Value=sqlx::query_scalar("SELECT to_jsonb(j)-'idempotency_key'-'created_at' FROM post_import_jobs j WHERE id=$1 AND school_id=$2 AND actor_id=$3")
@@ -59,7 +59,7 @@ impl Repository {
         id: Uuid,
         v: CommitPostImport,
     ) -> Result<PostImportPreview> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         guard(&mut tx, a, s, true).await?;
         let row:Value=sqlx::query_scalar("SELECT to_jsonb(j) FROM post_import_jobs j WHERE id=$1 AND school_id=$2 AND actor_id=$3 FOR UPDATE")
   .bind(id).bind(s).bind(a.id).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;

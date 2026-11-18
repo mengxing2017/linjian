@@ -84,7 +84,7 @@ impl Repository {
     ) -> Result<CaseManagementView> {
         a.authorize(school, "operator")?;
         input.validate()?;
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         // Lock live authorization rows to serialize handling with account/role revocation.
         let account =
             sqlx::query("SELECT active,platform_admin FROM accounts WHERE id=$1 FOR SHARE")

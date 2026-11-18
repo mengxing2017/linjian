@@ -95,7 +95,7 @@ impl Repository {
         if raw.get("status").is_some() {
             a.platform()?;
         }
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         if a.platform_admin {
             super::preview::platform(&mut tx, a).await?;
         }

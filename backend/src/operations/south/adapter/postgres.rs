@@ -118,7 +118,7 @@ async fn feedback_get(tx: &mut Transaction<'_, Postgres>, s: Uuid, id: Uuid) -> 
 }
 impl Store for Repository {
     async fn execute(&self, a: &Actor, s: Option<Uuid>, c: Command) -> Result<Value> {
-        let mut tx = self.0.begin().await?;
+        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         let result = match c {
             Command::List { kind, q } => {
                 auth(&mut tx, a, s, "operator").await?;
