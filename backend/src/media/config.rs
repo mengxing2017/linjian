@@ -24,6 +24,7 @@ pub struct Lifecycle {
     pub artwork_unbound_ttl_hours: i64,
     pub draft_lease_days: i64,
     pub cleanup_batch_size: i64,
+    pub orphan_grace_hours: i64,
 }
 impl Config {
     pub fn from_env() -> Result<Self, String> {
@@ -90,8 +91,29 @@ impl Config {
             cleanup_batch_size,
             "LINJIAN_MEDIA_CLEANUP_BATCH_SIZE"
         );
+        value.lifecycle.orphan_grace_hours =
+            Self::orphan_grace_hours_from_env_value(get("LINJIAN_MEDIA_ORPHAN_GRACE_HOURS")?)?;
         value.validate()?;
         Ok(value)
+    }
+    pub fn orphan_grace_hours_from_env() -> Result<i64, String> {
+        let value = match std::env::var("LINJIAN_MEDIA_ORPHAN_GRACE_HOURS") {
+            Ok(value) => Some(value),
+            Err(std::env::VarError::NotPresent) => None,
+            Err(_) => return Err("LINJIAN_MEDIA_ORPHAN_GRACE_HOURS 必须为有效文本".into()),
+        };
+        Self::orphan_grace_hours_from_env_value(value)
+    }
+    fn orphan_grace_hours_from_env_value(value: Option<String>) -> Result<i64, String> {
+        let hours = value
+            .map(|v| v.parse::<i64>())
+            .transpose()
+            .map_err(|_| "LINJIAN_MEDIA_ORPHAN_GRACE_HOURS must be an integer")?
+            .unwrap_or(24);
+        if !(1..=168).contains(&hours) {
+            return Err("LINJIAN_MEDIA_ORPHAN_GRACE_HOURS must be between 1 and 168".into());
+        }
+        Ok(hours)
     }
     pub fn local(root: PathBuf) -> Self {
         Self {
@@ -110,6 +132,7 @@ impl Config {
                 artwork_unbound_ttl_hours: 168,
                 draft_lease_days: 30,
                 cleanup_batch_size: 100,
+                orphan_grace_hours: 24,
             },
         }
     }
@@ -125,6 +148,7 @@ impl Config {
             || !(1..=168).contains(&l.unbound_ttl_hours)
             || !(1..=720).contains(&l.artwork_unbound_ttl_hours)
             || !(1..=90).contains(&l.draft_lease_days)
+            || !(1..=168).contains(&l.orphan_grace_hours)
             || !(1..=1000).contains(&l.cleanup_batch_size)
         {
             return Err("invalid media storage settings".into());
@@ -164,12 +188,14 @@ mod tests {
                     ("LINJIAN_MEDIA_ROOT", "/tmp/custom"),
                     ("LINJIAN_MEDIA_MAX_IMAGE_BYTES", "1024"),
                     ("LINJIAN_MEDIA_DRAFT_LEASE_DAYS", "7"),
+                    ("LINJIAN_MEDIA_ORPHAN_GRACE_HOURS", "48"),
                 ],
             )
             .unwrap();
             assert_eq!(config.storage.filesystem_root, PathBuf::from("/tmp/custom"));
             assert_eq!(config.upload.max_image_bytes, 1024);
             assert_eq!(config.lifecycle.draft_lease_days, 7);
+            assert_eq!(config.lifecycle.orphan_grace_hours, 48);
         }
     }
     #[test]
@@ -187,6 +213,9 @@ mod tests {
             ("LINJIAN_MEDIA_ARTWORK_UNBOUND_TTL_HOURS", "721"),
             ("LINJIAN_MEDIA_DRAFT_LEASE_DAYS", "91"),
             ("LINJIAN_MEDIA_CLEANUP_BATCH_SIZE", "1001"),
+            ("LINJIAN_MEDIA_ORPHAN_GRACE_HOURS", "0"),
+            ("LINJIAN_MEDIA_ORPHAN_GRACE_HOURS", "169"),
+            ("LINJIAN_MEDIA_ORPHAN_GRACE_HOURS", "no"),
         ] {
             assert!(parse("/data/media", &[(key, bad)]).is_err(), "{key}");
         }
