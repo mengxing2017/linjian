@@ -4866,3 +4866,6 @@ async fn management_sessions_bind_origin_and_remove_enterprise_directory() {
 
 #[path = "statistics/mod.rs"]
 mod statistics_tests;
+
+#[path = "media_gc/mod.rs"]
+mod media_gc_tests;
