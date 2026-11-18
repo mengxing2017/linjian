@@ -22,7 +22,7 @@ import {
   type Change,
   type StatisticsView,
 } from './api'
-import { metricNames, shanghai } from './trends'
+import { metricNames, shanghai } from './metrics'
 import { titles, metricGroups, coverageReasons } from './views'
 import { PeriodPanel } from './period-panel'
 import { SchoolComparison } from './school-comparison'
@@ -106,7 +106,7 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
       return next
     })
   }
-  const r = invalidDates ? undefined : q.data
+  const r = invalidDates || q.error || !allowed ? undefined : q.data
   const snapshotRef = useRef<string | undefined>(undefined)
   snapshotRef.current = r?.id
   const download = async (kind: 'periods' | 'schools') => {
@@ -341,7 +341,7 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
             <Alert type="info" title="所选期间的活跃采集尚未完整覆盖，暂不展示人数和增长率。" />
           )}
           <PeriodPanel
-            key={`period-${r.id}`}
+            key={`period-${view}-${user.id}-${scope}`}
             report={r}
             view={view}
             comparison={comparison}
@@ -356,10 +356,10 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
               userId={user.id}
               exporting={exporting}
               onExport={() => void download('schools')}
-              onSchool={(id) =>
+              onSchool={(id, target) =>
                 setParams((p) => {
                   const next = new URLSearchParams(p)
-                  next.set('view', 'statistics-content')
+                  next.set('view', `statistics-${target}`)
                   next.set('statistics_school', id)
                   return next
                 })
