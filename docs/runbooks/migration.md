@@ -40,3 +40,24 @@ cargo run --locked --manifest-path backend/Cargo.toml --bin forum-snapshot -- im
 切换前可撤回新入口。新论坛产生写入后，停止写入并核对全部新增变更后才能考虑回退，否则优先前向修复。不得恢复旧快照覆盖发送事实，不得重放历史成功任务，不执行 down migration。原项目的其他现有工作不得覆盖或回退。
 
 导入成功后记录 source_import_batches 与 source_imported_posts，delivery_intent 固定为 false。导入历史不建立来源路由投影，不因学校重新启用或配置路由自动补投；真实正文编辑后才开始该内容的实时来源版本。
+
+## 图片生命周期与快照版本 3
+
+快照只接受版本 `3`，保留资产的 `ever_bound`、`gc_after` 和持久化删除状态，不兼容旧版。导入核验已删除帖子无帖子引用、引用资产处于就绪状态且已标记绑定历史。临时草稿租约和访问令牌不迁入；原来由临时保护保留的孤立资产，在目标后台首次核验后获得完整宽限期。
+
+导出在建立只读一致性快照前取得共享文件协调锁，直至文件读取结束；后台清理以对应排他锁覆盖认领、磁盘删除和元数据收尾。连接异常或任务取消时关闭专用连接释放锁，不将带锁连接归还连接池。
+
+帖子软删除与图片引用释放同事务提交；其他帖子、不可变审核快照、有效草稿和有效令牌均保护文件。失去最后一项保护后，默认等待 24 小时，再由启动时及每小时的有界后台任务清理；`LINJIAN_MEDIA_ORPHAN_GRACE_HOURS` 可设置为 `1..=168`，修改后重启。新上传的暂存期限仍使用原来的上传 TTL。历史审核快照不自动过期，不能为了释放空间直接移除其引用。
+
+升级迁移仅修复引用和安排清理，不删除磁盘文件；存量孤立资产默认得到迁移起算的完整 24 小时。应用写事务及后台任务使用环境变量配置；直接执行迁移的缺省宽限期为 24 小时，可在受控迁移事务中用 `set_config('linjian.media_orphan_grace_hours','48',true)` 显式覆盖。首次上线应核对下列汇总及清理日志中的认领、成功、失败和保护跳过数量：
+
+```sql
+-- 已删除帖子不应仍有帖子引用（应为 0）。
+SELECT count(*) FROM file_asset_references r JOIN posts p ON p.id=r.object_id
+WHERE r.object_type='posts' AND p.visibility='deleted';
+SELECT state, count(*), count(*) FILTER (WHERE gc_after<=now()) AS due
+FROM file_assets GROUP BY state;
+SELECT object_type, count(*) FROM file_asset_references GROUP BY object_type;
+```
+
+磁盘删除失败保留 `pending_delete` 并退避重试；文件不存在视为成功，数据库收尾失败也可在下轮恢复。若发现待删除资产仍有保护，任务会记录异常并停止删除该资产。数据库记录不能恢复已删除文件，恢复必须使用配套数据库和文件备份。
