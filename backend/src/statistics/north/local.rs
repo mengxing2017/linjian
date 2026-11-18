@@ -50,6 +50,14 @@ pub fn csv(report: &Report, kind: &str) -> Result<Vec<u8>> {
         kind != "schools" || report.school_id.is_none(),
         "单校不支持学校对比导出",
     )?;
+    require(
+        if kind == "schools" {
+            report.view == "schools"
+        } else {
+            !report.buckets.is_empty()
+        },
+        "请进入对应统计模块后导出",
+    )?;
     let mut writer = csv::Writer::from_writer(Vec::new());
     let header = [
         "范围",
@@ -75,8 +83,22 @@ pub fn csv(report: &Report, kind: &str) -> Result<Vec<u8>> {
         "新注册参与率(%)",
         "注册人员参与率(%)",
     ];
+    let metrics: &[usize] = match report.view.as_str() {
+        "content" => &[0, 1, 2, 3, 4, 10, 11, 12],
+        "registration" => &[5, 6, 7, 13],
+        "activity" => &[8, 9, 14],
+        "schools" => &[0, 1, 4, 5, 6, 8],
+        _ => &[],
+    };
+    let include = |index: usize| index < 7 || metrics.contains(&(index - 7));
     writer
-        .write_record(header)
+        .write_record(
+            header
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| include(*index))
+                .map(|(_, value)| value),
+        )
         .map_err(|_| Error::Unavailable)?;
     let safe = |s: &str| {
         if s.trim_start()
@@ -133,7 +155,15 @@ pub fn csv(report: &Report, kind: &str) -> Result<Vec<u8>> {
         ] {
             values.push(n.map(|x| x.to_string()).unwrap_or_default());
         }
-        writer.write_record(values).map_err(|_| Error::Unavailable)
+        writer
+            .write_record(
+                values
+                    .into_iter()
+                    .enumerate()
+                    .filter(|(index, _)| include(*index))
+                    .map(|(_, value)| value),
+            )
+            .map_err(|_| Error::Unavailable)
     };
     if kind == "schools" {
         for school in &report.schools {
@@ -177,11 +207,21 @@ mod tests {
         let mut attributes = doc["data"]["attributes"].clone();
         attributes["id"] = doc["data"]["id"].clone();
         let mut report: Report = serde_json::from_value(attributes).unwrap();
+        let rows: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../api-contract/fixtures/school-statistics-rows.json"
+        ))
+        .unwrap();
+        let mut row = rows["data"][0]["attributes"].clone();
+        row["id"] = rows["data"][0]["id"].clone();
+        report.schools.push(serde_json::from_value(row).unwrap());
         report.schools[0].name = "=1+1".into();
         let bytes = csv(&report, "schools").unwrap();
         assert!(bytes.starts_with(&[0xef, 0xbb, 0xbf]));
         let text = String::from_utf8(bytes).unwrap();
         assert!(text.contains("'=1+1"));
         assert!(text.contains("2026-11-16T00:00:00+08:00"));
+        assert!(text.contains("访问活跃人数"));
+        assert!(!text.contains("新注册参与率"));
+        assert!(!text.contains("日均发帖"));
     }
 }
