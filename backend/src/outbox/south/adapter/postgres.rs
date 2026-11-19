@@ -25,16 +25,17 @@ fn public(mut v: Value) -> Result<Value> {
         serde_json::from_value(v).map_err(|e| Error::Database(e.to_string()))?;
     serde_json::to_value(view).map_err(|e| Error::Database(e.to_string()))
 }
-fn authorize(actor: &Actor, school: Uuid) -> Result<()> {
-    if actor.is_admin_browser() && actor.can(school, "operator") {
-        Ok(())
-    } else {
-        Err(Error::NotFound)
-    }
+async fn authorize(pool: &PgPool, actor: &Actor) -> Result<()> {
+    actor.platform()?;
+    let mut tx = pool.begin().await?;
+    crate::schools::south::adapter::postgres::preview::platform(&mut tx, actor).await?;
+    tx.commit().await?;
+    Ok(())
 }
+
 impl Repository {
     pub async fn list(&self, actor: &Actor, school: Uuid, page: Page) -> Result<Vec<Value>> {
-        authorize(actor, school)?;
+        authorize(&self.0, actor).await?;
         let (limit, offset) = page.fetch_bounds()?;
         if let Some(status) = &page.status {
             crate::business::require(
@@ -67,7 +68,7 @@ impl Repository {
         rows.into_iter().map(public).collect()
     }
     pub async fn detail(&self, actor: &Actor, school: Uuid, id: Uuid) -> Result<Value> {
-        authorize(actor, school)?;
+        authorize(&self.0, actor).await?;
         let mut value: Value = sqlx::query_scalar(&format!(
             "SELECT to_jsonb(v) FROM ({VIEW} WHERE o.school_id=$1 AND o.id=$2) v"
         ))
@@ -94,9 +95,10 @@ impl Repository {
         id: Uuid,
         input: ReplayInput,
     ) -> Result<()> {
-        authorize(actor, school)?;
+        authorize(&self.0, actor).await?;
         let reason = text(&input.reason, 1, 500)?;
         let mut tx = self.0.begin().await?;
+        crate::schools::south::adapter::postgres::preview::platform(&mut tx, actor).await?;
         sqlx::query("SELECT id FROM schools WHERE id=$1 FOR UPDATE")
             .bind(school)
             .fetch_one(&mut *tx)
@@ -154,7 +156,7 @@ impl OutboxStore for Repository {
         if let Some(school) = school {
             let row=sqlx::query("SELECT o.id,b.connection_version,b.route_id,bv.id AS binding_version FROM forum_outbox o JOIN school_source_bindings b ON b.school_id=o.school_id JOIN school_source_binding_versions bv ON bv.binding_id=b.id AND bv.revision=b.revision WHERE o.school_id=$1 AND o.delivery_state IN ('waiting_binding','waiting_configuration') ORDER BY o.sequence,o.created_at,o.id FOR UPDATE OF o SKIP LOCKED LIMIT 1").bind(school).fetch_optional(&mut *tx).await?;
             if let Some(row) = row {
-                sqlx::query("SELECT forum_freeze_source($1,$2,$3,$4)")
+                sqlx::query("SELECT forum_bind_prepared_source($1,$2,$3,$4)")
                     .bind(row.get::<Uuid, _>("id"))
                     .bind(row.get::<Uuid, _>("connection_version"))
                     .bind(row.get::<Uuid, _>("binding_version"))
@@ -221,6 +223,66 @@ impl OutboxStore for Repository {
                 sqlx::query("UPDATE forum_outbox SET last_error=$3,blocked_reason=$4,blocked_at=CASE WHEN $4::text IS NULL THEN NULL ELSE now() END,next_attempt_at=now()+make_interval(secs=>$5),auth_failure_count=$6,lease_token=NULL,lease_until=NULL,delivery_state=CASE WHEN $4::text IS NULL THEN 'retry_wait' ELSE 'blocked' END WHERE id=$1 AND lease_token=$2 AND lease_until>now()").bind(d.id).bind(d.token).bind(code).bind(if retry {None}else{Some(code)}).bind(delay as f64).bind(if matches!(code,"timestamp_expired"|"replay_detected"){d.auth_failures+1}else{0}).execute(&mut *tx).await?;
             }
         }
+        tx.commit().await?;
+        Ok(())
+    }
+}
+
+impl Repository {
+    pub async fn terminate(&self, a: &Actor, school: Uuid, id: Uuid, reason: &str) -> Result<()> {
+        a.platform()?;
+        let reason = text(reason, 1, 500)?;
+        let mut tx = self.0.begin().await?;
+        crate::schools::south::adapter::postgres::preview::platform(&mut tx, a).await?;
+        sqlx::query("SELECT id FROM schools WHERE id=$1 FOR UPDATE")
+            .bind(school)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or(Error::NotFound)?;
+        let row=sqlx::query("SELECT o.attempts,o.lease_token,o.delivery_state,o.receipt_id,p.lease_token AS preparation_lease,p.state AS preparation_state FROM forum_outbox o LEFT JOIN forum_publication_preparations p ON p.event_id=o.id WHERE o.id=$1 AND o.school_id=$2 FOR UPDATE OF o")
+            .bind(id).bind(school).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
+        let state: String = row.get("delivery_state");
+        if state == "cancelled"
+            && sqlx::query_scalar::<_, bool>(
+                "SELECT EXISTS(SELECT 1 FROM forum_source_terminations WHERE event_id=$1)",
+            )
+            .bind(id)
+            .fetch_one(&mut *tx)
+            .await?
+        {
+            tx.commit().await?;
+            return Ok(());
+        }
+        if row.get::<i32, _>("attempts") != 0
+            || row.get::<Option<Uuid>, _>("lease_token").is_some()
+            || row.get::<Option<Uuid>, _>("preparation_lease").is_some()
+            || row.get::<Option<String>, _>("receipt_id").is_some()
+            || !(state == "blocked"
+                || row.get::<Option<String>, _>("preparation_state").as_deref() == Some("blocked"))
+        {
+            return Err(Error::Policy("source_termination_not_safe"));
+        }
+        sqlx::query(
+            "INSERT INTO forum_source_terminations(event_id,actor_id,reason) VALUES($1,$2,$3)",
+        )
+        .bind(id)
+        .bind(a.id)
+        .bind(&reason)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query("UPDATE forum_outbox SET delivery_state='cancelled' WHERE id=$1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+        crate::audit::record(
+            &mut tx,
+            a,
+            school,
+            "post.source_terminated",
+            id,
+            json!({"reason":reason,"evidence":"never_attempted_no_lease"}),
+        )
+        .await?;
         tx.commit().await?;
         Ok(())
     }

@@ -46,8 +46,29 @@ async fn replay(
         .await?;
     Ok(completed())
 }
+
+async fn terminate(
+    State(app): State<Application>,
+    actor: Actor,
+    Path((school, id)): Path<(Uuid, Uuid)>,
+    input: Input,
+) -> Result<ApiResponse> {
+    Service(app.pool)
+        .terminate(
+            &actor,
+            school,
+            id,
+            input.decode("source-event-terminations")?,
+        )
+        .await?;
+    Ok(completed())
+}
 pub fn router() -> Router<Application> {
     Router::new()
+        .route(
+            "/api/v1/schools/{school}/source-outbox/{id}/terminations",
+            post(terminate),
+        )
         .route("/api/v1/schools/{school}/source-outbox", get(list))
         .route("/api/v1/schools/{school}/source-outbox/{id}", get(detail))
         .route(

@@ -16,6 +16,18 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct Service(pub PgPool);
 impl Service {
+    pub async fn terminate(
+        &self,
+        actor: &Actor,
+        school: Uuid,
+        id: Uuid,
+        input: ReplayInput,
+    ) -> Result<()> {
+        Repository(self.0.clone())
+            .terminate(actor, school, id, &input.reason)
+            .await
+    }
+
     pub async fn list(&self, actor: &Actor, school: Uuid, page: Page) -> Result<Vec<Value>> {
         Repository(self.0.clone()).list(actor, school, page).await
     }
