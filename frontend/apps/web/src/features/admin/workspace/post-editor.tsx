@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Button, Drawer, Form, Image, Input, Select, Space, Upload } from 'antd'
+import { Alert, Button, Drawer, Form, Image, Input, Modal, Select, Space, Upload } from 'antd'
 import { workspace, type PostContentInput } from './api'
 import { ReviewImage } from './review-image'
 
@@ -12,6 +12,7 @@ function ContentForm({
   saved,
   reload,
   blocked,
+  onDirtyChange,
 }: {
   school: string
   id?: string
@@ -20,6 +21,7 @@ function ContentForm({
   saved: () => Promise<void>
   reload?: () => void
   blocked: boolean
+  onDirtyChange?: (dirty: boolean) => void
 }) {
   const [form] = Form.useForm<PostContentInput>()
   const images = Form.useWatch('images', form) ?? initial.images
@@ -40,6 +42,7 @@ function ContentForm({
       if (id)
         await workspace.postManagement.update(school, id, { ...input, revision: initial.revision! })
       else await workspace.postManagement.create(school, input)
+      onDirtyChange?.(false)
       await saved()
       close()
     } catch (e) {
@@ -55,6 +58,7 @@ function ContentForm({
       form={form}
       layout="vertical"
       initialValues={initial}
+      onValuesChange={() => onDirtyChange?.(true)}
       onFinish={(values) => void submit(values)}
     >
       {error && <Alert type="error" title={error} />}
@@ -136,14 +140,16 @@ function ContentForm({
       >
         <Button loading={uploading}>上传图片</Button>
       </Upload>
-      <Button
-        type="primary"
-        htmlType="submit"
-        loading={busy}
-        disabled={blocked || conflict || uploading}
-      >
-        保存帖子
-      </Button>
+      <div className="form-actions">
+        <Button
+          type="primary"
+          htmlType="submit"
+          loading={busy}
+          disabled={blocked || conflict || uploading}
+        >
+          保存帖子
+        </Button>
+      </div>
     </Form>
   )
 }
@@ -160,6 +166,7 @@ export function PostEditor({
   saved: () => Promise<void>
   context?: string
 }) {
+  const [dirty, setDirty] = useState(false)
   const q = useQuery({
     queryKey: ['linjian', 'post-edit', school, id],
     queryFn: ({ signal }) => workspace.postManagement.detail(school, id!, signal),
@@ -168,8 +175,22 @@ export function PostEditor({
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   })
+  function closeDrawer() {
+    if (!dirty) {
+      close()
+      return
+    }
+    Modal.confirm({
+      title: '有未保存的修改',
+      content: '关闭后当前帖子的未保存内容将丢失。',
+      okText: '放弃修改',
+      cancelText: '继续编辑',
+      okButtonProps: { danger: true },
+      onOk: close,
+    })
+  }
   return (
-    <Drawer open title={id ? '编辑帖子' : '添加帖子'} size="large" onClose={close}>
+    <Drawer open title={id ? '编辑帖子' : '添加帖子'} size="large" onClose={closeDrawer}>
       <p>
         {q.data
           ? `学校：${q.data.school_name}；发布人：${q.data.author_nickname}；正文变更将按当前审核模式重新审核。`
@@ -202,6 +223,7 @@ export function PostEditor({
           close={close}
           saved={saved}
           reload={() => void q.refetch()}
+          onDirtyChange={setDirty}
         />
       )}
     </Drawer>

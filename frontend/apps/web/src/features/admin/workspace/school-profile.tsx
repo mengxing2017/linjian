@@ -77,10 +77,12 @@ export function SchoolForm({
   school,
   platform = false,
   onSaved,
+  onDirtyChange,
 }: {
   school?: School
   platform?: boolean
-  onSaved: (school: School) => Promise<unknown>
+  onSaved: (school?: School) => Promise<unknown>
+  onDirtyChange?: (dirty: boolean) => void
 }) {
   const [form] = Form.useForm<SchoolInput>(),
     [busy, setBusy] = useState(false),
@@ -102,6 +104,7 @@ export function SchoolForm({
       const result = school
         ? await workspace.schoolProfiles.update(school.id, body)
         : await workspace.schoolProfiles.create(body)
+      onDirtyChange?.(false)
       await onSaved(result)
       setDone(true)
     } catch (e) {
@@ -116,6 +119,7 @@ export function SchoolForm({
     setBusy(true)
     try {
       const latest = await workspace.schoolProfiles.detail(school.id)
+      onDirtyChange?.(false)
       await onSaved(latest)
       form.setFieldsValue({ ...latest })
       setConflict(false)
@@ -147,7 +151,10 @@ export function SchoolForm({
           })
         } else void save(v)
       }}
-      onValuesChange={() => setDone(false)}
+      onValuesChange={() => {
+        setDone(false)
+        onDirtyChange?.(true)
+      }}
     >
       {error && <Alert type="error" title={error} />}
       {conflict && (
@@ -255,9 +262,11 @@ export function SchoolForm({
       ) : (
         <p>图标、背景图与主题色可在创建后完善。</p>
       )}
-      <Button type="primary" htmlType="submit" loading={busy} disabled={conflict || busy}>
-        {school ? (busy ? '正在保存…' : '保存资料') : busy ? '正在创建…' : '创建学校'}
-      </Button>
+      <div className="form-actions">
+        <Button type="primary" htmlType="submit" loading={busy} disabled={conflict || busy}>
+          {school ? (busy ? '正在保存…' : '保存资料') : busy ? '正在创建…' : '创建学校'}
+        </Button>
+      </div>
       {done && <Alert type="success" role="status" showIcon title="已保存" />}
     </Form>
   )
@@ -276,7 +285,8 @@ export function Schools({
     [detail, setDetail] = useState<School>(),
     [editing, setEditing] = useState<School>(),
     [notice, setNotice] = useState<School>(),
-    [highlight, setHighlight] = useState<string>()
+    [highlight, setHighlight] = useState<string>(),
+    [dirty, setDirty] = useState(false)
   const cache = useQueryClient()
   const q = useQuery({
     queryKey: ['linjian', 'school-management', filters],
@@ -297,20 +307,53 @@ export function Schools({
     await cache.invalidateQueries({ queryKey: ['linjian', 'school-management'] })
     await refresh()
   }
-  async function created(result: School) {
+  async function created(result?: School) {
+    if (!result) return
     setCreating(false)
+    setDirty(false)
     setNotice(result)
     setHighlight(result.id)
     await refreshSchools()
   }
-  async function updated(result: School) {
+  async function updated(result?: School) {
+    if (!result) return
     setEditing(result)
+    setDirty(false)
     await refreshSchools()
+  }
+  function openCreate() {
+    setDirty(false)
+    setEditing(undefined)
+    setCreating(true)
+  }
+  function openEdit(school: School) {
+    setDirty(false)
+    setCreating(false)
+    setEditing(school)
+  }
+  function closeEditor() {
+    if (!dirty) {
+      setCreating(false)
+      setEditing(undefined)
+      return
+    }
+    Modal.confirm({
+      title: '有未保存的修改',
+      content: '关闭后当前学校的未保存内容将丢失。',
+      okText: '放弃修改',
+      cancelText: '继续编辑',
+      okButtonProps: { danger: true },
+      onOk: () => {
+        setCreating(false)
+        setEditing(undefined)
+        setDirty(false)
+      },
+    })
   }
   const change = (v: Partial<SchoolFilters>) => setFilters((f) => ({ ...f, ...v, page: 1 }))
   return (
     <Space orientation="vertical" className="full-width">
-      <Button type="primary" onClick={() => setCreating(true)}>
+      <Button type="primary" onClick={openCreate}>
         新建
       </Button>
       {q.error && <Alert type="error" title={q.error.message} />}
@@ -327,7 +370,7 @@ export function Schools({
               <Button
                 size="small"
                 onClick={() => {
-                  setEditing(notice)
+                  openEdit(notice)
                   setNotice(undefined)
                 }}
               >
@@ -413,7 +456,7 @@ export function Schools({
                 label={s.name}
                 actions={[
                   { key: 'detail', label: '详情', onClick: () => setDetail(s) },
-                  { key: 'edit', label: '编辑资料', onClick: () => setEditing(s) },
+                  { key: 'edit', label: '编辑资料', onClick: () => openEdit(s) },
                   { key: 'settings', label: '设置', onClick: () => enter(s.id, 'settings') },
                   {
                     key: 'members',
@@ -433,26 +476,28 @@ export function Schools({
         busy={q.isFetching}
         change={(page) => setFilters((v) => ({ ...v, page }))}
       />
-      <Modal
-        open={creating}
-        title="新建学校"
-        footer={null}
-        onCancel={() => setCreating(false)}
-        destroyOnHidden
-      >
-        <SchoolForm key="new" platform onSaved={created} />
-      </Modal>
       <Drawer
-        open={!!editing}
+        open={creating || !!editing}
         size="large"
-        title={editing ? `${editing.name} · 学校资料` : ''}
-        onClose={() => setEditing(undefined)}
+        title={editing ? `${editing.name} · 学校资料` : '新建学校'}
+        onClose={closeEditor}
         destroyOnHidden
       >
-        {editing && <SchoolForm key={editing.id} school={editing} platform onSaved={updated} />}
+        {creating ? (
+          <SchoolForm key="new" platform onSaved={created} onDirtyChange={setDirty} />
+        ) : editing ? (
+          <SchoolForm
+            key={editing.id}
+            school={editing}
+            platform
+            onSaved={updated}
+            onDirtyChange={setDirty}
+          />
+        ) : null}
       </Drawer>
       <Drawer
         open={!!detail}
+        size="large"
         title={`${detail?.name ?? ''} · 详情`}
         onClose={() => setDetail(undefined)}
       >
