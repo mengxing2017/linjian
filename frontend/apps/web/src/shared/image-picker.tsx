@@ -12,6 +12,10 @@ export function ImagePicker({ scope, label, value, onChange, onBusyChange, load,
   const [retry, setRetry] = useState<File>(), pending = useRef(false), current = useRef(scope)
   current.current = scope
   const q = useQuery({ queryKey: ['linjian', 'image-picker', scope, page], queryFn: () => load(page) })
+  const loaded = q.data !== undefined
+  const hasPrev = page > 1
+  const hasNext = q.data?.page?.has_more === true
+  const hasPages = loaded && (hasPrev || hasNext)
   async function send(file: File) {
     if (pending.current) return
     const turn = scope
@@ -28,7 +32,29 @@ export function ImagePicker({ scope, label, value, onChange, onBusyChange, load,
       style={{ width: '100%' }} popupMatchSelectWidth={false} styles={{ popup: { root: { minWidth: 280 } } }}
       options={q.data?.items.map(v => ({ value: v.id, label: <Space><img src={v.url ?? source(v.id)} alt="素材缩略图" width={36} height={28} /><span>{v.id.slice(0, 8)} · {v.width}×{v.height}{v.size_bytes ? ` · ${Math.ceil(v.size_bytes / 1024)} KiB` : ''}</span></Space> }))}
       onChange={id => onChange(id ?? null)} />
-    <Space><Button disabled={page <= 1 || busy} onClick={() => setPage(page - 1)}>上一页</Button><span>第 {page} 页</span><Button disabled={!q.data?.page?.has_more || busy} onClick={() => setPage(page + 1)}>下一页</Button></Space>
+    {hasPages && (
+      <Space wrap>
+        {hasPrev && (
+          <Button
+            aria-label={`上一页 ${label}`}
+            disabled={busy || q.isFetching}
+            onClick={() => setPage(page - 1)}
+          >
+            上一页
+          </Button>
+        )}
+        <span>第 {page} 页</span>
+        {hasNext && (
+          <Button
+            aria-label={`下一页 ${label}`}
+            disabled={busy || q.isFetching}
+            onClick={() => setPage(page + 1)}
+          >
+            下一页
+          </Button>
+        )}
+      </Space>
+    )}
     <Upload accept="image/png,image/jpeg,image/gif,image/webp" showUploadList={false} disabled={busy} beforeUpload={file => { void send(file); return false }}><Button loading={busy}>上传{label}</Button></Upload>
     <span>PNG / JPEG / GIF / WebP，最大 5 MiB。上传后保存表单生效。</span>
     {retry && <Button disabled={busy} onClick={() => void send(retry)}>重试上传</Button>}
