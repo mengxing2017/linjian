@@ -161,14 +161,9 @@ impl ActivityRecorder for Recorder {
     }
 }
 async fn maintain(pool: &PgPool, c: &crate::statistics::config::Config) -> Result<()> {
-    for (family, start) in [
-        ("content", c.content_complete_from),
-        ("registration", c.registration_complete_from),
-        ("activity", c.activity_complete_from),
-    ] {
-        if let Some(start) = start {
-            sqlx::query("INSERT INTO statistics_coverage(id,family,start_at,status,reason) SELECT $1,$2,$3,'complete','operator_verified' WHERE NOT EXISTS(SELECT 1 FROM statistics_coverage WHERE family=$2 AND start_at=$3 AND reason='operator_verified')").bind(Uuid::new_v4()).bind(family).bind(start).execute(pool).await?;
-        }
+    if let Some(start) = c.activity_complete_from {
+        let family = "activity";
+        sqlx::query("INSERT INTO statistics_coverage(id,family,start_at,status,reason) SELECT $1,$2,$3,'complete','operator_verified' WHERE NOT EXISTS(SELECT 1 FROM statistics_coverage WHERE family=$2 AND start_at=$3 AND reason='operator_verified')").bind(Uuid::new_v4()).bind(family).bind(start).execute(pool).await?;
     }
     sqlx::query("DELETE FROM statistics_snapshots WHERE expires_at<now()")
         .execute(pool)

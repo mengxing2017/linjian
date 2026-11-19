@@ -7,8 +7,6 @@ pub struct Config {
     pub batch_size: usize,
     pub snapshot_seconds: i64,
     pub retention_months: i32,
-    pub content_complete_from: Option<DateTime<Utc>>,
-    pub registration_complete_from: Option<DateTime<Utc>>,
     pub activity_complete_from: Option<DateTime<Utc>>,
 }
 impl Default for Config {
@@ -20,8 +18,6 @@ impl Default for Config {
             batch_size: 256,
             snapshot_seconds: 600,
             retention_months: 25,
-            content_complete_from: None,
-            registration_complete_from: None,
             activity_complete_from: None,
         }
     }
@@ -59,21 +55,12 @@ impl Config {
             batch_size: number("BATCH_SIZE", 256, 1, 10000)? as usize,
             snapshot_seconds: number("SNAPSHOT_SECONDS", 600, 60, 3600)? as i64,
             retention_months: number("RETENTION_MONTHS", 25, 25, 120)? as i32,
-            content_complete_from: timestamp("CONTENT")?,
-            registration_complete_from: timestamp("REGISTRATION")?,
             activity_complete_from: timestamp("ACTIVITY")?,
         };
-        for t in [
-            c.content_complete_from,
-            c.registration_complete_from,
-            c.activity_complete_from,
-        ]
-        .into_iter()
-        .flatten()
+        if let Some(t) = c.activity_complete_from
+            && t > Utc::now()
         {
-            if t > Utc::now() {
-                return Err("statistics coverage cannot start in the future".into());
-            }
+            return Err("statistics coverage cannot start in the future".into());
         }
         Ok(c)
     }
