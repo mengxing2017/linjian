@@ -12,16 +12,19 @@ interface Field {
   optional?: boolean
   readOnly?: boolean
   value?: string | number
+  wide?: boolean
 }
 
 export function Editor({
   fields,
   onSave,
   submit = '保存',
+  columns = false,
 }: {
   fields: Field[]
   onSave: (v: Record<string, string>) => Promise<unknown>
   submit?: string
+  columns?: boolean
 }) {
   const formName = useId()
   const [busy, setBusy] = useState(false)
@@ -47,7 +50,7 @@ export function Editor({
       name={formName}
       layout="vertical"
       onFinish={save}
-      className="business-form"
+      className={columns ? 'business-form form-grid' : 'business-form'}
       disabled={busy}
       initialValues={Object.fromEntries(fields.map((field) => [field.name, field.value]))}
     >
@@ -68,7 +71,7 @@ export function Editor({
                 ? (color) => color.toHexString()
                 : undefined
           }
-          className={field.type === 'textarea' ? 'form-wide' : undefined}
+          className={field.wide || field.type === 'textarea' ? 'form-wide' : undefined}
           rules={[{ required: !field.optional, message: `请填写${field.title}` }]}
         >
           {field.options ? (

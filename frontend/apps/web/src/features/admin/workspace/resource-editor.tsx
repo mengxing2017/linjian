@@ -18,20 +18,22 @@ export function ResourceEditor({item,school,onSaved}:{item?:Row;school?:string;o
  function actionKind(kind:ResourceAction['kind']){change({action:kind==='none'?{kind}:kind==='internal_page'?{kind,page:'feed'}:kind==='external_link'?{kind,url:''}:kind==='phone'?{kind,number:''}:{kind,text:''}})}
  return <Space orientation="vertical" className="full-width">{error&&<Alert type="error" title={error}/>}
  {!preview?<>
- <label>资源类型<Select aria-label="资源类型" value={form.kind} disabled={!!initial||busy} options={kinds.map(([value,label])=>({value,label}))} onChange={kind=>change({kind,image_ref:null,action:{kind:'none'}})}/></label>
+ <div className="form-grid">
+ <label>资源类型<Select aria-label="资源类型" style={{width:'100%'}} value={form.kind} disabled={!!initial||busy} options={kinds.map(([value,label])=>({value,label}))} onChange={kind=>change({kind,image_ref:null,action:{kind:'none'}})}/></label>
  <label>标题<Input aria-label="资源标题" value={form.title} maxLength={200} onChange={e=>change({title:e.target.value})}/></label>
- <label>正文或用途说明<Input.TextArea aria-label="资源正文" value={form.content} onChange={e=>change({content:e.target.value})}/></label>
+ <label className="form-wide">正文或用途说明<Input.TextArea aria-label="资源正文" value={form.content} onChange={e=>change({content:e.target.value})}/></label>
  {!['tag','blocked_word'].includes(form.kind)&&<>
- <label>点击或使用方式<Select aria-label="资源使用方式" value={action.kind} options={[{value:'none',label:'仅展示'},{value:'internal_page',label:'打开本站页面'},{value:'external_link',label:'复制外部链接'},{value:'phone',label:'拨打电话'},{value:'copy_text',label:'复制联系方式或说明'}]} onChange={actionKind}/></label>
- {action.kind==='external_link'&&<Input aria-label="外部链接" type="url" inputMode="url" placeholder="https://" value={action.url} onChange={e=>change({action:{...action,url:e.target.value}})}/>}
- {action.kind==='internal_page'&&<><Select aria-label="本站页面" value={action.page} options={[['feed','校园发现'],['resources','校园服务'],['legal','学校说明'],...(school?[['post','动态详情']]:[])].map(([value,label])=>({value,label}))} onChange={page=>change({action:{kind:'internal_page',page:page as 'feed'|'resources'|'legal'|'post',object_id:page==='post'?action.object_id:null}})}/>{action.page==='post'&&<Select aria-label="目标动态" placeholder="选择本校已审核动态" value={action.object_id??undefined} options={posts.data?.items.map(v=>({value:v.id,label:String(v.title)}))} onChange={object_id=>change({action:{...action,object_id}})}/>}</>}
- {action.kind==='phone'&&<Input aria-label="电话号码" type="tel" inputMode="tel" value={action.number} onChange={e=>change({action:{...action,number:e.target.value}})}/>}
- {action.kind==='copy_text'&&<Input.TextArea aria-label="复制内容" value={action.text} onChange={e=>change({action:{...action,text:e.target.value}})}/>}
+ <label>点击或使用方式<Select aria-label="资源使用方式" style={{width:'100%'}} value={action.kind} options={[{value:'none',label:'仅展示'},{value:'internal_page',label:'打开本站页面'},{value:'external_link',label:'复制外部链接'},{value:'phone',label:'拨打电话'},{value:'copy_text',label:'复制联系方式或说明'}]} onChange={actionKind}/></label>
+ {action.kind==='external_link'&&<label className="form-wide">外部链接<Input aria-label="外部链接" type="url" inputMode="url" placeholder="https://" value={action.url} onChange={e=>change({action:{...action,url:e.target.value}})}/></label>}
+ {action.kind==='internal_page'&&<><label className="form-wide">本站页面<Select aria-label="本站页面" style={{width:'100%'}} value={action.page} options={[['feed','校园发现'],['resources','校园服务'],['legal','学校说明'],...(school?[['post','动态详情']]:[])].map(([value,label])=>({value,label}))} onChange={page=>change({action:{kind:'internal_page',page:page as 'feed'|'resources'|'legal'|'post',object_id:page==='post'?action.object_id:null}})}/></label>{action.page==='post'&&<label className="form-wide">目标动态<Select aria-label="目标动态" style={{width:'100%'}} placeholder="选择本校已审核动态" value={action.object_id??undefined} options={posts.data?.items.map(v=>({value:v.id,label:String(v.title)}))} onChange={object_id=>change({action:{...action,object_id}})}/></label>}</>}
+ {action.kind==='phone'&&<label className="form-wide">电话号码<Input aria-label="电话号码" type="tel" inputMode="tel" value={action.number} onChange={e=>change({action:{...action,number:e.target.value}})}/></label>}
+ {action.kind==='copy_text'&&<label className="form-wide">复制内容<Input.TextArea aria-label="复制内容" value={action.text} onChange={e=>change({action:{...action,text:e.target.value}})}/></label>}
  </>}
  <label>排序<InputNumber value={form.sort_order} onChange={v=>change({sort_order:Number(v)})}/></label>
+ <label>启用<Switch checked={form.active} onChange={active=>change({active})}/></label>
  <label>生效时间<LocalDateTimePicker value={localDate(form.starts_at)} onChange={value=>change({starts_at:value?new Date(value).toISOString():null})}/></label>
  <label>失效时间<LocalDateTimePicker value={localDate(form.ends_at)} onChange={value=>change({ends_at:value?new Date(value).toISOString():null})}/></label>
- <label>启用<Switch checked={form.active} onChange={active=>change({active})}/></label>
+ </div>
  <Button type="primary" loading={busy} onClick={()=>void run(async()=>setPreview(await product.resources.preview(school,form)))}>预览</Button>
  </>:<>
  <p>范围：{school?'当前学校':'平台默认'} · {preview.summary.active?'发布启用':'保存为停用'}。学校同类有效资源优先；两端均按以下图片和使用方式展示。</p>

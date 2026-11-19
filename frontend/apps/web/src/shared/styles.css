@@ -535,6 +535,52 @@ a:focus-visible {
   max-width: 800px;
   margin: 16px 0;
 }
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 20px;
+  align-items: start;
+}
+.form-grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.form-grid > .form-wide,
+.form-grid > .ant-form-item:has(textarea),
+.form-grid > .ant-alert,
+.form-grid > .ant-btn,
+.form-grid > .form-actions,
+.form-grid > h3,
+.form-grid > p,
+.form-grid > section {
+  grid-column: 1 / -1;
+}
+.form-grid > label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.form-grid > label .ant-picker,
+.form-grid > label .ant-select,
+.form-grid > label .ant-input-number {
+  width: 100%;
+}
+.form-grid .ant-form-item {
+  margin-bottom: 0;
+  min-width: 0;
+}
+.coordinate-field {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 768px) {
+  .form-grid,
+  .form-grid--3,
+  .coordinate-field {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .school-form-section {
   margin: 8px 0 -8px;
   padding-top: 16px;

@@ -430,7 +430,7 @@ export function SiteSettings() {
           >
             <Input maxLength={100} placeholder="填写真实权利主体" />
           </Form.Item>
-          <Space wrap align="start">
+          <div className="form-grid form-grid--3">
             <Form.Item name="copyright_start_year" label="版权起始年">
               <InputNumber min={1900} max={currentYear} precision={0} />
             </Form.Item>
@@ -453,7 +453,7 @@ export function SiteSettings() {
                 />
               </Form.Item>
             )}
-          </Space>
+          </div>
           <p className="field-caption">
             自动模式按 Asia/Shanghai 计算截止年；所有者与年份必须整组填写或整组清空。
           </p>

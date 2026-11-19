@@ -84,7 +84,11 @@ export function BlockedWords({ school, schoolName, canEdit, platformAdmin = fals
         </Space>
       }
     >
-      <Space orientation="vertical" className="full-width"><label>屏蔽词<Input value={word} maxLength={100} onChange={e=>setWord(e.target.value)} /></label><label>备注<Input.TextArea value={remark} maxLength={255} onChange={e=>setRemark(e.target.value)} /></label><label>启用 <Switch checked={active} onChange={setActive}/></label></Space>
+      <div className="form-grid">
+        <label>屏蔽词<Input value={word} maxLength={100} onChange={e=>setWord(e.target.value)} /></label>
+        <label>启用 <Switch checked={active} onChange={setActive}/></label>
+        <label className="form-wide">备注<Input.TextArea value={remark} maxLength={255} onChange={e=>setRemark(e.target.value)} /></label>
+      </div>
     </Drawer>
     <Drawer
       open={!!preview}

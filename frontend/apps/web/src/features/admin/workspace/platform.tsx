@@ -196,10 +196,11 @@ export function Accounts({
           destroyOnHidden
         >
           <Editor
+            columns
             fields={[
               { name: 'username', title: '账号' },
               { name: 'display_name', title: '昵称' },
-              { name: 'password', title: '初始密码（至少12个字符）', type: 'password' },
+              { name: 'password', title: '初始密码（至少12个字符）', type: 'password', wide: true },
             ]}
             submit="创建后台账号"
             onSave={async (v) => {
