@@ -29,11 +29,13 @@ import {
 } from '../../site'
 import { useUnsavedChanges } from '../../../shared/unsaved-changes'
 import { formatDate } from '../../../shared/format-date'
+import { MediaPicker } from '../operations/media-picker'
 
 type FormValues = Omit<SiteSettingsInput, 'revision'>
 
 const EMPTY_FORM: FormValues = {
   site_name: null,
+  logo_asset_id: null,
   title_subtitle: null,
   login_intro: null,
   icp_number: null,
@@ -48,6 +50,7 @@ const EMPTY_FORM: FormValues = {
 
 const fieldLabels: Record<string, string> = {
   site_name: '网站名称',
+  logo_asset_id: '平台 Logo',
   title_subtitle: '浏览器标题副标题',
   login_intro: '登录页简介',
   icp_number: 'ICP备案号',
@@ -68,6 +71,7 @@ function clean(value: string | null | undefined): string | null {
 function toForm(settings: AdminSiteSettings): FormValues {
   return {
     site_name: settings.site_name,
+    logo_asset_id: settings.logo_asset_id,
     title_subtitle: settings.title_subtitle,
     login_intro: settings.login_intro,
     icp_number: settings.icp_number,
@@ -86,6 +90,7 @@ function toInput(values: FormValues, revision: number): SiteSettingsInput {
   return {
     revision,
     site_name: clean(values.site_name),
+    logo_asset_id: values.logo_asset_id ?? null,
     title_subtitle: clean(values.title_subtitle),
     login_intro: clean(values.login_intro),
     icp_number: clean(values.icp_number),
@@ -115,6 +120,7 @@ function changedFields(loaded: FormValues, current: SiteSettingsInput): string[]
 function clearedGroups(loaded: FormValues, current: SiteSettingsInput): string[] {
   const cleared: string[] = []
   if (loaded.site_name && !current.site_name) cleared.push('网站名称')
+  if (loaded.logo_asset_id && !current.logo_asset_id) cleared.push('平台 Logo')
   if (loaded.icp_number && !current.icp_number) cleared.push('ICP备案号')
   if (
     (loaded.police_number || loaded.police_url) &&
@@ -124,6 +130,25 @@ function clearedGroups(loaded: FormValues, current: SiteSettingsInput): string[]
     cleared.push('公安备案信息')
   if (loaded.copyright_owner && !current.copyright_owner) cleared.push('版权信息')
   return cleared
+}
+
+function LogoPicker({
+  value,
+  onChange,
+  onBusyChange,
+}: {
+  value?: string | null
+  onChange?: (id: string | null) => void
+  onBusyChange?: (busy: boolean) => void
+}) {
+  return (
+    <MediaPicker
+      value={value ?? null}
+      label="平台 Logo"
+      onChange={(id) => onChange?.(id)}
+      onBusyChange={onBusyChange}
+    />
+  )
 }
 
 function policeLink(_: unknown, value?: string) {
@@ -191,10 +216,16 @@ export function SiteSettings() {
   }, [dirty])
   const values = (Form.useWatch([], form) as FormValues | undefined) ?? loaded
   const input = toInput(values, revision)
-  const preview = publicFromInput(input)
+  const preview = publicFromInput(
+    input,
+    input.logo_asset_id
+      ? `/api/v1/platform/resource-artwork/${input.logo_asset_id}`
+      : null,
+  )
   const changed = changedFields(loaded, input)
   const emptyPreview =
     !text(preview.site_name) &&
+    !text(preview.logo_url) &&
     !text(preview.login_intro) &&
     !text(preview.icp_number) &&
     !text(preview.police_number) &&
@@ -313,6 +344,13 @@ export function SiteSettings() {
           </Form.Item>
           <p className="field-caption">
             网站名称为空时，后台页头、登录页和社区入口不显示品牌文字及容器。
+          </p>
+          <Form.Item name="logo_asset_id" label="平台 Logo">
+            <LogoPicker onBusyChange={setBusy} />
+          </Form.Item>
+          <p className="field-caption">
+            建议使用正方形 PNG/WebP。未配置 Logo 时不显示图标，也不以固定字母代替；名称与 Logo
+            分别按是否配置决定展示。
           </p>
           <Form.Item
             name="title_subtitle"
