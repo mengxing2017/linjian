@@ -62,7 +62,9 @@ it('uploads through the contract and submits managed form values with image URLs
   fireEvent.click(await screen.findByRole('button', { name: /^发\s*布$/ }))
   fireEvent.change(screen.getByLabelText('标题'), { target: { value: '校园通知' } })
   fireEvent.change(screen.getByLabelText('正文'), { target: { value: '通知正文' } })
-  fireEvent.change(screen.getByLabelText('标签（逗号分隔）'), { target: { value: '校园, 通知' } })
+  const tags = screen.getByLabelText('标签')
+  fireEvent.change(tags, { target: { value: '校园,通知' } })
+  fireEvent.keyDown(tags, { key: 'Enter', code: 'Enter', keyCode: 13 })
   const file = new File(['image'], 'photo.png', { type: 'image/png' })
   fireEvent.change(document.querySelector('input[type=file]')!, { target: { files: [file] } })
   await waitFor(() =>

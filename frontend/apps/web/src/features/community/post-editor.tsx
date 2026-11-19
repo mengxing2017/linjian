@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Form, Input, Upload } from 'antd'
+import { Button, Form, Input, Select, Upload } from 'antd'
 import { Field } from '../../shared/field'
 import { workspace, type Post } from './api'
 import type { CommunityAction } from './actions'
@@ -19,7 +19,7 @@ export function PostEditor({
   setImages: (images: string[]) => void
   busy: boolean
   run: CommunityAction
-  publish: (values: { title: string; content: string; tags?: string }) => Promise<void>
+  publish: (values: { title: string; content: string; tags?: string[] }) => Promise<void>
 }) {
   const [failed, setFailed] = useState<File[]>([])
   return (
@@ -32,7 +32,7 @@ export function PostEditor({
       initialValues={{
         title: editing?.title,
         content: editing?.content,
-        tags: editing?.tags.join(','),
+        tags: editing?.tags ?? [],
       }}
     >
       <h2>{editing ? '编辑内容' : '发布内容'}</h2>
@@ -42,8 +42,13 @@ export function PostEditor({
       <Field name="content" required label={<>正文</>}>
         <Input.TextArea name="content" maxLength={20000} />
       </Field>
-      <Field name="tags" label={<>标签（逗号分隔）</>}>
-        <Input name="tags" />
+      <Field name="tags" label={<>标签</>}>
+        <Select
+          mode="tags"
+          maxCount={10}
+          tokenSeparators={[',', '，']}
+          placeholder="输入后回车，或用逗号分隔"
+        />
       </Field>
       <div>
         <p>图片（最多9张）</p>

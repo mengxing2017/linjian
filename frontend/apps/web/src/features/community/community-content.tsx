@@ -94,7 +94,7 @@ export function CommunityContent({ user }: { user: User }) {
       setBusy(false)
     }
   }
-  async function publish(values: { title: string; content: string; tags?: string }) {
+  async function publish(values: { title: string; content: string; tags?: string[] }) {
     await run(async () => {
       await workspace.mutate(
         s,
@@ -103,10 +103,7 @@ export function CommunityContent({ user }: { user: User }) {
           title: values.title,
           content: values.content,
           images,
-          tags: String(values.tags ?? '')
-            .split(',')
-            .map((v) => v.trim())
-            .filter(Boolean),
+          tags: values.tags ?? [],
           revision: editing?.revision,
         },
         editing ? 'PUT' : 'POST',
