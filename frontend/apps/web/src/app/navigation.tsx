@@ -117,7 +117,7 @@ export const navigation: NavigationItem[] = [
     key: 'members',
     icon: <UsergroupAddOutlined />,
     label: '学校成员与权限',
-    description: '查看本校成员及角色，学校授权由平台管理员维护。',
+    description: '查看本校成员及角色；学校角色由平台管理员维护，本校管理员可设置运营成员推荐权限。',
     domain: 'school',
     scope: 'school',
     capability: 'school.admin',

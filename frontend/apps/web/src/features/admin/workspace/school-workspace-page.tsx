@@ -28,7 +28,7 @@ export function SchoolWorkspacePage({ view, school, platformAdmin, schoolAdmin, 
     case 'blocked-words': return <BlockedWords key={school.id} school={school.id} schoolName={school.name} canEdit={schoolAdmin} platformAdmin={platformAdmin} />
     case 'audit': return <AuditLog school={school.id} />
     case 'source-outbox': return <Outbox school={school.id} />
-    case 'members': return <Members school={school} platformAdmin={platformAdmin} refresh={refresh} />
+    case 'members': return <Members school={school} platformAdmin={platformAdmin} currentUserId={publisherId} refresh={refresh} />
     case 'settings': return <Card title={`${school.name} · 学校设置`}>
       <SchoolForm key={`${school.id}:${school.revision}`} school={school} platform={platformAdmin} onSaved={refresh} />
     </Card>

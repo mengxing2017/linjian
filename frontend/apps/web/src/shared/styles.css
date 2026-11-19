@@ -430,6 +430,28 @@ a:focus-visible {
   font-size: 14px;
   margin-bottom: 16px;
 }
+.grant-form {
+  display: grid;
+  gap: 16px;
+}
+.grant-role-options .ant-radio-wrapper {
+  align-items: flex-start;
+}
+.grant-role-description {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+.grant-note {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+.grant-danger-zone {
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
 .pagination-controls {
   width: 100%;
   margin-top: 16px;
