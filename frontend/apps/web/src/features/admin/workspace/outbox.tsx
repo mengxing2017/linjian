@@ -29,13 +29,14 @@ function preparation(row: Row) {
   const p = row.preparation
   return p && typeof p === 'object' && !Array.isArray(p) ? p : undefined
 }
-export function Outbox({ school }: { school: string }) {
+export function Outbox({ school, initialEvent }: { school: string; initialEvent?: string }) {
   const [page, setPage] = useState(1),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false)
+  const [terminating, setTerminating] = useState(false)
   const [preparationRevision, setPreparationRevision] = useState<number>()
   const [filter, setFilter] = useState<string>(),
-    [selected, setSelected] = useState<string>(),
+    [selected, setSelected] = useState<string | undefined>(initialEvent),
     [retry, setRetry] = useState<string>(),
     [reason, setReason] = useState('')
   const q = useQuery({
@@ -59,10 +60,12 @@ export function Outbox({ school }: { school: string }) {
     setBusy(true)
     setError('')
     try {
-      if (preparationRevision !== undefined)
+      if (terminating) await workspace.terminateSource(school, retry, reason.trim())
+      else if (preparationRevision !== undefined)
         await workspace.retryPreparation(school, retry, reason.trim(), preparationRevision)
       else await workspace.replaySource(school, retry, reason.trim())
       setRetry(undefined)
+      setTerminating(false)
       setReason('')
       await q.refetch()
       if (selected) await detail.refetch()
@@ -150,11 +153,25 @@ export function Outbox({ school }: { school: string }) {
           },
           { title: '请求次数', width: 110, dataIndex: 'attempts' },
           { title: '原路由', ellipsis: true, width: 300, dataIndex: 'route_id' },
-          { title: '阻塞原因', ellipsis: true, width: 200, dataIndex: 'blocked_reason', render: (v) => v ?? '—' },
-          { title: '最近问题', ellipsis: true, width: 280, dataIndex: 'last_error', render: (v) => v ?? '—' },
+          {
+            title: '阻塞原因',
+            ellipsis: true,
+            width: 200,
+            dataIndex: 'blocked_reason',
+            render: (v) => v ?? '—',
+          },
+          {
+            title: '最近问题',
+            ellipsis: true,
+            width: 280,
+            dataIndex: 'last_error',
+            render: (v) => v ?? '—',
+          },
           { title: '创建时间', width: 180, dataIndex: 'created_at', render: (v) => formatDate(v) },
           {
-            title: '操作', width: 160, fixed: 'right',
+            title: '操作',
+            width: 160,
+            fixed: 'right',
             render: (_, r) => {
               const p = preparation(r)
               return p && p.state !== 'completed' ? (
@@ -191,15 +208,28 @@ export function Outbox({ school }: { school: string }) {
         change={setPage}
       />
       <Modal
-        title={preparationRevision === undefined ? '重试同一事件' : '重试内容准备'}
+        title={
+          terminating
+            ? '核对并终止未尝试事件'
+            : preparationRevision === undefined
+              ? '重试同一事件'
+              : '重试内容准备'
+        }
         open={!!retry}
         confirmLoading={busy}
-        okText="重新调度原事件"
+        okText={terminating ? '确认安全终止' : '重新调度原事件'}
         okButtonProps={{ disabled: !reason.trim() }}
         onOk={() => void replay()}
-        onCancel={() => setRetry(undefined)}
+        onCancel={() => {
+          setRetry(undefined)
+          setTerminating(false)
+        }}
       >
-        <p>保留原事件、路由、正文和回执身份。</p>
+        <p>
+          {terminating
+            ? '仅可终止从未尝试、无租约的受阻事件；核对原因将留存审计。结果未知的请求不能通过终止绕过。'
+            : '保留原事件、路由、正文和回执身份。'}
+        </p>
         <Input.TextArea
           aria-label="恢复原因"
           maxLength={500}
@@ -217,16 +247,36 @@ export function Outbox({ school }: { school: string }) {
         {detail.error && <Alert type="error" title={detail.error.message} />}
         {detail.data && (
           <>
+            {detail.data.attempts === 0 &&
+              (detail.data.delivery_state === 'blocked' ||
+                detail.data.preparation?.state === 'blocked') && (
+                <Button
+                  danger
+                  onClick={() => {
+                    setTerminating(true)
+                    setRetry(detail.data!.id)
+                    setReason('')
+                  }}
+                >
+                  核对并终止未尝试事件
+                </Button>
+              )}
             <Descriptions
               column={1}
               items={[
-                { key: 'id', label: '原事件', children: <Typography.Text copyable>{detail.data.id}</Typography.Text> },
+                {
+                  key: 'id',
+                  label: '原事件',
+                  children: <Typography.Text copyable>{detail.data.id}</Typography.Text>,
+                },
                 {
                   key: 'route',
                   label: '原路由',
-                  children: detail.data.route_id
-                    ? <Typography.Text copyable>{detail.data.route_id}</Typography.Text>
-                    : '待绑定',
+                  children: detail.data.route_id ? (
+                    <Typography.Text copyable>{detail.data.route_id}</Typography.Text>
+                  ) : (
+                    '待绑定'
+                  ),
                 },
                 {
                   key: 'binding',
@@ -324,7 +374,12 @@ export function Outbox({ school }: { school: string }) {
               dataSource={detail.data.recoveries ?? []}
               columns={[
                 { title: '原因', width: 320, dataIndex: 'reason' },
-                { title: '时间', width: 180, dataIndex: 'created_at', render: (v) => formatDate(v) },
+                {
+                  title: '时间',
+                  width: 180,
+                  dataIndex: 'created_at',
+                  render: (v) => formatDate(v),
+                },
               ]}
             />
           </>
