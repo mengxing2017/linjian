@@ -5,6 +5,7 @@
     "attributes": {
       "revision": 3,
       "site_name": "示例校园",
+      "logo_url": "/api/v1/site-branding/logo?v=3",
       "title_subtitle": "校园内容运营",
       "login_intro": "连接学校、内容与社区",
       "icp_number": "京ICP备00000000号-1",

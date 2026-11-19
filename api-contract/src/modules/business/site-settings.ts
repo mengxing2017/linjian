@@ -5,6 +5,7 @@ export type CopyrightEndMode = "auto" | "fixed";
 export interface PublicSiteSettings {
   revision: number;
   site_name: string | null;
+  logo_url: string | null;
   title_subtitle: string | null;
   login_intro: string | null;
   icp_number: string | null;
@@ -27,6 +28,7 @@ export interface SiteSettingsHistory {
 }
 
 export interface AdminSiteSettings extends PublicSiteSettings {
+  logo_asset_id: string | null;
   copyright_start_year: number | null;
   copyright_end_mode: CopyrightEndMode | null;
   copyright_end_year: number | null;
@@ -38,6 +40,7 @@ export interface AdminSiteSettings extends PublicSiteSettings {
 export interface SiteSettingsInput {
   revision: number;
   site_name: string | null;
+  logo_asset_id: string | null;
   title_subtitle: string | null;
   login_intro: string | null;
   icp_number: string | null;
