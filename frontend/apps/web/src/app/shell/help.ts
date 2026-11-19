@@ -26,6 +26,7 @@ export const pageHelp: Record<string, string> = {
   schools: 'platform-admin/accounts-and-schools',
   accounts: 'platform-admin/accounts-and-schools',
   administrators: 'platform-admin/accounts-and-schools',
+  'site-settings': 'platform-admin/site-settings',
   'platform-resources': 'platform-admin/audit-and-resources',
 }
 export const helpHref = (active: string) =>

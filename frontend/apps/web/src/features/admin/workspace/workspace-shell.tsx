@@ -1,8 +1,10 @@
-import { Alert, Button, Empty, Select, Tag } from 'antd'
+import { Alert, Button, Empty, Modal, Select, Tag } from 'antd'
 import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, useSearchParams } from 'react-router-dom'
+import { useCallback, useRef } from 'react'
 import { navigation, visibleNavigationKeys } from '../../../app/navigation'
 import { AppShell } from '../../../app/shell'
+import { UnsavedChangesContext } from '../../../shared/unsaved-changes'
 import { useSchools } from '../../school-context'
 import { StatisticsPage } from '../statistics'
 import { MiniappUsers } from '../miniapp-users'
@@ -11,6 +13,7 @@ import { Accounts, Schools } from './platform'
 import { OperationResources, CustomerConfiguration, OperationFeedback } from '../operations'
 import { GlobalResources } from './global-resources'
 import { BlockedWords } from './blocked-words'
+import { SiteSettings } from '../site-settings'
 import { SchoolWorkspacePage } from './school-workspace-page'
 import type { User } from './api'
 
@@ -18,6 +21,26 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
   const cache = useQueryClient()
   const q = useSchools()
   const [params, setParams] = useSearchParams()
+  const dirty = useRef(false)
+  const setDirty = useCallback((value: boolean) => {
+    dirty.current = value
+  }, [])
+  const confirmLeave = () =>
+    !dirty.current
+      ? Promise.resolve(true)
+      : new Promise<boolean>((resolve) => {
+          Modal.confirm({
+            title: '有未保存的修改',
+            content: '离开后当前页面的未保存内容将丢失。',
+            okText: '离开',
+            cancelText: '继续编辑',
+            onOk: () => resolve(true),
+            onCancel: () => resolve(false),
+          })
+        })
+  const guard = async (action: () => void | Promise<void>) => {
+    if (await confirmLeave()) await action()
+  }
   const selected = params.get('school') ?? ''
   const visibleSchools = q.data?.filter((s) => user.platform_admin || s.status === 'normal')
   const school = visibleSchools?.find((s) => s.id === (selected || visibleSchools[0]?.id))
@@ -37,13 +60,16 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
   const denied = !allowedKeys.includes(tab)
   const globalScope = knownPage?.scope === 'global'
   const navigate = (key: string) =>
-    setParams((previous) => {
-      const next = new URLSearchParams(previous)
-      next.set('view', key)
-      next.delete('subview')
-      return next
-    })
-  const enterSchool = (id: string, view: string) => setParams({ school: id, view })
+    void guard(() =>
+      setParams((previous) => {
+        const next = new URLSearchParams(previous)
+        next.set('view', key)
+        next.delete('subview')
+        return next
+      }),
+    )
+  const enterSchool = (id: string, view: string) =>
+    void guard(() => setParams({ school: id, view }))
   const refresh = async () => {
     await cache.invalidateQueries({ queryKey: ['schools'] })
     await cache.invalidateQueries({ queryKey: ['business'] })
@@ -109,6 +135,8 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
           return <GlobalResources />
         case 'platform-blocked-words':
           return <BlockedWords canEdit />
+        case 'site-settings':
+          return <SiteSettings key={tab} />
       }
     }
     if (q.isPending) return <Empty className="empty-state" description="正在加载学校…" />
@@ -127,44 +155,48 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
     </div>
   }
   return (
-    <AppShell
-      active={tab}
-      onNavigate={navigate}
-      username={user.display_name}
-      platformAdmin={user.platform_admin}
-      allowedKeys={allowedKeys}
-      schoolRole={role}
-      pageExtra={
-        <div className="scope-toolbar">
-          {isStatistics ? <Tag>数据统计</Tag> : globalScope ? <Tag>范围：全平台</Tag> : <>
-            <div>
-              <span className="field-caption">当前学校</span>
-              <Select
-                aria-label="当前学校"
-                className="school-select"
-                loading={q.isPending}
-                value={school?.id}
-                options={visibleSchools?.map((s) => ({ value: s.id, label: s.name }))}
-                placeholder="选择学校"
-                onChange={async (s) => {
-                  await cache.cancelQueries()
-                  cache.removeQueries({ queryKey: ['business'] })
-                  cache.removeQueries({ queryKey: ['linjian'] })
-                  setParams((previous) => {
-                    const next = new URLSearchParams(previous)
-                    next.set('school', s)
-                    return next
-                  })
-                }}
-              />
-            </div>
-          </>}
-        </div>
-      }
-      onLogout={logout}
-    >
-      {q.error && <Alert type="error" title={q.error.message} showIcon />}
-      {renderPage()}
-    </AppShell>
+    <UnsavedChangesContext.Provider value={setDirty}>
+      <AppShell
+        active={tab}
+        onNavigate={navigate}
+        username={user.display_name}
+        platformAdmin={user.platform_admin}
+        allowedKeys={allowedKeys}
+        schoolRole={role}
+        pageExtra={
+          <div className="scope-toolbar">
+            {isStatistics ? <Tag>数据统计</Tag> : globalScope ? <Tag>范围：全平台</Tag> : <>
+              <div>
+                <span className="field-caption">当前学校</span>
+                <Select
+                  aria-label="当前学校"
+                  className="school-select"
+                  loading={q.isPending}
+                  value={school?.id}
+                  options={visibleSchools?.map((s) => ({ value: s.id, label: s.name }))}
+                  placeholder="选择学校"
+                  onChange={(s) => void guard(async () => {
+                    await cache.cancelQueries()
+                    cache.removeQueries({ queryKey: ['business'] })
+                    cache.removeQueries({ queryKey: ['linjian'] })
+                    setParams((previous) => {
+                      const next = new URLSearchParams(previous)
+                      next.set('school', s)
+                      return next
+                    })
+                  })}
+                />
+              </div>
+            </>}
+          </div>
+        }
+        onLogout={async () => {
+          if (await confirmLeave()) await logout()
+        }}
+      >
+        {q.error && <Alert type="error" title={q.error.message} showIcon />}
+        {renderPage()}
+      </AppShell>
+    </UnsavedChangesContext.Provider>
   )
 }
