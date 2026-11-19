@@ -14,6 +14,7 @@ import {
   Select,
   Space,
   Table,
+  Tag,
 } from 'antd'
 import { workspace, type School, type SchoolInput, type SchoolFilters } from './api'
 import { PaginationControls } from '../../../shared/pagination-controls'
@@ -79,12 +80,13 @@ export function SchoolForm({
 }: {
   school?: School
   platform?: boolean
-  onSaved: (school?: School) => Promise<unknown>
+  onSaved: (school: School) => Promise<unknown>
 }) {
   const [form] = Form.useForm<SchoolInput>(),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
-    [conflict, setConflict] = useState(false)
+    [conflict, setConflict] = useState(false),
+    [done, setDone] = useState(false)
   const primary = Form.useWatch('theme_primary', form) || defaults.theme_primary,
     secondary = Form.useWatch('theme_secondary', form) || defaults.theme_secondary,
     text = Form.useWatch('theme_text_color', form) || defaults.theme_text_color
@@ -93,13 +95,15 @@ export function SchoolForm({
   async function save(v: SchoolInput) {
     setBusy(true)
     setError('')
+    setDone(false)
     try {
-      const body = { ...v, revision: school?.revision ?? 0 }
+      const body = { ...defaults, ...v, revision: school?.revision ?? 0 }
       if (!platform) delete body.status
       const result = school
         ? await workspace.schoolProfiles.update(school.id, body)
         : await workspace.schoolProfiles.create(body)
       await onSaved(result)
+      setDone(true)
     } catch (e) {
       setError((e as Error).message)
       if (e && typeof e === 'object' && 'status' in e && e.status === 409) setConflict(true)
@@ -143,6 +147,7 @@ export function SchoolForm({
           })
         } else void save(v)
       }}
+      onValuesChange={() => setDone(false)}
     >
       {error && <Alert type="error" title={error} />}
       {conflict && (
@@ -151,6 +156,7 @@ export function SchoolForm({
           <Button onClick={() => void reload()}>重新加载资料</Button>
         </>
       )}
+      {school && <h3 className="school-form-section">基本信息</h3>}
       <Form.Item
         label="名称"
         name="name"
@@ -195,67 +201,64 @@ export function SchoolForm({
         </>
       )}
       {school ? (
-        (
-          [
-            ['logo_asset_id', '图标'],
-            ['header_bg_asset_id', '头部背景图'],
-          ] as const
-        ).map(([key, label]) => (
-          <section key={key}>
-            <Form.Item name={key} label={label}>
-              <MediaPicker school={school.id} value={form.getFieldValue(key) ?? null} label={label} onChange={id => form.setFieldValue(key, id)} onBusyChange={setBusy} />
+        <>
+          <h3 className="school-form-section">品牌与图片</h3>
+          {(
+            [
+              ['logo_asset_id', '图标'],
+              ['header_bg_asset_id', '头部背景图'],
+            ] as const
+          ).map(([key, label]) => (
+            <section key={key}>
+              <Form.Item name={key} label={label}>
+                <MediaPicker school={school.id} value={form.getFieldValue(key) ?? null} label={label} onChange={id => form.setFieldValue(key, id)} onBusyChange={setBusy} />
+              </Form.Item>
+            </section>
+          ))}
+          {(
+            [
+              ['theme_primary', '主题主色'],
+              ['theme_secondary', '主题辅色'],
+              ['theme_text_color', '主题文字色'],
+            ] as const
+          ).map(([key, label]) => (
+            <Form.Item
+              name={key}
+              key={key}
+              label={label}
+              rules={[
+                { required: true },
+                { pattern: /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6})$/, message: '请填写 #RGB 或 #RRGGBB' },
+              ]}
+            >
+              <Input />
             </Form.Item>
-          </section>
-        ))
-      ) : (
-        <p>先保存资料，随后可上传图标和背景，也可保留默认图片。</p>
-      )}
-      {(
-        [
-          ['theme_primary', '主题主色'],
-          ['theme_secondary', '主题辅色'],
-          ['theme_text_color', '主题文字色'],
-        ] as const
-      ).map(([key, label]) => (
-        <Form.Item
-          name={key}
-          key={key}
-          label={label}
-          rules={[
-            { required: true },
-            { pattern: /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6})$/, message: '请填写 #RGB 或 #RRGGBB' },
-          ]}
-        >
-          <Input />
-        </Form.Item>
-      ))}
-      <div
-        style={{
-          padding: 20,
-          background:
-            /^#[\da-fA-F]{3}(?:[\da-fA-F]{3})?$/.test(primary) &&
-            /^#[\da-fA-F]{3}(?:[\da-fA-F]{3})?$/.test(secondary)
-              ? `linear-gradient(135deg,${primary},${secondary})`
-              : defaults.theme_primary,
-          color: /^#[\da-fA-F]{3}(?:[\da-fA-F]{3})?$/.test(text) ? text : defaults.theme_text_color,
-        }}
-      >
-        <strong>品牌头部预览</strong>
-        {school && (
-          <>
+          ))}
+          <div
+            style={{
+              padding: 20,
+              background:
+                /^#[\da-fA-F]{3}(?:[\da-fA-F]{3})?$/.test(primary) &&
+                /^#[\da-fA-F]{3}(?:[\da-fA-F]{3})?$/.test(secondary)
+                  ? `linear-gradient(135deg,${primary},${secondary})`
+                  : defaults.theme_primary,
+              color: /^#[\da-fA-F]{3}(?:[\da-fA-F]{3})?$/.test(text) ? text : defaults.theme_text_color,
+            }}
+          >
+            <strong>品牌头部预览</strong>
             <SchoolImage school={school.id} id={logo} alt="学校图标" />
             <SchoolImage school={school.id} id={header} alt="头部背景图" />
-          </>
-        )}
-      </div>
-      {school && (
-        <>
+          </div>
+          <h3 className="school-form-section">审核规则</h3>
           <AuditModeFields disabled={school.status !== 'normal'} />
         </>
+      ) : (
+        <p>图标、背景图与主题色可在创建后完善。</p>
       )}
       <Button type="primary" htmlType="submit" loading={busy} disabled={conflict || busy}>
-        保存资料
+        {school ? (busy ? '正在保存…' : '保存资料') : busy ? '正在创建…' : '创建学校'}
       </Button>
+      {done && <Alert type="success" role="status" showIcon title="已保存" />}
     </Form>
   )
 }
@@ -271,18 +274,38 @@ export function Schools({
   const [filters, setFilters] = useState<SchoolFilters>({}),
     [creating, setCreating] = useState(false),
     [detail, setDetail] = useState<School>(),
-    [editing, setEditing] = useState<School>()
+    [editing, setEditing] = useState<School>(),
+    [notice, setNotice] = useState<School>(),
+    [highlight, setHighlight] = useState<string>()
   const cache = useQueryClient()
   const q = useQuery({
     queryKey: ['linjian', 'school-management', filters],
     queryFn: ({ signal }) => workspace.schoolProfiles.platform(filters, signal),
   })
-  async function saved(result?: School) {
+  useEffect(() => {
+    if (!highlight) return
+    const timer = window.setTimeout(() => setHighlight(undefined), 4000)
+    return () => window.clearTimeout(timer)
+  }, [highlight])
+  useEffect(() => {
+    if (!highlight || !q.data?.items.some((school) => school.id === highlight)) return
+    document
+      .querySelector(`[data-row-key="${highlight}"]`)
+      ?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
+  }, [highlight, q.data])
+  async function refreshSchools() {
     await cache.invalidateQueries({ queryKey: ['linjian', 'school-management'] })
     await refresh()
-    if (creating && result) { setCreating(false); setEditing(result) }
-    else { setCreating(false); setEditing(undefined) }
-    setDetail(undefined)
+  }
+  async function created(result: School) {
+    setCreating(false)
+    setNotice(result)
+    setHighlight(result.id)
+    await refreshSchools()
+  }
+  async function updated(result: School) {
+    setEditing(result)
+    await refreshSchools()
   }
   const change = (v: Partial<SchoolFilters>) => setFilters((f) => ({ ...f, ...v, page: 1 }))
   return (
@@ -291,6 +314,37 @@ export function Schools({
         新建
       </Button>
       {q.error && <Alert type="error" title={q.error.message} />}
+      {notice && (
+        <Alert
+          type="success"
+          showIcon
+          role="status"
+          closable
+          onClose={() => setNotice(undefined)}
+          title={`已创建「${notice.name}」。图标与背景图尚未配置。`}
+          action={
+            <Space>
+              <Button
+                size="small"
+                onClick={() => {
+                  setEditing(notice)
+                  setNotice(undefined)
+                }}
+              >
+                完善图标与背景
+              </Button>
+              <Button
+                size="small"
+                onClick={() =>
+                  setFilters((current) => ({ ...current, search: notice.name, page: 1 }))
+                }
+              >
+                在列表中定位
+              </Button>
+            </Space>
+          }
+        />
+      )}
       <Space wrap>
         <Input
           aria-label="搜索名称、简称或区域"
@@ -323,10 +377,11 @@ export function Schools({
         className="linjian-data-table"
         tableLayout="fixed"
         rowKey="id"
+        rowClassName={(s) => (s.id === highlight ? 'school-row-new' : '')}
         pagination={false}
         dataSource={q.data?.items ?? []}
         loading={q.isFetching}
-        scroll={{ x: 1340 }}
+        scroll={{ x: 1450 }}
         columns={[
           {
             title: '图标',
@@ -341,6 +396,16 @@ export function Schools({
           { title: '纬度', width: 120, dataIndex: 'latitude' },
           { title: '经度', width: 120, dataIndex: 'longitude' },
           { title: '状态', width: 100, render: (_, s) => (s.status === 'normal' ? '正常' : '隐藏') },
+          {
+            title: '资料',
+            width: 110,
+            render: (_, s) =>
+              s.logo_asset_id && s.header_bg_asset_id ? (
+                <Tag color="success">已完善</Tag>
+              ) : (
+                <Tag color="gold">待完善</Tag>
+              ),
+          },
           actionColumn<School>({
             width: 220,
             render: (s) => (
@@ -348,7 +413,7 @@ export function Schools({
                 label={s.name}
                 actions={[
                   { key: 'detail', label: '详情', onClick: () => setDetail(s) },
-                  { key: 'edit', label: '编辑', onClick: () => setEditing(s) },
+                  { key: 'edit', label: '编辑资料', onClick: () => setEditing(s) },
                   { key: 'settings', label: '设置', onClick: () => enter(s.id, 'settings') },
                   {
                     key: 'members',
@@ -369,17 +434,23 @@ export function Schools({
         change={(page) => setFilters((v) => ({ ...v, page }))}
       />
       <Modal
-        open={creating || !!editing}
-        title={editing ? '资料与图片' : '新建学校'}
+        open={creating}
+        title="新建学校"
         footer={null}
-        onCancel={() => {
-          setCreating(false)
-          setEditing(undefined)
-        }}
+        onCancel={() => setCreating(false)}
         destroyOnHidden
       >
-        <SchoolForm key={editing?.id ?? 'new'} school={editing} platform onSaved={saved} />
+        <SchoolForm key="new" platform onSaved={created} />
       </Modal>
+      <Drawer
+        open={!!editing}
+        size="large"
+        title={editing ? `${editing.name} · 学校资料` : ''}
+        onClose={() => setEditing(undefined)}
+        destroyOnHidden
+      >
+        {editing && <SchoolForm key={editing.id} school={editing} platform onSaved={updated} />}
+      </Drawer>
       <Drawer
         open={!!detail}
         title={`${detail?.name ?? ''} · 详情`}
