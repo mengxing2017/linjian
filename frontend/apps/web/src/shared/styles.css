@@ -82,6 +82,14 @@ a:focus-visible {
 .header-brand:hover {
   text-decoration: none;
 }
+.site-brand-logo {
+  width: auto;
+  height: 30px;
+  max-width: 140px;
+  object-fit: contain;
+  flex: 0 0 auto;
+  border-radius: 4px;
+}
 .header-workspace {
   color: var(--color-text-secondary);
   padding-left: 24px;

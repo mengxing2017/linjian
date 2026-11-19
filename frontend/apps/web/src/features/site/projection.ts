@@ -8,6 +8,7 @@ import type {
 export const EMPTY_SITE_SETTINGS: PublicSiteSettings = {
   revision: 0,
   site_name: null,
+  logo_url: null,
   title_subtitle: null,
   login_intro: null,
   icp_number: null,
@@ -39,10 +40,14 @@ export function copyrightYears(
   return last <= start ? String(start) : `${start}–${last}`
 }
 
-export function publicFromInput(input: SiteSettingsInput): PublicSiteSettings {
+export function publicFromInput(
+  input: SiteSettingsInput,
+  logoUrl: string | null = null,
+): PublicSiteSettings {
   return {
     revision: input.revision,
     site_name: input.site_name,
+    logo_url: logoUrl,
     title_subtitle: input.title_subtitle,
     login_intro: input.login_intro,
     icp_number: input.icp_number,
@@ -62,6 +67,7 @@ export function publicFromAdmin(settings: AdminSiteSettings): PublicSiteSettings
   return {
     revision: settings.revision,
     site_name: settings.site_name,
+    logo_url: settings.logo_url,
     title_subtitle: settings.title_subtitle,
     login_intro: settings.login_intro,
     icp_number: settings.icp_number,
