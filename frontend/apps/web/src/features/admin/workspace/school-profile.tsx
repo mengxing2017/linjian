@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Alert,
   Button,
+  ColorPicker,
   Descriptions,
   Drawer,
   Form,
@@ -39,6 +40,51 @@ const defaults = {
   theme_primary: '#6A5AF9',
   theme_secondary: '#8F6BFF',
   theme_text_color: '#FFFFFF',
+}
+type ThemeColorKey = 'theme_primary' | 'theme_secondary' | 'theme_text_color'
+type ColorPreset = { label: string; colors: string[] }
+const themeColorPresets: Record<ThemeColorKey, ColorPreset[]> = {
+  theme_primary: [
+    {
+      label: '推荐品牌色',
+      colors: ['#6A5AF9', '#1677FF', '#13C2C2', '#52C41A', '#FA8C16', '#EB2F96', '#722ED1', '#F5222D'],
+    },
+  ],
+  theme_secondary: [
+    {
+      label: '推荐辅助色',
+      colors: ['#8F6BFF', '#69B1FF', '#5CDBD3', '#95DE64', '#FFC069', '#FF85C0', '#B37FEB', '#FF7875'],
+    },
+  ],
+  theme_text_color: [
+    { label: '文字色', colors: ['#FFFFFF', '#F5F5F5', '#E5E7EB', '#1F2937', '#111827', '#000000'] },
+  ],
+}
+function ThemeColorPicker({
+  value,
+  onChange,
+  label,
+  presets,
+}: {
+  value?: string
+  onChange?: (value: string) => void
+  label: string
+  presets: ColorPreset[]
+}) {
+  return (
+    <div role="group" aria-label={label}>
+      <ColorPicker
+        value={value}
+        onChange={(color) => onChange?.(color.toHexString().toUpperCase())}
+        showText
+        disabledAlpha
+        disabledFormat
+        format="hex"
+        presets={presets}
+        placement="bottomLeft"
+      />
+    </div>
+  )
 }
 type SchoolFormValues = Omit<SchoolInput, 'province' | 'city' | 'area'> & {
   region: RegionValue
@@ -102,6 +148,10 @@ export function SchoolForm({
   const primary = Form.useWatch('theme_primary', form) || defaults.theme_primary,
     secondary = Form.useWatch('theme_secondary', form) || defaults.theme_secondary,
     text = Form.useWatch('theme_text_color', form) || defaults.theme_text_color
+  const validColor = /^#[\da-fA-F]{3}(?:[\da-fA-F]{3})?$/
+  const previewPrimary = validColor.test(primary) ? primary : defaults.theme_primary
+  const previewSecondary = validColor.test(secondary) ? secondary : defaults.theme_secondary
+  const previewText = validColor.test(text) ? text : defaults.theme_text_color
   const logo = Form.useWatch('logo_asset_id', form),
     header = Form.useWatch('header_bg_asset_id', form)
   async function save(v: SchoolFormValues) {
@@ -261,26 +311,43 @@ export function SchoolForm({
               label={label}
               rules={[
                 { required: true },
-                { pattern: /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6})$/, message: '请填写 #RGB 或 #RRGGBB' },
+                { pattern: /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6})$/, message: '请选择或输入 #RGB / #RRGGBB' },
               ]}
             >
-              <Input />
+              <ThemeColorPicker label={label} presets={themeColorPresets[key]} />
             </Form.Item>
           ))}
           <div
             style={{
               padding: 20,
-              background:
-                /^#[\da-fA-F]{3}(?:[\da-fA-F]{3})?$/.test(primary) &&
-                /^#[\da-fA-F]{3}(?:[\da-fA-F]{3})?$/.test(secondary)
-                  ? `linear-gradient(135deg,${primary},${secondary})`
-                  : defaults.theme_primary,
-              color: /^#[\da-fA-F]{3}(?:[\da-fA-F]{3})?$/.test(text) ? text : defaults.theme_text_color,
+              background: `linear-gradient(135deg,${previewPrimary},${previewSecondary})`,
+              color: previewText,
             }}
           >
             <strong>品牌头部预览</strong>
             <SchoolImage school={school.id} id={logo} alt="学校图标" />
             <SchoolImage school={school.id} id={header} alt="头部背景图" />
+            <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span
+                style={{
+                  background: previewPrimary,
+                  color: previewText,
+                  padding: '4px 10px',
+                  borderRadius: 4,
+                }}
+              >
+                主色按钮
+              </span>
+              <span
+                aria-label="主色到辅色渐变"
+                style={{
+                  flex: '1 1 120px',
+                  height: 6,
+                  borderRadius: 3,
+                  background: `linear-gradient(90deg,${previewPrimary},${previewSecondary})`,
+                }}
+              />
+            </div>
           </div>
           <h3 className="school-form-section">审核规则</h3>
           <AuditModeFields disabled={school.status !== 'normal'} />

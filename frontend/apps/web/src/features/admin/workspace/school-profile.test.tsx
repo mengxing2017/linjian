@@ -58,6 +58,17 @@ it('shows a saved notice after an edit succeeds',async()=>{
  fireEvent.click(screen.getByRole('button',{name:'保存资料'}))
  expect(await screen.findByText('已保存',{}, {timeout:5000})).toBeTruthy()
 })
+it('uses color pickers and saves normalized theme colors',async()=>{
+ mount(true,school)
+ const primary=screen.getByRole('group',{name:'主题主色'})
+ expect(primary.querySelector('.ant-color-picker-trigger')).toBeTruthy()
+ fireEvent.click(primary.querySelector('.ant-color-picker-trigger')!)
+ await waitFor(()=>expect(document.querySelectorAll('.ant-color-picker-presets-color').length).toBeGreaterThan(1))
+ fireEvent.click(document.querySelectorAll('.ant-color-picker-presets-color')[1])
+ fireEvent.click(screen.getByRole('button',{name:'保存资料'}))
+ await waitFor(()=>expect(workspace.schoolProfiles.update).toHaveBeenCalled(),{timeout:5000})
+ expect(vi.mocked(workspace.schoolProfiles.update).mock.calls[0][1]).toMatchObject({theme_primary:'#1677FF'})
+})
 it('closes the create drawer and shows the created school name',async()=>{
  vi.mocked(workspace.schoolProfiles.platform).mockResolvedValue({items:[],page:{number:1,size:30,has_more:false}})
  vi.mocked(workspace.schoolProfiles.create).mockResolvedValue({...school,id:'new-school',name:'新学校',revision:1})
