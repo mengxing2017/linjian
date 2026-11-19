@@ -34,6 +34,32 @@ async fn statistics_scope_registration_snapshot_and_activity_are_isolated() {
         )
         .await
         .unwrap();
+    // A freshly migrated empty database has complete zero counts, including
+    // the part of each calendar period before installation and its comparison.
+    for period in ["day", "month", "year"] {
+        for (view, metric) in [("content", "posts"), ("registration", "registrations")] {
+            let empty = app
+                .statistics
+                .report(
+                    &actor,
+                    None,
+                    Query {
+                        view: Some(view.into()),
+                        period: Some(period.into()),
+                        comparison: Some(if period == "year" { "year" } else { "previous" }.into()),
+                        ..Default::default()
+                    },
+                )
+                .await
+                .unwrap();
+            assert!(empty.coverage.content);
+            assert!(empty.coverage.registration);
+            let comparison = &empty.comparisons[0].changes[metric];
+            assert_eq!(comparison.current, Some(0));
+            assert_eq!(comparison.previous, Some(0));
+            assert_eq!(comparison.state, "unchanged");
+        }
+    }
     let s: Uuid = app.schools.create(&actor, "统计甲校").await.unwrap()["id"]
         .as_str()
         .unwrap()
@@ -78,7 +104,7 @@ async fn statistics_scope_registration_snapshot_and_activity_are_isolated() {
         .await
         .unwrap();
     assert_eq!(observed.summary.posts, Some(2));
-    assert!(!observed.coverage.content);
+    assert!(observed.coverage.content);
     assert!(observed.comparisons.is_empty());
     assert!(observed.buckets.is_empty());
     let observed_content = app
@@ -97,10 +123,34 @@ async fn statistics_scope_registration_snapshot_and_activity_are_isolated() {
     assert_eq!(observed_content.summary.posts, Some(2));
     assert_eq!(
         observed_content.comparisons[0].changes["posts"].state,
-        "unavailable"
+        "new"
     );
     assert!(observed_content.summary.registrations.is_none());
-    sqlx::query("UPDATE statistics_coverage SET start_at='2020-01-01'")
+    // Real gaps still prevent comparisons and derived metrics.
+    let gap = Uuid::new_v4();
+    sqlx::query("INSERT INTO statistics_coverage(id,family,start_at,status,reason) VALUES($1,'content',date_trunc('month',now() AT TIME ZONE 'Asia/Shanghai') AT TIME ZONE 'Asia/Shanghai','partial','test_failure')")
+        .bind(gap).execute(&pool).await.unwrap();
+    let incomplete = app
+        .statistics
+        .report(
+            &actor,
+            None,
+            Query {
+                view: Some("content".into()),
+                comparison: Some("previous".into()),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert!(!incomplete.coverage.content);
+    assert_eq!(incomplete.summary.posts, Some(2));
+    assert_eq!(
+        incomplete.comparisons[0].changes["posts"].state,
+        "unavailable"
+    );
+    sqlx::query("DELETE FROM statistics_coverage WHERE id=$1")
+        .bind(gap)
         .execute(&pool)
         .await
         .unwrap();
@@ -129,6 +179,8 @@ async fn statistics_scope_registration_snapshot_and_activity_are_isolated() {
         .await
         .unwrap();
     assert_eq!(registration.registration_groups["unassigned"], 1);
+    assert!(registration.coverage.registration_assignment);
+    assert!(registration.coverage.registration_base);
     assert!(registration.summary.posts.is_none());
     assert!(!registration.buckets.is_empty());
     assert!(full.summary.active_users.is_none());
