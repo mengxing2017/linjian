@@ -68,6 +68,21 @@ function OperationEditor({ school, module, item, readOnly, onSaved }: { school?:
     if (form.starts_at && form.ends_at && form.ends_at <= form.starts_at) throw new Error('结束展示时间必须晚于开始')
     if (action.kind === 'internal_page' && action.page === 'post' && !action.object_id) throw new Error('请选择目标帖子')
   }
+  function save() {
+    try {
+      validate()
+    } catch (e) {
+      setError((e as Error).message)
+      return
+    }
+    setBusy(true)
+    setError('')
+    void api
+      .save(school, module, form, item?.id)
+      .then(onSaved)
+      .catch((e) => setError(e instanceof Error ? e.message : '保存失败'))
+      .finally(() => setBusy(false))
+  }
   return <Space orientation="vertical" className="full-width">
     <fieldset disabled={readOnly || busy} style={{ border: 0, padding: 0 }}><div className="form-grid">
       <label className="form-wide">{qr ? '名称' : '标题'}<Input aria-label={qr ? '名称' : '标题'} value={form.title} maxLength={100} onChange={e => change({ title: e.target.value })} /></label>
@@ -76,23 +91,34 @@ function OperationEditor({ school, module, item, readOnly, onSaved }: { school?:
         {!readOnly && <MediaPicker onBusyChange={setUploading} school={school} value={form.image_ref.id || null} onChange={id => change({ image_ref: { kind: 'asset', id: id ?? '' } })} label="图片" />}
         {readOnly && item?.image_url && <img src={item.image_url} alt={item.title} style={{ maxWidth: 250 }} />}
       </div>
-      {qr ? <><label>展示时机<Select style={{width:'100%',minWidth:200}} popupMatchSelectWidth={false} value={form.popup_strategy} options={Object.entries(strategyLabels).map(([value, label]) => ({ value, label }))} onChange={popup_strategy => change({ popup_strategy })} /></label>{form.popup_strategy === 'interval' && <label>间隔天数<InputNumber min={1} max={365} precision={0} value={form.popup_interval_days} onChange={v => change({ popup_interval_days: Number(v) })} /></label>}</> : <>
-        <label className="form-wide">点击后去哪里<Select style={{width:'100%'}} popupMatchSelectWidth={false} value={action.kind === 'internal_page' && action.page === 'post' ? 'post' : action.kind} options={[{ value: 'none', label: '不跳转' }, { value: 'internal_page', label: '打开站内页面' }, ...(school ? [{ value: 'post', label: '打开帖子详情' }] : []), ...(!['none', 'internal_page'].includes(action.kind) ? [{ value: action.kind, label: `${actionLabels[action.kind]}（历史配置）` }] : [])]} onChange={v => change({ action: v === 'none' ? { kind: 'none' } : v === 'post' ? { kind: 'internal_page', page: 'post', object_id: null } : { kind: 'internal_page', page: 'feed' } })} /></label>
-        {action.kind === 'internal_page' && action.page !== 'post' && <label className="form-wide">目标页面<Select aria-label="目标页面" style={{width:'100%'}} value={action.page} options={[{ value: 'feed', label: '首页' }, { value: 'resources', label: '校园服务' }, { value: 'legal', label: '学校说明' }]} onChange={page => change({ action: { kind: 'internal_page', page } })} /></label>}
-        {action.kind === 'internal_page' && action.page === 'post' && <label className="form-wide">目标帖子<Select showSearch filterOption={false} aria-label="目标帖子" style={{width:'100%'}} popupMatchSelectWidth={false} placeholder="搜索本校已审核帖子" value={action.object_id ?? undefined} onSearch={setPostSearch} loading={posts.isFetching} options={posts.data?.items.filter(v => v.visibility === 'visible').map(v => ({ value: v.id, label: String(v.title) }))} onChange={object_id => change({ action: { ...action, object_id } })} /></label>}
-        {!['none', 'internal_page'].includes(action.kind) && <p>目标内容：{target(action)}；可保留此历史配置或明确更换。</p>}
-      </>}
-      <label>状态 <Switch checked={form.active} checkedChildren="正常" unCheckedChildren="隐藏" onChange={active => change({ active })} /></label>
-      <label>展示顺序（值大优先）<InputNumber precision={0} value={form.sort_order} onChange={v => change({ sort_order: Number(v) })} /></label>
-      <label>开始展示时间<LocalDateTimePicker disabled={readOnly || busy} value={localDate(form.starts_at)} onChange={value => change({ starts_at: value ? new Date(value).toISOString() : null })} /></label>
-      <label>结束展示时间<LocalDateTimePicker disabled={readOnly || busy} value={localDate(form.ends_at)} onChange={value => change({ ends_at: value ? new Date(value).toISOString() : null })} /></label>
+      {qr ? (
+        <div className="form-pair">
+          <label>展示时机<Select style={{width:'100%',minWidth:200}} popupMatchSelectWidth={false} value={form.popup_strategy} options={Object.entries(strategyLabels).map(([value, label]) => ({ value, label }))} onChange={popup_strategy => change({ popup_strategy })} /></label>
+          {form.popup_strategy === 'interval' && <label>间隔天数<InputNumber min={1} max={365} precision={0} value={form.popup_interval_days} onChange={v => change({ popup_interval_days: Number(v) })} /></label>}
+        </div>
+      ) : (
+        <>
+          <label className="form-wide">点击后去哪里<Select style={{width:'100%'}} popupMatchSelectWidth={false} value={action.kind === 'internal_page' && action.page === 'post' ? 'post' : action.kind} options={[{ value: 'none', label: '不跳转' }, { value: 'internal_page', label: '打开站内页面' }, ...(school ? [{ value: 'post', label: '打开帖子详情' }] : []), ...(!['none', 'internal_page'].includes(action.kind) ? [{ value: action.kind, label: `${actionLabels[action.kind]}（历史配置）` }] : [])]} onChange={v => change({ action: v === 'none' ? { kind: 'none' } : v === 'post' ? { kind: 'internal_page', page: 'post', object_id: null } : { kind: 'internal_page', page: 'feed' } })} /></label>
+          {action.kind === 'internal_page' && action.page !== 'post' && <label className="form-wide">目标页面<Select aria-label="目标页面" style={{width:'100%'}} value={action.page} options={[{ value: 'feed', label: '首页' }, { value: 'resources', label: '校园服务' }, { value: 'legal', label: '学校说明' }]} onChange={page => change({ action: { kind: 'internal_page', page } })} /></label>}
+          {action.kind === 'internal_page' && action.page === 'post' && <label className="form-wide">目标帖子<Select showSearch filterOption={false} aria-label="目标帖子" style={{width:'100%'}} popupMatchSelectWidth={false} placeholder="搜索本校已审核帖子" value={action.object_id ?? undefined} onSearch={setPostSearch} loading={posts.isFetching} options={posts.data?.items.filter(v => v.visibility === 'visible').map(v => ({ value: v.id, label: String(v.title) }))} onChange={object_id => change({ action: { ...action, object_id } })} /></label>}
+          {!['none', 'internal_page'].includes(action.kind) && <p>目标内容：{target(action)}；可保留此历史配置或明确更换。</p>}
+        </>
+      )}
+      <div className="form-pair">
+        <label>状态 <Switch checked={form.active} checkedChildren="正常" unCheckedChildren="隐藏" onChange={active => change({ active })} /></label>
+        <label>展示顺序（值大优先）<InputNumber precision={0} value={form.sort_order} onChange={v => change({ sort_order: Number(v) })} /></label>
+      </div>
+      <div className="form-pair">
+        <label>开始展示时间<LocalDateTimePicker disabled={readOnly || busy} value={localDate(form.starts_at)} onChange={value => change({ starts_at: value ? new Date(value).toISOString() : null })} /></label>
+        <label>结束展示时间<LocalDateTimePicker disabled={readOnly || busy} value={localDate(form.ends_at)} onChange={value => change({ ends_at: value ? new Date(value).toISOString() : null })} /></label>
+      </div>
     </div></fieldset>
     {!readOnly && <div className="form-actions form-actions-sticky">
       {error && <Alert type="error" title={error} />}
-      {preview ? <Alert type="info" title={`确认保存：${form.title}`} description={`${form.active ? '正常' : '隐藏'}；${time(form.starts_at)} 至 ${time(form.ends_at)}；${qr ? strategyLabels[form.popup_strategy] : target(action)}`} /> : null}
+      {preview ? <Alert type="info" title={`预览：${form.title}`} description={`${form.active ? '正常' : '隐藏'}；${time(form.starts_at)} 至 ${time(form.ends_at)}；${qr ? strategyLabels[form.popup_strategy] : target(action)}。预览不会保存，可直接保存。`} /> : null}
       <Space>
-        <Button disabled={busy} onClick={() => { try { validate(); setError(''); setPreview(true) } catch (e) { setError((e as Error).message) } }}>预览</Button>
-        <Button type="primary" disabled={!preview} loading={busy} onClick={() => { setBusy(true); setError(''); void api.save(school, module, form, item?.id).then(onSaved).catch(e => setError(e instanceof Error ? e.message : '保存失败')).finally(() => setBusy(false)) }}>确认保存</Button>
+        <Button disabled={busy} onClick={() => { try { validate(); setError(''); setPreview(true) } catch (e) { setError((e as Error).message) } }}>预览效果</Button>
+        <Button type="primary" loading={busy} onClick={save}>保存</Button>
       </Space>
     </div>}
   </Space>
