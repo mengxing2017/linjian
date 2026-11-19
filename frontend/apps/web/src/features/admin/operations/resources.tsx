@@ -29,12 +29,12 @@ export function OperationResources({ school, platformAdmin, schoolAdmin, module 
       <label>开始时间自<LocalDateTimePicker value={localDate(filters.starts_at ?? null)} onChange={value => change({ starts_at: value ? new Date(value).toISOString() : undefined })} /></label>
       <label>结束时间至<LocalDateTimePicker value={localDate(filters.ends_at ?? null)} onChange={value => change({ ends_at: value ? new Date(value).toISOString() : undefined })} /></label>
       <Button onClick={() => setFilters({ page: 1, size: 20 })}>重置筛选</Button><Button onClick={() => void q.refetch()}>刷新</Button>
-      {canEdit && <Button type="primary" onClick={() => { setEditing(undefined); setOpen(true) }}>添加{title}</Button>}
+      {canEdit && <Button type="primary" onClick={() => { setEditing(undefined); setOpen(true) }}>添加</Button>}
     </Space>
     {defaults && <p>平台默认{!platformAdmin ? '配置只读；统计为平台累计。' : '配置作用于所有学校；统计为平台累计。'}</p>}
     {(error || q.error) && <Alert type="error" title={error || q.error?.message} />}
     <Table<OperationResource> className="linjian-data-table" tableLayout="fixed" rowKey="id" loading={q.isFetching} dataSource={q.data?.items ?? []} pagination={false} scroll={{ x: module === 'group-qrcodes' ? 1360 : 1800 }} columns={[
-      { title: module === 'group-qrcodes' ? '二维码名称' : '广告标题', width: 200, dataIndex: 'title' },
+      { title: module === 'group-qrcodes' ? '名称' : '标题', width: 200, dataIndex: 'title' },
       { title: '所属学校', width: 200, dataIndex: 'school_name' },
       { title: '图片', width: 100, render: (_, r) => r.image_url ? <img src={r.image_url} alt={r.title} style={{ width: 70, height: 60, objectFit: 'contain' }} /> : '未配置' },
       ...(module === 'group-qrcodes' ? [{ title: '展示时机', width: 200, render: (_: unknown, r: OperationResource) => `${strategyLabels[r.popup_strategy]}${r.popup_strategy === 'interval' ? `（${r.popup_interval_days}天）` : ''}` }] : [
@@ -46,7 +46,7 @@ export function OperationResources({ school, platformAdmin, schoolAdmin, module 
       { title: '操作', width: 160, render: (_, r) => <Space><Button type="link" onClick={() => { setEditing(r); setOpen(true) }}>{canEdit ? '编辑' : '查看'}</Button>{canEdit && <Button danger type="link" onClick={() => Modal.confirm({ title: `确认删除“${r.title}”？`, content: '删除后立即停止展示，历史统计保留。', onOk: async () => { try { await api.remove(selected, module, r.id, r.revision); await q.refetch() } catch (e) { setError(e instanceof Error ? e.message : '删除失败'); throw e } } })}>删除</Button>}</Space> },
     ]} />
     <PaginationControls page={filters.page ?? 1} more={q.data?.page?.has_more} busy={q.isFetching} subject="运营资源" change={page => setFilters({ ...filters, page })} />
-    {open && <Drawer open size="large" title={`${canEdit ? editing ? '编辑' : '添加' : '查看'}${title}`} onClose={() => setOpen(false)}>
+    {open && <Drawer open size="large" title={canEdit ? editing ? '编辑' : '添加' : '查看'} onClose={() => setOpen(false)}>
       <OperationEditor key={`${selected}:${editing?.id ?? 'new'}`} school={selected} module={module} item={editing} readOnly={!canEdit} onSaved={async () => { await q.refetch(); setOpen(false) }} />
     </Drawer>}
   </section>
@@ -67,9 +67,9 @@ function OperationEditor({ school, module, item, readOnly, onSaved }: { school?:
   return <Space orientation="vertical" className="full-width">
     {error && <Alert type="error" title={error} />}
     <fieldset disabled={readOnly || busy} style={{ border: 0, padding: 0 }}><Space orientation="vertical" className="full-width">
-      <label>{qr ? '二维码名称' : '广告标题'}<Input aria-label={qr ? '二维码名称' : '广告标题'} value={form.title} maxLength={100} onChange={e => change({ title: e.target.value })} /></label>
+      <label>{qr ? '名称' : '标题'}<Input aria-label={qr ? '名称' : '标题'} value={form.title} maxLength={100} onChange={e => change({ title: e.target.value })} /></label>
       <label>展示说明<Input.TextArea value={form.content} maxLength={qr ? 255 : 20000} onChange={e => change({ content: e.target.value })} /></label>
-      {!readOnly && <MediaPicker onBusyChange={setUploading} school={school} value={form.image_ref.id || null} onChange={id => change({ image_ref: { kind: 'asset', id: id ?? '' } })} label={qr ? '二维码图片' : '广告图片'} />}
+      {!readOnly && <MediaPicker onBusyChange={setUploading} school={school} value={form.image_ref.id || null} onChange={id => change({ image_ref: { kind: 'asset', id: id ?? '' } })} label="图片" />}
       {readOnly && item?.image_url && <img src={item.image_url} alt={item.title} style={{ maxWidth: 250 }} />}
       {qr ? <><label>展示时机<Select value={form.popup_strategy} options={Object.entries(strategyLabels).map(([value, label]) => ({ value, label }))} onChange={popup_strategy => change({ popup_strategy })} /></label>{form.popup_strategy === 'interval' && <label>间隔天数<InputNumber min={1} max={365} precision={0} value={form.popup_interval_days} onChange={v => change({ popup_interval_days: Number(v) })} /></label>}</> : <>
         <label>点击后去哪里<Select value={action.kind === 'internal_page' && action.page === 'post' ? 'post' : action.kind} options={[{ value: 'none', label: '不跳转' }, { value: 'internal_page', label: '打开站内页面' }, ...(school ? [{ value: 'post', label: '打开帖子详情' }] : []), ...(!['none', 'internal_page'].includes(action.kind) ? [{ value: action.kind, label: `${actionLabels[action.kind]}（历史配置）` }] : [])]} onChange={v => change({ action: v === 'none' ? { kind: 'none' } : v === 'post' ? { kind: 'internal_page', page: 'post', object_id: null } : { kind: 'internal_page', page: 'feed' } })} /></label>

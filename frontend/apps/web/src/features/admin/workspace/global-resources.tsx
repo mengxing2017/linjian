@@ -19,7 +19,7 @@ export function GlobalResources() {
       />
       <Card
         className="data-panel"
-        title="平台资源列表"
+        title="资源列表"
         extra={
           <Button
             type="primary"
@@ -28,7 +28,7 @@ export function GlobalResources() {
               setOpen(true)
             }}
           >
-            新建平台资源
+            新建
           </Button>
         }
       >
@@ -73,7 +73,7 @@ export function GlobalResources() {
         <Drawer
           open
           size="large"
-          title={item ? '编辑平台资源' : '新建平台资源'}
+          title={item ? '编辑资源' : '新建资源'}
           onClose={() => setOpen(false)}
         >
           <ResourceEditor

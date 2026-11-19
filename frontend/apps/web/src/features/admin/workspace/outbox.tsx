@@ -81,10 +81,10 @@ export function Outbox({ school, initialEvent }: { school: string; initialEvent?
       {(error || q.error) && <Alert type="error" title={error || q.error?.message} />}
       <Space>
         <Button onClick={() => void q.refetch()} loading={q.isFetching}>
-          刷新发件记录
+          刷新
         </Button>
         <Select
-          aria-label="发件状态"
+          aria-label="状态筛选"
           allowClear
           placeholder="全部状态"
           style={{ width: 200 }}
@@ -239,7 +239,7 @@ export function Outbox({ school, initialEvent }: { school: string; initialEvent?
         />
       </Modal>
       <Modal
-        title="发件详情"
+        title="详情"
         open={!!selected}
         footer={null}
         onCancel={() => setSelected(undefined)}

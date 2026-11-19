@@ -275,7 +275,7 @@ export function PostManagement({
       />
       <Drawer
         open={!!recommendation}
-        title="帖子推送"
+        title="推送"
         size="large"
         onClose={() => setRecommendation('')}
         destroyOnHidden

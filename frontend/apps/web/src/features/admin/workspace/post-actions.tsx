@@ -55,7 +55,7 @@ export function PostRowActions({
         }}
       />
       <Popconfirm
-        title="确认删除帖子？删除后无法恢复。"
+        title="确认删除？删除后无法恢复。"
         onConfirm={() => act(() => workspace.postManagement.delete(school, row.id, row.revision))}
       >
         <Button danger disabled={disabled}>

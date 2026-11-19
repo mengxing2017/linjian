@@ -91,7 +91,7 @@ export function MiniappUsers({
         )}
         {platformAdmin && global && (
           <Select
-            aria-label="用户所属学校"
+            aria-label="所属学校"
             allowClear
             placeholder="全部学校"
             style={{ width: 190 }}
@@ -109,7 +109,7 @@ export function MiniappUsers({
           />
         )}
         <Input
-          aria-label="搜索用户昵称"
+          aria-label="搜索昵称"
           placeholder="昵称"
           value={filters.search ?? ''}
           onChange={(e) => change({ search: e.target.value })}
@@ -122,7 +122,7 @@ export function MiniappUsers({
           onChange={(e) => change({ mobile: e.target.value })}
         />
         <Select
-          aria-label="用户状态"
+          aria-label="状态"
           allowClear
           placeholder="全部状态"
           style={{ width: 130 }}
@@ -318,7 +318,7 @@ export function MiniappUsers({
           </>
         )}
         <Input.TextArea
-          aria-label="用户操作原因"
+          aria-label="操作原因"
           placeholder="请填写原因"
           value={reason}
           maxLength={500}

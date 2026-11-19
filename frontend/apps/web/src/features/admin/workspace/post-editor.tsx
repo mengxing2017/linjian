@@ -178,10 +178,10 @@ export function PostEditor({
       {q.error && (
         <>
           <Alert type="error" title={q.error.message} />
-          <Button onClick={() => void q.refetch()}>重新加载帖子</Button>
+          <Button onClick={() => void q.refetch()}>重新加载</Button>
         </>
       )}
-      {id && q.isFetching && <p>正在加载帖子…</p>}
+      {id && q.isFetching && <p>正在加载…</p>}
       {(!id || q.data) && (
         <ContentForm
           blocked={!!id && (q.isFetching || !!q.error)}

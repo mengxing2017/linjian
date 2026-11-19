@@ -258,7 +258,7 @@ export function Members({
         <>
           <Space wrap>
             <Input
-              aria-label="搜索学校成员账号"
+              aria-label="搜索账号或昵称"
               placeholder="搜索账号或昵称"
               value={search}
               onChange={(e) => {

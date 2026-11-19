@@ -147,11 +147,11 @@ export function SchoolForm({
       {conflict && (
         <>
           <p>资料已被其他操作更新，本地输入已保留。重新加载会舍弃本地输入。</p>
-          <Button onClick={() => void reload()}>重新加载学校资料</Button>
+          <Button onClick={() => void reload()}>重新加载资料</Button>
         </>
       )}
       <Form.Item
-        label="学校名称"
+        label="名称"
         name="name"
         rules={[{ required: true, whitespace: true }, { max: 100 }]}
       >
@@ -159,7 +159,7 @@ export function SchoolForm({
       </Form.Item>
       {(
         [
-          ['short_name', '学校简称', 50],
+          ['short_name', '简称', 50],
           ['province', '省份', 100],
           ['city', '城市', 100],
           ['area', '区域', 100],
@@ -196,7 +196,7 @@ export function SchoolForm({
       {school ? (
         (
           [
-            ['logo_asset_id', '学校图标'],
+            ['logo_asset_id', '图标'],
             ['header_bg_asset_id', '头部背景图'],
           ] as const
         ).map(([key, label]) => (
@@ -207,7 +207,7 @@ export function SchoolForm({
           </section>
         ))
       ) : (
-        <p>先保存学校资料，随后可上传图标和背景，也可保留默认图片。</p>
+        <p>先保存资料，随后可上传图标和背景，也可保留默认图片。</p>
       )}
       {(
         [
@@ -239,7 +239,7 @@ export function SchoolForm({
           color: /^#[\da-fA-F]{3}(?:[\da-fA-F]{3})?$/.test(text) ? text : defaults.theme_text_color,
         }}
       >
-        <strong>学校品牌头部预览</strong>
+        <strong>品牌头部预览</strong>
         {school && (
           <>
             <SchoolImage school={school.id} id={logo} alt="学校图标" />
@@ -253,7 +253,7 @@ export function SchoolForm({
         </>
       )}
       <Button type="primary" htmlType="submit" loading={busy} disabled={conflict || busy}>
-        保存学校资料
+        保存资料
       </Button>
     </Form>
   )
@@ -287,12 +287,12 @@ export function Schools({
   return (
     <Space orientation="vertical" className="full-width">
       <Button type="primary" onClick={() => setCreating(true)}>
-        新建学校
+        新建
       </Button>
       {q.error && <Alert type="error" title={q.error.message} />}
       <Space wrap>
         <Input
-          aria-label="搜索学校"
+          aria-label="搜索名称、简称或区域"
           placeholder="名称 / 简称 / 区域"
           value={filters.search ?? ''}
           onChange={(e) => change({ search: e.target.value })}
@@ -307,7 +307,7 @@ export function Schools({
           />
         ))}
         <Select
-          aria-label="学校状态筛选"
+          aria-label="状态筛选"
           allowClear
           placeholder="全部状态"
           value={filters.status}
@@ -325,15 +325,15 @@ export function Schools({
         pagination={false}
         dataSource={q.data?.items ?? []}
         loading={q.isFetching}
-        scroll={{ x: 1540 }}
+        scroll={{ x: 1400 }}
         columns={[
           {
-            title: '学校图标',
+            title: '图标',
             width: 100,
             render: (_, s) => <SchoolImage school={s.id} id={s.logo_asset_id} alt="学校图标" />,
           },
           ...(['name', 'short_name', 'province', 'city', 'area'] as const).map((key, i) => ({
-            title: ['学校名称', '学校简称', '省份', '城市', '区域'][i],
+            title: ['名称', '简称', '省份', '城市', '区域'][i],
             dataIndex: key,
             width: [200, 140, 100, 100, 140][i],
           })),
@@ -342,14 +342,14 @@ export function Schools({
           { title: '状态', width: 100, render: (_, s) => (s.status === 'normal' ? '正常' : '隐藏') },
           {
             title: '操作',
-            width: 420,
+            width: 280,
             render: (_, s) => (
               <Space>
                 <Button onClick={() => setDetail(s)}>详情</Button>
-                <Button onClick={() => setEditing(s)}>编辑学校</Button>
-                <Button onClick={() => enter(s.id, 'settings')}>学校配置</Button>
+                <Button onClick={() => setEditing(s)}>编辑</Button>
+                <Button onClick={() => enter(s.id, 'settings')}>设置</Button>
                 <Button disabled={s.status === 'hidden'} onClick={() => enter(s.id, 'members')}>
-                  学校成员
+                  成员
                 </Button>
               </Space>
             ),
@@ -364,7 +364,7 @@ export function Schools({
       />
       <Modal
         open={creating || !!editing}
-        title={editing ? '学校资料与图片' : '新建学校'}
+        title={editing ? '资料与图片' : '新建学校'}
         footer={null}
         onCancel={() => {
           setCreating(false)
@@ -376,7 +376,7 @@ export function Schools({
       </Modal>
       <Drawer
         open={!!detail}
-        title={`${detail?.name ?? ''} · 学校详情`}
+        title={`${detail?.name ?? ''} · 详情`}
         onClose={() => setDetail(undefined)}
       >
         {detail && (
@@ -401,8 +401,8 @@ export function Schools({
                 ).map((k, i) => ({
                   key: k,
                   label: [
-                    '学校名称',
-                    '学校简称',
+                    '名称',
+                    '简称',
                     '省份',
                     '城市',
                     '区域',

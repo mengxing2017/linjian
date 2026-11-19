@@ -113,7 +113,7 @@ export function ReviewDetail({
     }
   }
   return (
-    <Drawer open title="内容全文审核" size="large" onClose={close}>
+    <Drawer open title="全文审核" size="large" onClose={close}>
       {(error || q.error) && <Alert type="error" title={error || q.error?.message} />}
       {conflict && (
         <Alert type="warning" title="内容已变更，审核说明已保留。请重新加载并核对全文后再提交。" />

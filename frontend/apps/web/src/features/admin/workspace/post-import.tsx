@@ -123,7 +123,7 @@ export function PostImport({
     }
   }
   return (
-    <Drawer open title="导入帖子" size="large" onClose={close}>
+    <Drawer open title="导入" size="large" onClose={close}>
       <p>{context}</p>
       <p>
         支持 UTF-8 CSV、XLS、XLSX，最多 200 条、5

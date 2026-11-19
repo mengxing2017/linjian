@@ -164,7 +164,7 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
           <Tag>全部学校</Tag>
         ) : user.platform_admin || authorized.length > 1 ? (
           <Select
-            aria-label="统计学校范围"
+            aria-label="学校范围"
             style={{ minWidth: 200 }}
             showSearch
             optionFilterProp="label"
@@ -183,7 +183,7 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
         )}
         {!scope && user.platform_admin && (
           <Select
-            aria-label="学校状态筛选"
+            aria-label="状态筛选"
             value={query.school_status ?? ''}
             options={[
               { value: '', label: '全部学校状态' },

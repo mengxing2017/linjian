@@ -73,7 +73,7 @@ function CommentReviewDetail({ record, close, reload, school, refresh }: RecordD
       {error && <Alert type="error" showIcon title={error} />}
       {conflict && <>
         <Alert type="warning" title="内容已变更，请重新加载并核对全文。" />
-        <Button onClick={() => { void reload().then(success => { if (success) { setConflict(false); setError('') } }) }}>重新加载评论全文</Button>
+        <Button onClick={() => { void reload().then(success => { if (success) { setConflict(false); setError('') } }) }}>重新加载全文</Button>
       </>}
       <RecordBody record={{ ...record, visibility: null }} />
       <p>审核来源：{record.decision_source === 'automatic' ? '自动审核' : record.decision_source === 'human' ? '人工审核' : record.decision_source === 'legacy' ? '历史记录' : '待审核'} · {formatDate(record.decided_at)}</p>

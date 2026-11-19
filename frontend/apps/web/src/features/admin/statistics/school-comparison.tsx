@@ -55,7 +55,7 @@ export function SchoolComparison({
       <p>人数按学校分别去重，各校人数之和可能大于全站人数。</p>
       <Space wrap>
         <Select
-          aria-label="学校对比指标"
+          aria-label="对比指标"
           value={metric}
           style={{ minWidth: 200 }}
           options={schoolMetrics.map((key) => ({ value: key, label: metricNames[key] }))}
@@ -65,7 +65,7 @@ export function SchoolComparison({
           }}
         />
         <Radio.Group
-          aria-label="学校排名顺序"
+          aria-label="排名顺序"
           value={schoolPage.descending}
           options={[
             { label: '降序', value: true },

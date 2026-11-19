@@ -103,7 +103,7 @@ export const navigation: NavigationItem[] = [
     key: 'schools',
     icon: <BankOutlined />,
     label: '学校管理',
-    description: '查看学校列表，创建学校并进入学校配置或成员管理。',
+    description: '查看列表，创建并进入设置或成员管理。',
     domain: 'school',
     scope: 'global',
     capability: 'global.manage',

@@ -13,10 +13,10 @@ export function OperationFeedback({ school, canDelete }: { school: string; canDe
   function change(v: Partial<Filters>) { setFilters({ ...filters, ...v, page: 1 }) }
   function remove(v: Feedback) { Modal.confirm({ title: '确认删除此反馈？', content: '删除后将不再显示，操作会记录审计。', onOk: async () => { try { await api.deleteFeedback(school, v.id, v.revision); setSelected(undefined); await q.refetch() } catch (e) { setError(e instanceof Error ? e.message : '删除失败'); throw e } } }) }
   return <section><h2>投诉反馈</h2><Space wrap>
-    <Input aria-label="反馈正文查询" placeholder="问题和建议" value={filters.search ?? ''} onChange={e => change({ search: e.target.value })} />
+    <Input aria-label="正文查询" placeholder="问题和建议" value={filters.search ?? ''} onChange={e => change({ search: e.target.value })} />
     <Input aria-label="联系方式查询" placeholder="联系方式" value={filters.contact ?? ''} onChange={e => change({ contact: e.target.value })} />
-    <Input aria-label="反馈用户查询" placeholder="用户昵称或ID" value={filters.user ?? ''} onChange={e => change({ user: e.target.value })} />
-    <Select aria-label="反馈类型筛选" value={filters.feedback_type ?? ''} options={[{ value: '', label: '全部反馈类型' }, ...Object.entries(types).map(([value, label]) => ({ value, label }))]} onChange={feedback_type => change({ feedback_type })} />
+    <Input aria-label="用户查询" placeholder="用户昵称或ID" value={filters.user ?? ''} onChange={e => change({ user: e.target.value })} />
+    <Select aria-label="类型筛选" value={filters.feedback_type ?? ''} options={[{ value: '', label: '全部反馈类型' }, ...Object.entries(types).map(([value, label]) => ({ value, label }))]} onChange={feedback_type => change({ feedback_type })} />
     <Select aria-label="处理状态筛选" value={filters.status ?? ''} options={[{ value: '', label: '全部处理状态' }, ...Object.entries(states).map(([value, label]) => ({ value, label }))]} onChange={status => change({ status })} />
     <label>提交时间自<LocalDateTimePicker onChange={value => change({ starts_at: value ? new Date(value).toISOString() : undefined })} /></label>
     <label>提交时间至<LocalDateTimePicker onChange={value => change({ ends_at: value ? new Date(value).toISOString() : undefined })} /></label>
@@ -32,6 +32,6 @@ export function OperationFeedback({ school, canDelete }: { school: string; canDe
       { title: '操作', width: 160, render: (_, r) => <Space><Button type="link" onClick={() => { void api.feedbackDetail(school, r.id).then(setSelected).catch(e => setError(e.message)) }}>详情</Button>{canDelete && <Button danger type="link" onClick={() => remove(r)}>删除</Button>}</Space> },
     ]} />
     <PaginationControls page={filters.page ?? 1} more={q.data?.page?.has_more} busy={q.isFetching} subject="反馈" change={page => setFilters({ ...filters, page })} />
-    <Drawer open={!!selected} size="large" title="反馈详情" onClose={() => setSelected(undefined)}>{selected && <Space orientation="vertical"><p>反馈类型：{types[selected.feedback_type ?? 'legacy']}</p><p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{selected.content}</p><p>联系方式：{selected.contact || '未填写'}</p><p>反馈用户：{selected.reporter_name}（{selected.account_id}）</p><p>处理状态：{states[selected.state]}</p><p>IP：{selected.submitted_ip || '未记录'}</p><p>提交时间：{new Date(selected.created_at).toLocaleString()}</p><p>更新时间：{new Date(selected.updated_at).toLocaleString()}</p><Image.PreviewGroup>{selected.images.map(src => <Image key={src} src={src} width={180} />)}</Image.PreviewGroup>{canDelete && <Button danger onClick={() => remove(selected)}>删除反馈</Button>}</Space>}</Drawer>
+    <Drawer open={!!selected} size="large" title="详情" onClose={() => setSelected(undefined)}>{selected && <Space orientation="vertical"><p>反馈类型：{types[selected.feedback_type ?? 'legacy']}</p><p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{selected.content}</p><p>联系方式：{selected.contact || '未填写'}</p><p>反馈用户：{selected.reporter_name}（{selected.account_id}）</p><p>处理状态：{states[selected.state]}</p><p>IP：{selected.submitted_ip || '未记录'}</p><p>提交时间：{new Date(selected.created_at).toLocaleString()}</p><p>更新时间：{new Date(selected.updated_at).toLocaleString()}</p><Image.PreviewGroup>{selected.images.map(src => <Image key={src} src={src} width={180} />)}</Image.PreviewGroup>{canDelete && <Button danger onClick={() => remove(selected)}>删除</Button>}</Space>}</Drawer>
   </section>
 }

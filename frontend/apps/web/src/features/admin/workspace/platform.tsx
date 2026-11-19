@@ -103,7 +103,7 @@ export function Accounts({
               setSelected(undefined)
             }}
           >
-            新建账号
+            新建
           </Button>
         )
       }
@@ -111,7 +111,7 @@ export function Accounts({
         <>
           <Space wrap>
             <Input
-              aria-label="搜索账号"
+              aria-label="搜索账号或昵称"
               placeholder="搜索账号或昵称"
               value={search}
               onChange={(e) => {
@@ -120,7 +120,7 @@ export function Accounts({
               }}
             />
             <Select
-              aria-label="账号状态筛选"
+              aria-label="状态筛选"
               value={status}
               options={statusOptions}
               onChange={(v) => {
@@ -179,7 +179,7 @@ export function Accounts({
                 {!administrators && a.id !== user.id && (
                   <>
                     <Button type="link" onClick={() => open(a, 'edit')}>
-                      编辑账号
+                      编辑
                     </Button>
 
                   </>
@@ -221,7 +221,7 @@ export function Accounts({
           onClose={() => setSelected(undefined)}
         >
           <Descriptions
-            title="账号信息"
+            title="基本信息"
             bordered
             column={1}
             items={[
