@@ -8,7 +8,7 @@ import { Workspace } from './index'
 import { identity, workspace, product } from './api'
 vi.mock('../../school-context/api', async () => ({ schoolsApi: (await import('./api')).workspace }))
 vi.mock('../../identity/api', async () => ({ identity: (await import('./api')).identity, subscribeUnauthorized: () => () => {} }))
-vi.mock('./api', () => ({ product:{resources:{artwork:vi.fn().mockResolvedValue([])}}, identity: { session: vi.fn(), accounts: vi.fn(), create: vi.fn(), update: vi.fn(), reset: vi.fn(), logout: vi.fn() }, workspace: { postManagement: {list: vi.fn()}, schools: vi.fn(), cases: vi.fn(), resolveCase: vi.fn(), reviews: vi.fn(), review: vi.fn(), list: vi.fn(), schoolProfiles:{platform:vi.fn(),detail:vi.fn(),create:vi.fn(),update:vi.fn(),artwork:vi.fn(),branding:vi.fn()}, createSchool: vi.fn(), updateSchool: vi.fn(), setCommentVisibility: vi.fn(), mutate: vi.fn() } }))
+vi.mock('./api', () => ({ product:{resources:{artwork:vi.fn().mockResolvedValue([])}}, identity: { session: vi.fn(), accounts: vi.fn(), create: vi.fn(), update: vi.fn(), reset: vi.fn(), logout: vi.fn() }, workspace: { postManagement: {list: vi.fn()}, schools: vi.fn(), cases: vi.fn(), resolveCase: vi.fn(), reviews: vi.fn(), review: vi.fn(), list: vi.fn(), schoolProfiles:{platform:vi.fn(),detail:vi.fn(),create:vi.fn(),update:vi.fn(),artwork:vi.fn(),branding:vi.fn()}, createSchool: vi.fn(), updateSchool: vi.fn(), setCommentVisibility: vi.fn(), setRecommendationCapability: vi.fn(), mutate: vi.fn() } }))
 class TestResizeObserver { observe() {} unobserve() {} disconnect() {} }
 vi.stubGlobal('ResizeObserver', TestResizeObserver)
 configure({ asyncUtilTimeout: 5000 })
@@ -167,8 +167,8 @@ it.each(['member','operator'] as const)('blocks school settings and member admin
 
 it('allows a school administrator to read members without offering grant changes', async () => {
   showManagement('members',false)
-  expect(await screen.findByText('学校授权由平台管理员维护。')).toBeTruthy()
-  expect(screen.queryByRole('button',{name:'保存所选成员授权'})).toBeNull()
+  expect(await screen.findByText('学校角色由平台管理员维护。本校学校管理员可为运营成员设置「允许推荐帖子」。')).toBeTruthy()
+  expect(screen.queryByRole('button',{name:/^授\s*权/})).toBeNull()
   expect(identity.accounts).not.toHaveBeenCalled()
   await waitFor(() => expect(workspace.list).toHaveBeenCalledWith('school','members',expect.any(String),expect.any(AbortSignal)))
 })
@@ -176,13 +176,17 @@ it('allows a school administrator to read members without offering grant changes
 it('shows newly created unassigned accounts directly in school members and grants the selected school role', async () => {
   showManagement('members')
   let granted = false
-  vi.mocked(workspace.list).mockImplementation(async () => ({items:granted ? [{id:'ordinary',username:'ordinary',display_name:'本地管理员',role:'operator'}] : []}))
+  vi.mocked(workspace.list).mockImplementation(async () => ({items:granted ? [{id:'ordinary',username:'ordinary',display_name:'本地管理员',role:'operator',can_recommend:false}] : []}))
   vi.mocked(workspace.mutate).mockImplementation(async () => { granted = true; return {id:'ordinary'} })
-  const row = (await screen.findByText('ordinary')).closest('tr')!
-  expect(within(row).getByText('未授权')).toBeTruthy()
+  const row = within((await screen.findByText('ordinary')).closest('tr')!)
+  expect(row.getByText('未加入')).toBeTruthy()
   expect(screen.getByText('平台维护者')).toBeTruthy()
-  fireEvent.click(within(row).getByRole('checkbox'))
-  fireEvent.click(screen.getByRole('button', {name:'保存所选成员授权'}))
+  fireEvent.click(row.getByRole('button',{name:'授权 本地管理员'}))
+  const dialog = within(await screen.findByRole('dialog'))
+  expect(dialog.getByText('该账号尚未加入本校，保存后将加入并设为所选角色。')).toBeTruthy()
+  expect(dialog.queryByRole('button',{name:'撤销学校授权'})).toBeNull()
+  fireEvent.click(dialog.getByRole('radio',{name:/^运营/}))
+  fireEvent.click(dialog.getByRole('button',{name:'保存授权'}))
   await waitFor(() => expect(workspace.mutate).toHaveBeenCalledWith('school','members/ordinary',{role:'operator'},'PUT'))
   await waitFor(() => expect(within(screen.getByText('ordinary').closest('tr')!).getByText('运营')).toBeTruthy())
 })
@@ -190,13 +194,89 @@ it('shows newly created unassigned accounts directly in school members and grant
 it('allows explicit school administrator grants for platform accounts and refreshes session permissions', async () => {
   showManagement('members')
   vi.mocked(workspace.mutate).mockResolvedValue({id:'u'})
-  const row=(await screen.findByText('平台维护者')).closest('tr')!
-  fireEvent.click(within(row).getByRole('checkbox'))
-  await selectOption(screen.getByRole('combobox',{name:'学校角色'}),'学校管理员')
+  const row=within((await screen.findByText('平台维护者')).closest('tr')!)
+  fireEvent.click(row.getByRole('button',{name:'授权 平台维护者'}))
+  const dialog=within(await screen.findByRole('dialog'))
   const calls=vi.mocked(identity.session).mock.calls.length
-  fireEvent.click(screen.getByRole('button',{name:'保存所选成员授权'}))
+  fireEvent.click(dialog.getByRole('radio',{name:/^学校管理员/}))
+  expect(dialog.getByRole('button',{name:'保存授权'})).toHaveProperty('disabled',true)
+  fireEvent.click(dialog.getByRole('checkbox',{name:'我确认授予该账号本校学校管理员权限'}))
+  fireEvent.click(dialog.getByRole('button',{name:'保存授权'}))
   await waitFor(()=>expect(workspace.mutate).toHaveBeenCalledWith('school','members/u',{role:'admin'},'PUT'))
   await waitFor(()=>expect(vi.mocked(identity.session).mock.calls.length).toBeGreaterThan(calls))
+})
+
+it('requires confirmation before revoking an effective school role', async () => {
+  showManagement('members')
+  vi.mocked(workspace.list).mockResolvedValue({items:[{id:'ordinary',username:'ordinary',display_name:'本地管理员',role:'operator',can_recommend:true}]})
+  vi.mocked(workspace.mutate).mockResolvedValue({id:'ordinary'})
+  const row=within((await screen.findByText('ordinary')).closest('tr')!)
+  fireEvent.click(row.getByRole('button',{name:'授权 本地管理员'}))
+  const dialog=within(await screen.findByRole('dialog'))
+  fireEvent.click(dialog.getByRole('button',{name:'撤销学校授权'}))
+  fireEvent.click(await screen.findByRole('button',{name:'确认撤销'}))
+  await waitFor(()=>expect(workspace.mutate).toHaveBeenCalledWith('school','members/ordinary',{role:'revoked'},'PUT'))
+})
+
+it('requires confirmation when demoting a school administrator', async () => {
+  showManagement('members')
+  vi.mocked(workspace.list).mockResolvedValue({items:[
+    {id:'ordinary',username:'ordinary',display_name:'本地管理员',role:'admin',can_recommend:true},
+    {id:'other',username:'other',display_name:'另一管理员',role:'admin',can_recommend:true},
+  ]})
+  vi.mocked(workspace.mutate).mockResolvedValue({id:'ordinary'})
+  const row=within((await screen.findByText('ordinary')).closest('tr')!)
+  fireEvent.click(row.getByRole('button',{name:'授权 本地管理员'}))
+  const dialog=within(await screen.findByRole('dialog'))
+  fireEvent.click(dialog.getByRole('radio',{name:/^运营/}))
+  fireEvent.click(dialog.getByRole('button',{name:'保存授权'}))
+  fireEvent.click(await screen.findByRole('button',{name:'确认保存'}))
+  await waitFor(()=>expect(workspace.mutate).toHaveBeenCalledWith('school','members/ordinary',{role:'operator'},'PUT'))
+})
+
+it('lets a school administrator toggle recommendation for operators', async () => {
+  showManagement('members', false)
+  vi.mocked(workspace.list).mockResolvedValue({items:[
+    {id:'op',username:'op',display_name:'运营甲',role:'operator',can_recommend:false},
+    {id:'member',username:'member',display_name:'成员乙',role:'member',can_recommend:false},
+  ]})
+  vi.mocked(workspace.setRecommendationCapability).mockResolvedValue(null)
+  const operatorRow=within((await screen.findByText('运营甲')).closest('tr')!)
+  expect(operatorRow.getByRole('switch',{name:'允许 运营甲 推荐帖子'})).toBeTruthy()
+  expect(within(screen.getByText('成员乙').closest('tr')!).queryByRole('switch')).toBeNull()
+  expect(screen.queryByRole('button',{name:/^授\s*权/})).toBeNull()
+  fireEvent.click(operatorRow.getByRole('switch'))
+  await waitFor(()=>expect(workspace.setRecommendationCapability).toHaveBeenCalledWith('school','op',true))
+})
+
+it('keeps the grant dialog open when saving fails', async () => {
+  showManagement('members')
+  vi.mocked(workspace.mutate).mockRejectedValue(new Error('forbidden'))
+  const row=within((await screen.findByText('ordinary')).closest('tr')!)
+  fireEvent.click(row.getByRole('button',{name:'授权 本地管理员'}))
+  const dialog=within(await screen.findByRole('dialog'))
+  fireEvent.click(dialog.getByRole('radio',{name:/^运营/}))
+  fireEvent.click(dialog.getByRole('button',{name:'保存授权'}))
+  expect(await screen.findByText('forbidden')).toBeTruthy()
+  expect(screen.getByRole('dialog')).toBeTruthy()
+  expect(dialog.getByRole('radio',{name:/^运营/})).toHaveProperty('checked',true)
+})
+
+it('reports a recommendation failure without changing the switch', async () => {
+  showManagement('members', false)
+  vi.mocked(workspace.list).mockResolvedValue({items:[{id:'op',username:'op',display_name:'运营甲',role:'operator',can_recommend:false}]})
+  vi.mocked(workspace.setRecommendationCapability).mockRejectedValue(new Error('network'))
+  const row=within((await screen.findByText('运营甲')).closest('tr')!)
+  fireEvent.click(row.getByRole('switch'))
+  expect(await screen.findByText('更新 运营甲 的推荐权限失败：network')).toBeTruthy()
+  expect(within(screen.getByText('运营甲').closest('tr')!).getByRole('switch').getAttribute('aria-checked')).toBe('false')
+})
+
+it('keeps member identity first and only offers row authorization to platform administrators', async () => {
+  showManagement('members')
+  await screen.findByText('平台维护者')
+  expect(screen.getAllByRole('columnheader').map((header)=>header.textContent)).toEqual(['账号','昵称','平台身份','本校角色','推荐权限','账号状态','操作'])
+  expect(screen.queryAllByRole('checkbox')).toHaveLength(0)
 })
 
 
