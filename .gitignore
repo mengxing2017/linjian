@@ -21,3 +21,4 @@ report/
 
 # Local private file storage.
 .linjian-media/
+.commandcode/
