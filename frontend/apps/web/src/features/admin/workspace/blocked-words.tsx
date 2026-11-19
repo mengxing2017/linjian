@@ -19,13 +19,15 @@ export function BlockedWords({ school, schoolName, canEdit, platformAdmin = fals
   const [editing, setEditing] = useState<BlockedWord | null>()
   const [word, setWord] = useState(''), [remark, setRemark] = useState(''), [active, setActive] = useState(true)
   const [error, setError] = useState(''), [busy, setBusy] = useState(false)
+  const [drawerError, setDrawerError] = useState('')
   const [dragged, setDragged] = useState<string>()
   const [preview, setPreview] = useState<BlockedWordImport>()
   const q = useQuery({ queryKey: ['blocked-words', school, global, search, status, page, ordering], queryFn: () => api.list(school, global, search, status, page, ordering) })
   const editable = canEdit && !global
   const items = q.data?.items ?? []
   async function run(action: () => Promise<unknown>) { setBusy(true); setError(''); try { await action(); await q.refetch() } catch (e) { setError(e instanceof Error ? e.message : '操作失败') } finally { setBusy(false) } }
-  function edit(item?: BlockedWord) { setEditing(item ?? null); setWord(item?.word ?? ''); setRemark(item?.remark ?? ''); setActive(item?.active ?? true) }
+  async function runDrawer(action: () => Promise<unknown>) { setBusy(true); setDrawerError(''); try { await action() } catch (e) { setDrawerError(e instanceof Error ? e.message : '操作失败') } finally { setBusy(false) } }
+  function edit(item?: BlockedWord) { setDrawerError(''); setEditing(item ?? null); setWord(item?.word ?? ''); setRemark(item?.remark ?? ''); setActive(item?.active ?? true) }
   function move(id: string, target: string) {
     const ids = items.map(v => v.id), from = ids.indexOf(id), to = ids.indexOf(target)
     if (from < 0 || to < 0 || from === to || !q.data) return
@@ -38,7 +40,7 @@ export function BlockedWords({ school, schoolName, canEdit, platformAdmin = fals
       : '平台屏蔽词启用后对所有学校生效，命中时不能发布。'} />
     {school && global && platformAdmin && <Link to={{ search: `?${platformParams}` }}>前往平台屏蔽词管理</Link>}
     {(error || q.error) && <Alert type="error" title={error || q.error?.message} />}
-    <Card title={school ? (global ? '平台屏蔽词（只读）' : `学校屏蔽词 · ${schoolName ?? school}`) : '平台屏蔽词管理'} extra={editable && <Space><Upload accept=".csv,.xlsx" showUploadList={false} beforeUpload={file=>{void run(async()=>setPreview(await requestMultipart<BlockedWordImport>(`${school?`/api/v1/schools/${encodeURIComponent(school)}`:'/api/v1/platform'}/blocked-word-imports`,file)));return false}}><Button>导入</Button></Upload><Button onClick={()=>{const url=URL.createObjectURL(new Blob(['\ufeff屏蔽词,备注,状态\r\n'],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='blocked-words-template.csv';a.click();URL.revokeObjectURL(url)}}>下载模板</Button><Button type="primary" onClick={() => edit()}>添加屏蔽词</Button></Space>}>
+    <Card title={school ? (global ? '平台屏蔽词（只读）' : `学校屏蔽词 · ${schoolName ?? school}`) : '平台屏蔽词管理'} extra={editable && <Space><Upload accept=".csv,.xlsx" showUploadList={false} beforeUpload={file=>{void runDrawer(async()=>setPreview(await requestMultipart<BlockedWordImport>(`${school?`/api/v1/schools/${encodeURIComponent(school)}`:'/api/v1/platform'}/blocked-word-imports`,file)));return false}}><Button>导入</Button></Upload><Button onClick={()=>{const url=URL.createObjectURL(new Blob(['\ufeff屏蔽词,备注,状态\r\n'],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='blocked-words-template.csv';a.click();URL.revokeObjectURL(url)}}>下载模板</Button><Button type="primary" onClick={() => edit()}>添加屏蔽词</Button></Space>}>
       <Space wrap>
         {school && <Select aria-label="范围" style={{ width: 180 }} popupMatchSelectWidth={false} value={global ? 'global' : 'school'} onChange={v => {setGlobal(v === 'global');setPage(1);setOrdering(false)}} options={[{value:'school',label:'本校词条'},{value:'global',label:'平台词条（只读）'}]} />}
         <Input aria-label="查询屏蔽词或备注" placeholder="屏蔽词或备注" disabled={ordering} value={search} onChange={e => {setSearch(e.target.value);setPage(1)}} />
@@ -63,24 +65,28 @@ export function BlockedWords({ school, schoolName, canEdit, platformAdmin = fals
       title={editing ? '编辑屏蔽词' : '添加屏蔽词'}
       onClose={() => setEditing(undefined)}
       footer={
-        <Space>
-          <Button onClick={() => setEditing(undefined)}>取消</Button>
-          <Button
-            type="primary"
-            loading={busy}
-            onClick={() =>
-              void run(async () => {
-                await api.save(
-                  school,
-                  { word, remark, active, revision: editing?.revision ?? 0 },
-                  editing?.id,
-                )
-                setEditing(undefined)
-              })
-            }
-          >
-            保存
-          </Button>
+        <Space orientation="vertical" className="full-width">
+          {drawerError && <Alert type="error" title={drawerError} />}
+          <Space>
+            <Button onClick={() => setEditing(undefined)}>取消</Button>
+            <Button
+              type="primary"
+              loading={busy}
+              onClick={() =>
+                void runDrawer(async () => {
+                  await api.save(
+                    school,
+                    { word, remark, active, revision: editing?.revision ?? 0 },
+                    editing?.id,
+                  )
+                  await q.refetch()
+                  setEditing(undefined)
+                })
+              }
+            >
+              保存
+            </Button>
+          </Space>
         </Space>
       }
     >
@@ -96,22 +102,26 @@ export function BlockedWords({ school, schoolName, canEdit, platformAdmin = fals
       title="导入预检"
       onClose={() => setPreview(undefined)}
       footer={
-        <Space>
-          <Button onClick={() => setPreview(undefined)}>取消</Button>
-          <Button
-            type="primary"
-            loading={busy}
-            disabled={!preview || preview.errors.length > 0}
-            onClick={() =>
-              void run(async () => {
-                if (!preview) return
-                await api.commitImport(school, preview.id, preview.digest)
-                setPreview(undefined)
-              })
-            }
-          >
-            确认导入
-          </Button>
+        <Space orientation="vertical" className="full-width">
+          {drawerError && <Alert type="error" title={drawerError} />}
+          <Space>
+            <Button onClick={() => setPreview(undefined)}>取消</Button>
+            <Button
+              type="primary"
+              loading={busy}
+              disabled={!preview || preview.errors.length > 0}
+              onClick={() =>
+                void runDrawer(async () => {
+                  if (!preview) return
+                  await api.commitImport(school, preview.id, preview.digest)
+                  await q.refetch()
+                  setPreview(undefined)
+                })
+              }
+            >
+              确认导入
+            </Button>
+          </Space>
         </Space>
       }
     >
