@@ -370,7 +370,7 @@ async fn draft_expiry_and_immutable_history_protect_files() {
         "snapshot protection grants no read access"
     );
     let snapshot = migration::export(&f.pool, &f.app.media.0.1).await.unwrap();
-    assert_eq!(snapshot.schema_version, 3);
+    assert_eq!(snapshot.schema_version, 4);
     let target_name = format!("forum_gc_restore_{}", Uuid::new_v4().simple());
     let target = isolated(&f.admin, &target_name).await;
     database::migrate(&target).await.unwrap();

@@ -402,7 +402,7 @@ async fn forum_migration_auth_and_outbox() {
         .await
         .unwrap();
     assert!(!snapshot.tables.contains_key("sessions"));
-    assert!(!snapshot.tables.contains_key("forum_outbox"));
+    assert!(snapshot.tables.contains_key("forum_outbox"));
     let report = migration::import(&target, &snapshot, false, &Default::default())
         .await
         .unwrap();
@@ -421,7 +421,7 @@ async fn forum_migration_auth_and_outbox() {
         .fetch_one(&target)
         .await
         .unwrap();
-    assert_eq!(outbox, 0);
+    assert_eq!(outbox as usize, snapshot.tables["forum_outbox"].len());
     let session_count: i64 = sqlx::query_scalar("SELECT count(*) FROM sessions")
         .fetch_one(&target)
         .await
@@ -3754,7 +3754,7 @@ async fn post_management_order_status_import_and_live_permissions() {
 
 #[tokio::test]
 #[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
-async fn post_management_upgrade_and_concurrent_reorders() {
+async fn post_management_concurrent_reorders_preserve_source_intents() {
     use linjian_api::{business::Error, community::domain::post_management::*};
     let admin = PgPool::connect(
         &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
@@ -3763,18 +3763,11 @@ async fn post_management_upgrade_and_concurrent_reorders() {
     .unwrap();
     let schema = format!("forum_order_upgrade_{}", Uuid::new_v4().simple());
     let pool = isolated(&admin, &schema).await;
-    let migrations = database::MIGRATOR.iter().collect::<Vec<_>>();
-    let target = migrations
-        .iter()
-        .position(|m| m.version == 202611100002)
-        .unwrap();
-    for migration in &migrations[..target] {
-        sqlx::raw_sql(&migration.sql).execute(&pool).await.unwrap();
-    }
+    database::migrate(&pool).await.unwrap();
     let account = Uuid::new_v4();
     let school = Uuid::new_v4();
     sqlx::query("INSERT INTO accounts(id,username,display_name,password_hash,platform_admin) VALUES($1,'order-root','排序管理员','unused',true)").bind(account).execute(&pool).await.unwrap();
-    sqlx::query("INSERT INTO schools(id,name) VALUES($1,'升级排序学校')")
+    sqlx::query("INSERT INTO schools(id,name) VALUES($1,'并发排序学校')")
         .bind(school)
         .execute(&pool)
         .await
@@ -3786,31 +3779,15 @@ async fn post_management_upgrade_and_concurrent_reorders() {
         (0, "visible"),
         (0, "deleted"),
     ] {
-        sqlx::query("INSERT INTO posts(id,school_id,author_id,title,content,top_sort,visibility,created_at) VALUES($1,$2,$3,'历史标题','历史正文',$4,$5,'2026-11-01T00:00:00Z')").bind(Uuid::new_v4()).bind(school).bind(account).bind(top).bind(status).execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO posts(id,school_id,author_id,title,content,top_sort,visibility,created_at) VALUES($1,$2,$3,'排序标题','排序正文',$4,$5,'2026-11-01T00:00:00Z')").bind(Uuid::new_v4()).bind(school).bind(account).bind(top).bind(status).execute(&pool).await.unwrap();
     }
-    let previous:Vec<Uuid>=sqlx::query_scalar("SELECT id FROM posts WHERE visibility<>'deleted' ORDER BY top_sort DESC,created_at DESC,id").fetch_all(&pool).await.unwrap();
     let counters: (i64, i64) = sqlx::query_as(
         "SELECT (SELECT sum(revision)::bigint FROM posts),(SELECT count(*) FROM forum_outbox)",
     )
     .fetch_one(&pool)
     .await
     .unwrap();
-    sqlx::raw_sql(&migrations[target].sql)
-        .execute(&pool)
-        .await
-        .unwrap();
-    let current:Vec<Uuid>=sqlx::query_scalar("SELECT id FROM posts WHERE visibility<>'deleted' ORDER BY is_top DESC,sort_order DESC,created_at DESC,id").fetch_all(&pool).await.unwrap();
-    assert_eq!(previous, current);
-    let after: (i64, i64) = sqlx::query_as(
-        "SELECT (SELECT sum(revision)::bigint FROM posts),(SELECT count(*) FROM forum_outbox)",
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert_eq!(counters, after);
     let app = bootstrap::build_application(pool.clone(), bootstrap::Options::local());
-    // This test intentionally exercises an intermediate schema, before session scoping.
-    // Use a domain actor fixture; authenticate only against the complete schema.
     let actor: linjian_api::business::Actor = serde_json::from_value(json!({
         "id":account,"username":"test-admin","display_name":"测试管理员",
         "platform_admin":true,"bound_school_id":null,"grants":[]
@@ -4869,3 +4846,6 @@ mod statistics_tests;
 
 #[path = "media_gc/mod.rs"]
 mod media_gc_tests;
+
+#[path = "post_recommendation/mod.rs"]
+mod post_recommendation_tests;

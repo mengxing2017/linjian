@@ -317,6 +317,7 @@ async fn post_management_and_import_shared_fixtures() {
             .unwrap();
         let cover_image = cover.as_str().map(str::to_owned);
         attrs["id"] = fixture["data"]["id"].clone();
+        attrs.as_object_mut().unwrap().remove("source_summary");
         let post: PostReview = serde_json::from_value(attrs).unwrap();
         let response = linjian_api::http::jsonapi::resource(
             "post-management",
@@ -324,6 +325,7 @@ async fn post_management_and_import_shared_fixtures() {
                 post,
                 is_top,
                 cover_image,
+                source_summary: None,
             },
         )
         .into_response();
