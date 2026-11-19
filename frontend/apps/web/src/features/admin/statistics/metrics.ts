@@ -40,12 +40,12 @@ export function metricUnit(key: keyof Metrics) {
   return '人'
 }
 export function metricNote(key: keyof Metrics, coverage: Bucket['coverage'], value: number | null) {
-  if (value == null) return '暂无可确认数据'
+  if (value == null) return '暂无可用数据'
   if (
     ['posts', 'comments', 'post_authors', 'comment_authors', 'participants'].includes(key) &&
     !coverage.content
   )
-    return '已记录，历史覆盖未确认'
-  if (key === 'registrations' && !coverage.registration) return '已记录，注册时间历史覆盖未确认'
+    return '数据存在缺口，仅展示现有记录'
+  if (key === 'registrations' && !coverage.registration) return '注册数据存在缺口或时间异常'
   return ''
 }

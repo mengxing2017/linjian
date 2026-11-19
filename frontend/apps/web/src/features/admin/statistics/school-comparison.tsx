@@ -152,7 +152,7 @@ export function SchoolComparison({
                 title={
                   (['posts', 'comments', 'participants'].includes(key) && !row.coverage.content) ||
                   (key === 'registrations' && !row.coverage.registration)
-                    ? '已记录，历史覆盖未确认'
+                    ? '数据存在缺口，仅展示现有记录'
                     : row.metrics[key] == null
                       ? '所选期间尚未具备完整数据'
                       : undefined

@@ -52,7 +52,7 @@ export function ContentStateCharts({ report: r }: { report: StatisticsReport }) 
                   value,
                 })),
                 kind === 'posts' ? '帖' : '条',
-                `本期创建内容的当前快照，数据截至 ${shanghai(r.as_of)}；不表示历史审核或展示次数。${!r.coverage.content ? '已记录，历史覆盖未确认。' : ''}`,
+                `本期创建内容的当前快照，数据截至 ${shanghai(r.as_of)}；不表示历史审核或展示次数。${!r.coverage.content ? '数据存在缺口，仅展示现有记录。' : ''}`,
               )}
             />
           ))}
@@ -69,7 +69,7 @@ export function RegistrationDistribution({ report: r }: { report: StatisticsRepo
   const names: Record<string, string> = {
     known_school: '已知学校',
     unassigned: '未归属学校',
-    unknown: '历史归属未知',
+    unknown: '学校归属数据缺失',
   }
   return (
     <ChartCard
@@ -81,7 +81,7 @@ export function RegistrationDistribution({ report: r }: { report: StatisticsRepo
           value,
         })),
         '人',
-        `全站已验证注册时间的归属记录；未知归属单独保留，不分摊到学校。${!r.coverage.registration ? '历史完整性未确认，不表示完整历史总量。' : ''}数据截至 ${shanghai(r.as_of)}。`,
+        `按注册时记录的学校归属统计；未绑定学校计入“未归属学校”，归属数据缺失单独列出，不分摊到学校。${!r.coverage.registration ? '注册数据存在缺口或时间异常，仅展示有效记录。' : ''}数据截至 ${shanghai(r.as_of)}。`,
       )}
     />
   )

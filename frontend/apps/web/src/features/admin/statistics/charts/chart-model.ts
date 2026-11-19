@@ -97,7 +97,7 @@ export function trendModel(
     zoom: length > 60,
     description: `上海时间；数据截至 ${shanghai(report.as_of)}。${keys.map((key) => `${metricNames[key]}单位：${metricUnit(key)}`).join('；')}。虚线为所选同期，缺失处断线，未来周期不补零。${length > 60 ? '默认查看最近 60 桶，可拖动下方滑块查看整个期间；缩放不另发请求。' : ''}`,
     emptyMessage: length
-      ? '所选指标暂无可确认数据，请查看数据覆盖与统计口径说明。'
+      ? '所选指标暂无可用数据，请查看数据覆盖与统计口径说明。'
       : '暂无可绘制时间分桶。',
   }
 }
@@ -126,7 +126,7 @@ export function categoryModel(
         color: chartColors[0],
         data: rows.map((r) => r.value),
         notes: rows.map((r) =>
-          [r.note, r.value == null ? '暂无可确认数据' : ''].filter(Boolean).join('；'),
+          [r.note, r.value == null ? '暂无可用数据' : ''].filter(Boolean).join('；'),
         ),
       },
     ],
@@ -134,7 +134,7 @@ export function categoryModel(
     bars: true,
     height: Math.max(260, rows.length * 32 + 64),
     description,
-    emptyMessage: rows.length ? '所选指标暂无可确认数据。' : '当前范围没有可展示的分类数据。',
+    emptyMessage: rows.length ? '所选指标暂无可用数据。' : '当前范围没有可展示的分类数据。',
   }
 }
 
@@ -161,5 +161,5 @@ export function schoolModel(
 
 export function pointText(series: ChartSeries, index: number) {
   const value = series.data[index]
-  return value == null ? '—（暂无可确认数据）' : `${formatValue(value)}${series.unit}`
+  return value == null ? '—（暂无可用数据）' : `${formatValue(value)}${series.unit}`
 }

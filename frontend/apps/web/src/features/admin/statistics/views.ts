@@ -36,11 +36,13 @@ export function coverageReasons(report: StatisticsReport, view: StatisticsView) 
   const coverage = report.coverage
   const reasons: string[] = []
   if (['overview', 'content', 'schools'].includes(view) && !coverage.content)
-    reasons.push('内容历史覆盖未确认，数量为已记录数据。')
+    reasons.push('内容数据存在缺口，数量仅含现有记录。')
   if (['overview', 'registration', 'schools'].includes(view)) {
-    if (!coverage.registration) reasons.push('注册时间历史覆盖未确认，新增为已验证时间的记录。')
-    if (!coverage.registration_assignment || !coverage.registration_base)
-      reasons.push('注册归属或累计基数尚未完整确认。')
+    if (!coverage.registration) reasons.push('注册数据存在缺口或时间异常，新增仅含时间有效的记录。')
+    if (!coverage.registration_assignment)
+      reasons.push('注册学校归属数据缺失，学校新增注册统计不可用。')
+    if (!coverage.registration_base)
+      reasons.push('累计注册所需数据缺失或异常，累计注册统计不可用。')
   }
   if (['overview', 'activity', 'schools'].includes(view) && !coverage.activity)
     reasons.push('活跃采集未覆盖、延迟或存在缺口。')

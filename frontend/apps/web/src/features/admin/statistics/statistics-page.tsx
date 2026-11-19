@@ -313,7 +313,7 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
                     ].includes(key) &&
                       !r.coverage.content) ||
                       (key === 'registrations' && !r.coverage.registration)) && (
-                      <span>已记录，历史覆盖未确认</span>
+                      <span>数据存在缺口，仅展示现有记录</span>
                     )
                   )}
                   {r.comparisons.map(
@@ -331,11 +331,11 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
           {view === 'content' && !r.coverage.content && (
             <Alert
               type="info"
-              title="以下为所选期间的已记录内容，历史完整性尚未确认，不计算增长率。"
+              title="所选期间的内容数据存在缺口，仅展示现有记录，不计算增长率。"
             />
           )}
           {view === 'registration' && !r.coverage.registration && (
-            <Alert type="info" title="以下新增注册为已验证时间的记录，历史完整性尚未确认。" />
+            <Alert type="info" title="所选期间的注册数据存在缺口或时间异常，仅展示时间有效的记录。" />
           )}
           {view === 'activity' && !r.coverage.activity && (
             <Alert type="info" title="所选期间的活跃采集尚未完整覆盖，暂不展示人数和增长率。" />
@@ -378,7 +378,7 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
                       <p>{coverageReasons(r, view).join('；')}</p>
                     )}
                     <p>
-                      注册按注册时学校归属冻结；活跃按行为学校归属。全站人数按账号去重。标有“已记录”的数量只反映现有记录，不代表历史完整总量；—
+                      注册按注册时学校归属冻结；活跃按行为学校归属。全站人数按账号去重。新库内容和注册从零开始统计，无记录时显示 0；存在数据缺口时单独说明。—
                       表示指标不可用或不可比，未发生的未来周期留空。
                     </p>
                     <p>数据截至 {shanghai(r.as_of)}</p>

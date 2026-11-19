@@ -63,7 +63,7 @@ export function ChartCard({
               </Suspense>
             </ChartBoundary>
             {known.every((v) => v === 0) && (
-              <figcaption>所选期间已记录值均为 0；历史覆盖以数据说明为准。</figcaption>
+              <figcaption>所选期间可用指标均为 0。</figcaption>
             )}
           </>
         ) : (
