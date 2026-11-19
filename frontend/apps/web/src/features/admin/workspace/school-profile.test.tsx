@@ -18,6 +18,14 @@ it('creates with basics only and keeps theme defaults in the payload',async()=>{
  fireEvent.click(screen.getByRole('button',{name:'创建学校'}))
  await waitFor(()=>expect(workspace.schoolProfiles.create).toHaveBeenCalledWith(expect.objectContaining({name:'新学校',status:'normal',revision:0,theme_primary:'#6A5AF9'})),{timeout:5000})
 })
+it('requires latitude and longitude to be filled together',async()=>{
+ mount(true)
+ fireEvent.change(screen.getByLabelText('名称'),{target:{value:'新学校'}})
+ fireEvent.change(screen.getByLabelText('纬度'),{target:{value:'23.1'}})
+ fireEvent.click(screen.getByRole('button',{name:'创建学校'}))
+ expect(await screen.findByText('经纬度需同时填写或清空',{}, {timeout:5000})).toBeTruthy()
+ expect(workspace.schoolProfiles.create).not.toHaveBeenCalled()
+})
 it('submits the selected province, city and area names',async()=>{
  mount(true)
  fireEvent.change(screen.getByLabelText('名称'),{target:{value:'新学校'}})

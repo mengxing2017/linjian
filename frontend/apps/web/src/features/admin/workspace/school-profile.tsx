@@ -10,7 +10,6 @@ import {
   Drawer,
   Form,
   Input,
-  InputNumber,
   Modal,
   Select,
   Space,
@@ -22,6 +21,7 @@ import { PaginationControls } from '../../../shared/pagination-controls'
 import { actionColumn, RowActions } from '../../../shared/row-actions'
 import { RegionCascader } from '../../../shared/region-cascader'
 import { RegionField } from '../../../shared/region-field'
+import { CoordinatesField } from '../../../shared/coordinates-field'
 import {
   codesFromNames,
   namesFromCodes,
@@ -155,6 +155,10 @@ export function SchoolForm({
   const logo = Form.useWatch('logo_asset_id', form),
     header = Form.useWatch('header_bg_asset_id', form)
   async function save(v: SchoolFormValues) {
+    if ((v.latitude == null) !== (v.longitude == null)) {
+      setError('经纬度需同时填写或清空')
+      return
+    }
     setBusy(true)
     setError('')
     setDone(false)
@@ -205,6 +209,7 @@ export function SchoolForm({
     <Form
       form={form}
       layout="vertical"
+      className="business-form form-grid"
       initialValues={{
         ...defaults,
         ...school,
@@ -256,19 +261,12 @@ export function SchoolForm({
           <Input maxLength={max} />
         </Form.Item>
       ))}
-      <Form.Item label="省份 / 城市 / 区域" name="region">
+      <Form.Item className="form-wide" label="省份 / 城市 / 区域" name="region">
         <RegionField />
       </Form.Item>
-      {(
-        [
-          ['latitude', '纬度', 90],
-          ['longitude', '经度', 180],
-        ] as const
-      ).map(([name, label, max]) => (
-        <Form.Item key={name} name={name} label={label}>
-          <InputNumber min={-max} max={max} step={0.000001} />
-        </Form.Item>
-      ))}
+      <Form.Item className="form-wide" label="经纬度">
+        <CoordinatesField />
+      </Form.Item>
       <p>经纬度需同时填写或清空，最多六位小数；0 是有效坐标。</p>
       {platform && (
         <>
@@ -298,26 +296,29 @@ export function SchoolForm({
               </Form.Item>
             </section>
           ))}
-          {(
-            [
-              ['theme_primary', '主题主色'],
-              ['theme_secondary', '主题辅色'],
-              ['theme_text_color', '主题文字色'],
-            ] as const
-          ).map(([key, label]) => (
-            <Form.Item
-              name={key}
-              key={key}
-              label={label}
-              rules={[
-                { required: true },
-                { pattern: /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6})$/, message: '请选择或输入 #RGB / #RRGGBB' },
-              ]}
-            >
-              <ThemeColorPicker label={label} presets={themeColorPresets[key]} />
-            </Form.Item>
-          ))}
+          <div className="form-wide form-grid form-grid--3">
+            {(
+              [
+                ['theme_primary', '主题主色'],
+                ['theme_secondary', '主题辅色'],
+                ['theme_text_color', '主题文字色'],
+              ] as const
+            ).map(([key, label]) => (
+              <Form.Item
+                name={key}
+                key={key}
+                label={label}
+                rules={[
+                  { required: true },
+                  { pattern: /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6})$/, message: '请选择或输入 #RGB / #RRGGBB' },
+                ]}
+              >
+                <ThemeColorPicker label={label} presets={themeColorPresets[key]} />
+              </Form.Item>
+            ))}
+          </div>
           <div
+            className="form-wide"
             style={{
               padding: 20,
               background: `linear-gradient(135deg,${previewPrimary},${previewSecondary})`,
