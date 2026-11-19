@@ -463,6 +463,41 @@ a:focus-visible {
   padding-top: 16px;
   border-top: 1px solid #f0f0f0;
 }
+.recommendation-confirm,
+.recommendation-diagnostic {
+  padding: 16px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  background: #fafafa;
+}
+.recommendation-confirm {
+  display: grid;
+  gap: 12px;
+}
+.recommendation-confirm h3,
+.recommendation-diagnostic h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.user-action-panel {
+  margin-top: 16px;
+}
+.user-action-panel .ant-card-body {
+  display: grid;
+  gap: 12px;
+}
+.outbox-inline-detail {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  background: #fff;
+}
+.outbox-inline-detail h3 {
+  margin: 0;
+  font-size: 15px;
+}
 .pagination-controls {
   width: 100%;
   margin-top: 16px;
