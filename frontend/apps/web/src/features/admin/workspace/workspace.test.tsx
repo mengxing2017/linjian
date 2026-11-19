@@ -112,7 +112,8 @@ it('separates ordinary accounts and administrators by privilege, not display nam
 it('requires a new session after resetting the current platform administrator password', async () => {
   showManagement('administrators')
   const adminRow = (await screen.findByText('平台维护者')).closest('tr')!
-  fireEvent.click(within(adminRow).getByRole('button', {name:'重置密码'}))
+  fireEvent.click(within(adminRow).getByRole('button', {name:'平台维护者 更多操作'}))
+  fireEvent.click(await screen.findByRole('menuitem', {name:'重置密码'}))
   expect(await screen.findByText(/这是当前登录账号/)).toBeTruthy()
   fireEvent.change(screen.getByLabelText('新密码（至少12个字符）'), {target:{value:'changed-password'}})
   vi.mocked(identity.reset).mockResolvedValue(undefined as never)
@@ -131,7 +132,8 @@ it('searches and paginates schools, and opens settings for the selected row', as
   expect(await screen.findByText('学校-11')).toBeTruthy()
   fireEvent.change(screen.getByLabelText('搜索名称、简称或区域'), {target:{value:'学校-11'}})
   const row = (await screen.findByText('学校-11')).closest('tr')!
-  fireEvent.click(within(row).getByRole('button', {name:/^设\s*置$/}))
+  fireEvent.click(within(row).getByRole('button', {name:'学校-11 更多操作'}))
+  fireEvent.click(await screen.findByRole('menuitem', {name:'设置'}))
   expect(await screen.findByLabelText('名称')).toHaveProperty('value','学校-11')
   expect(screen.getByText('学校-11 · 设置')).toBeTruthy()
 })
@@ -148,7 +150,8 @@ it('shows account grants across schools and saves global account state without a
   const details = screen.getByRole('dialog')
   fireEvent.click(within(details).getByRole('button', {name:'Close'}))
   await waitFor(() => expect(details.isConnected).toBe(false))
-  fireEvent.click(row.getByRole('button', {name:/^编\s*辑$/}))
+  fireEvent.click(row.getByRole('button', {name:'本地管理员 更多操作'}))
+  fireEvent.click(await screen.findByRole('menuitem', {name:'编辑'}))
   const editor = within(screen.getByRole('dialog'))
   await selectOption(editor.getByLabelText('账号状态（全平台）'), '停用')
   fireEvent.click(editor.getByRole('button', {name:/^保\s*存$/}))

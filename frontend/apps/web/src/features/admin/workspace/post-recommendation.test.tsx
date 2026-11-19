@@ -155,6 +155,6 @@ it('lets platform administrators open diagnostics for the selected source event'
     ],
   })
   mount(true)
-  fireEvent.click(await screen.findByRole('button', { name: '查看来源诊断' }))
+  fireEvent.click(await screen.findByRole('button', { name: /查看来源诊断/ }))
   await screen.findByText('诊断事件 event-selected')
 })
