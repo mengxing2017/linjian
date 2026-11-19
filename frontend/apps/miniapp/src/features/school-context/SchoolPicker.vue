@@ -8,6 +8,7 @@ import { usePage, confirm } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
 import BrandImage from './BrandImage.vue'
 import RegionPicker from './RegionPicker.vue'
+import { formatRegion } from '@linjian/china-regions'
 const directory = shallowRef<SchoolDisplay[]>([]),
   search = ref(''),
   province = ref(''),
@@ -89,7 +90,7 @@ defineExpose({ show: () => load() })
       />
       <text>{{ school.short_name || school.name }}</text>
       <text class="muted">
-        {{ [school.province, school.city, school.area].filter(Boolean).join(' ') }}
+        {{ formatRegion(school) || '地区未填写' }}
       </text>
     </button>
     <button v-if="more && !session.user?.bound_school_id" :disabled="busy" @tap="load(false)">

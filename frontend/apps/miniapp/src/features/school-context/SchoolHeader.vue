@@ -3,7 +3,17 @@ import { computed } from 'vue'
 import type { SchoolDisplay } from './api'
 import BrandImage from './BrandImage.vue'
 import { defaultTheme, themeColor } from './branding'
+import { formatRegion } from '@linjian/china-regions'
 const props = defineProps<{ school?: SchoolDisplay }>()
+const regionLabel = computed(() =>
+  props.school
+    ? formatRegion({
+        province: props.school.province,
+        city: props.school.city,
+        area: props.school.area,
+      })
+    : '',
+)
 const style = computed(() => {
   const p = themeColor(props.school?.theme_primary, defaultTheme.theme_primary),
     s = themeColor(props.school?.theme_secondary, defaultTheme.theme_secondary),
@@ -38,7 +48,7 @@ const style = computed(() => {
         <text class="school-brand-title">
           {{ school?.short_name || school?.name || '校园社区' }}
         </text>
-        <text>{{ [school?.province, school?.city, school?.area].filter(Boolean).join(' ') }}</text>
+        <text>{{ regionLabel }}</text>
       </view>
     </view>
   </view>

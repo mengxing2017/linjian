@@ -23,7 +23,7 @@ it('rejects non-standard or incomplete paths',()=>{
 })
 
 it('formats duplicated municipality levels',()=>{
- expect(formatRegion({province:'北京市',city:'北京市',area:'东城区'})).toBe('北京市 东城区')
- expect(formatRegion({province:'广东省',city:'广州市',area:'天河区'})).toBe('广东省 广州市 天河区')
+ expect(formatRegion({province:'北京市',city:'北京市',area:'东城区'})).toBe('北京市 / 东城区')
+ expect(formatRegion({province:'广东省',city:'广州市',area:'天河区'})).toBe('广东省 / 广州市 / 天河区')
  expect(formatRegion(emptyRegion)).toBe('')
 })

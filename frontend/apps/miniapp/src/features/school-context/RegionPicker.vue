@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { regionOptions } from '@linjian/china-regions'
+import { formatRegion, regionOptions } from '@linjian/china-regions'
 
 const props = withDefaults(
   defineProps<{ province?: string; city?: string }>(),
@@ -19,7 +19,9 @@ const range = computed(() => [
   cityOptions.value.map((item) => item.name),
 ])
 const value = computed(() => [provinceIndex.value, cityIndex.value])
-const label = computed(() => [props.province, props.city].filter(Boolean).join(' '))
+const label = computed(() =>
+  formatRegion({ province: props.province, city: props.city, area: '' }),
+)
 
 watch(
   () => [props.province, props.city],
