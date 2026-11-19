@@ -155,7 +155,7 @@ export const navigation: NavigationItem[] = [
     description: '查看论坛推送与收件结果，重试失败事件。',
     domain: 'source',
     scope: 'school',
-    capability: 'school.read',
+    capability: 'global.manage',
   },
   {
     key: 'administrators',
