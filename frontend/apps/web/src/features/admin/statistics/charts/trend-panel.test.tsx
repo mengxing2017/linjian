@@ -17,7 +17,7 @@ it('keeps registration choices available when all values are unknown and changes
   render(<TrendPanel report={report} view="registration" comparison="none" />)
   expect(screen.getByText('所选指标暂无可用数据，请查看数据覆盖与统计口径说明。')).toBeTruthy()
   fireEvent.click(screen.getByLabelText('累计注册（截至桶末）'))
-  expect(screen.getByRole('figure', { name: '注册统计 · 累计注册（截至桶末）趋势' })).toBeTruthy()
+  expect(screen.getByRole('figure', { name: '累计注册（截至桶末）趋势' })).toBeTruthy()
   expect(screen.getByText(/累计包含期初基数/)).toBeTruthy()
   fireEvent.click(screen.getByLabelText('新注册参与率'))
   expect(screen.getByText(/各桶新注册内容参与人数/)).toBeTruthy()
@@ -30,7 +30,7 @@ it('keeps zero trends visible and explains hiding every series', () => {
   fireEvent.click(screen.getByLabelText('新增评论'))
   expect(screen.getByText('请选择至少一个指标。')).toBeTruthy()
   fireEvent.click(screen.getByLabelText('参与人数'))
-  expect(screen.getByRole('figure', { name: '内容统计 · 参与人数趋势' })).toBeTruthy()
+  expect(screen.getByRole('figure', { name: '参与人数趋势' })).toBeTruthy()
 })
 
 it('keeps mode on snapshot refresh and offers activity rates without mixing count axes', () => {
@@ -40,7 +40,7 @@ it('keeps mode on snapshot refresh and offers activity rates without mixing coun
   rerender(
     <TrendPanel report={{ ...report, id: 'new-snapshot' }} view="activity" comparison="none" />,
   )
-  expect(screen.getByRole('figure', { name: '活跃统计 · 内容参与率趋势' })).toBeTruthy()
+  expect(screen.getByRole('figure', { name: '内容参与率趋势' })).toBeTruthy()
   expect(screen.getByText(/各桶注册人员内容参与人数/)).toBeTruthy()
 })
 

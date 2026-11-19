@@ -48,7 +48,7 @@ it('opens platform statistics without choosing the first school', async () => {
     ),
   )
   expect(screen.getByLabelText('统计学校范围')).toBeTruthy()
-  expect(screen.getByRole('heading', { name: '统计概览' })).toBeTruthy()
+  expect(screen.getByLabelText('统计概览')).toBeTruthy()
   expect(statisticsApi.schools).not.toHaveBeenCalled()
 })
 it('fixes a school administrator to their authorized school', async () => {
@@ -110,7 +110,7 @@ it('renders a known-zero content trend and still reports expired exports', async
   vi.mocked(statisticsApi.report).mockResolvedValue({ ...emptyReport(), view: 'content' })
   vi.mocked(statisticsApi.export).mockRejectedValue(new Error('快照不可用，请刷新后重新导出'))
   show(true, '', 'content')
-  expect(await screen.findByRole('figure', { name: '内容统计 · 内容量趋势' })).toBeTruthy()
+  expect(await screen.findByRole('figure', { name: '内容量趋势' })).toBeTruthy()
   expect(screen.getByText('所选期间可用指标均为 0。')).toBeTruthy()
   const { fireEvent } = await import('@testing-library/react')
   fireEvent.click(screen.getByRole('button', { name: '导出当前周期 CSV' }))
@@ -159,7 +159,7 @@ it('requests a comparison only after it is selected', async () => {
   const { fireEvent } = await import('@testing-library/react')
   vi.mocked(statisticsApi.report).mockResolvedValue({ ...emptyReport(), view: 'content' })
   show(true, '', 'content')
-  await screen.findByRole('figure', { name: '内容统计 · 内容量趋势' })
+  await screen.findByRole('figure', { name: '内容量趋势' })
   expect(statisticsApi.report).toHaveBeenLastCalledWith(
     undefined,
     expect.objectContaining({ view: 'content', comparison: 'none' }),
@@ -181,7 +181,7 @@ it('switches registration modes without requests and preserves mode when refresh
   const report = { ...emptyReport(), view: 'registration' as const }
   vi.mocked(statisticsApi.report).mockResolvedValue(report)
   show(true, '', 'registration')
-  await screen.findByRole('figure', { name: '注册统计 · 新增注册趋势' })
+  await screen.findByRole('figure', { name: '新增注册趋势' })
   fireEvent.click(screen.getByLabelText('累计注册（截至桶末）'))
   fireEvent.click(screen.getByLabelText('新注册参与人数'))
   fireEvent.click(screen.getByLabelText('新注册参与率'))
@@ -194,7 +194,7 @@ it('switches registration modes without requests and preserves mode when refresh
   fireEvent.click(screen.getByRole('button', { name: /刷\s*新/ }))
   await waitFor(() => expect(statisticsApi.report).toHaveBeenCalledTimes(2))
   await screen.findByText(/上海时间；数据截至 2026\/11\/18 00:00/)
-  expect(screen.getByRole('figure', { name: '注册统计 · 新注册参与率趋势' })).toBeTruthy()
+  expect(screen.getByRole('figure', { name: '新注册参与率趋势' })).toBeTruthy()
   expect(statisticsApi.schools).not.toHaveBeenCalled()
 })
 
@@ -202,7 +202,7 @@ it('removes cached charts when a refresh loses access to the school', async () =
   const { fireEvent } = await import('@testing-library/react')
   vi.mocked(statisticsApi.report).mockResolvedValue({ ...emptyReport(), view: 'content' })
   show(false, '', 'content')
-  await screen.findByRole('figure', { name: '内容统计 · 内容量趋势' })
+  await screen.findByRole('figure', { name: '内容量趋势' })
   vi.mocked(statisticsApi.report).mockRejectedValue(new Error('该学校管理授权已撤销'))
   fireEvent.click(screen.getByRole('button', { name: /刷\s*新/ }))
   await screen.findByText('该学校管理授权已撤销')
