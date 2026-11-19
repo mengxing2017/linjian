@@ -1,5 +1,5 @@
 import React from 'react'
-import { ConfigProvider } from 'antd'
+import { App, ConfigProvider } from 'antd'
 import { appTheme } from './shared/theme'
 import zhCN from 'antd/locale/zh_CN'
 import ReactDOM from 'react-dom/client'
@@ -8,6 +8,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { AppRoutes } from './app/routes'
 import { queryClient } from './app/query-client'
 import { SiteSettingsProvider } from './features/site'
+import { NotifyBridge } from './shared/notify'
 import './shared/styles.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -15,7 +16,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <SiteSettingsProvider>
         <ConfigProvider locale={zhCN} theme={appTheme}>
-          <BrowserRouter><AppRoutes /></BrowserRouter>
+          <App component={false}>
+            <NotifyBridge />
+            <BrowserRouter><AppRoutes /></BrowserRouter>
+          </App>
         </ConfigProvider>
       </SiteSettingsProvider>
     </QueryClientProvider>

@@ -3,7 +3,8 @@ import { beforeEach, vi } from 'vitest'
 // supported theme setting while retaining real components and visibility checks.
 vi.mock('@testing-library/react', async importOriginal => {
   const testingLibrary = await importOriginal<typeof import('@testing-library/react')>()
-  const { ConfigProvider } = await import('antd')
+  const { ConfigProvider, App } = await import('antd')
+  const { NotifyBridge } = await import('../shared/notify')
   const { createElement } = await import('react')
   return {
     ...testingLibrary,
@@ -12,7 +13,9 @@ vi.mock('@testing-library/react', async importOriginal => {
       return testingLibrary.render(ui, {
         ...options,
         wrapper: ({ children }) => createElement(ConfigProvider, { theme: { token: { motion: false } } },
-          Wrapper ? createElement(Wrapper, null, children) : children),
+          createElement(App, { component: false },
+            createElement(NotifyBridge),
+            Wrapper ? createElement(Wrapper, null, children) : children)),
       })
     },
   }
