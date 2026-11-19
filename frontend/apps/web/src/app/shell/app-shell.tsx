@@ -5,6 +5,7 @@ import { DownOutlined, RightOutlined, MenuFoldOutlined, MenuUnfoldOutlined, Ques
 import { navigation, navigationDomains } from '../navigation'
 import { Link } from 'react-router-dom'
 import { helpHref } from './help'
+import { SiteBrand, SiteFooter, useSiteTitle } from '../../features/site'
 
 export function AppShell({
   children,
@@ -38,6 +39,7 @@ export function AppShell({
     label: '学校工作区',
     description: '选择学校后使用已授权的管理功能。',
   }
+  useSiteTitle(current.label)
   useEffect(() => {
     setClosedDomains((previous) => previous.filter((domain) => domain !== current.domain))
   }, [active, current.domain])
@@ -59,10 +61,7 @@ export function AppShell({
         跳到主要内容
       </a>
       <header className="global-header">
-        <Link className="header-brand" to="/admin">
-          <span className="brand-mark">L</span>
-          <strong>Linjian</strong>
-        </Link>
+        <SiteBrand className="header-brand" to="/admin" />
         <span className="header-workspace">论坛管理后台</span>
         <div className="header-actions">
           <a className="help-center-link" href="/docs/">
@@ -218,6 +217,7 @@ export function AppShell({
           </div>
           <div className="page-body">{children}</div>
         </main>
+        <SiteFooter />
       </div>
     </div>
   )

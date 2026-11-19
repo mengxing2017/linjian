@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button } from 'antd'
 import { SignIn } from './sign-in'
@@ -14,6 +14,17 @@ export function SessionGate({
   const q = useQuery({ queryKey: ['session'], queryFn: identity.session, retry: false })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const clearProtected = useCallback(
+    () =>
+      cache.removeQueries({
+        predicate: (query) =>
+          !(
+            query.queryKey[0] === 'site-settings' &&
+            query.queryKey[1] === 'public'
+          ),
+      }),
+    [cache],
+  )
   useEffect(
     () =>
       subscribeUnauthorized(() => {
@@ -21,11 +32,11 @@ export function SessionGate({
         // cached session data and protected results, including background requests.
         if (!cache.getQueryData(['session'])) return
         void cache.cancelQueries()
-        cache.clear()
+        clearProtected()
         cache.setQueryData(['session'], null)
         setError('登录已失效，请重新登录')
       }),
-    [cache],
+    [cache, clearProtected],
   )
   async function login(values: { username: string; password: string }) {
     setError('')
@@ -33,7 +44,7 @@ export function SessionGate({
     try {
       const s = await identity.login(values.username, values.password)
       await cache.cancelQueries()
-      cache.clear()
+      clearProtected()
       cache.setQueryData(['session'], s)
     } catch (e) {
       setError((e as Error).message)
@@ -46,7 +57,7 @@ export function SessionGate({
     try {
       await identity.logout()
       await cache.cancelQueries()
-      cache.clear()
+      clearProtected()
     } catch (e) {
       setError((e as Error).message)
     }

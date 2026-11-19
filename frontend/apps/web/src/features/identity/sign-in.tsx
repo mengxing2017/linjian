@@ -1,5 +1,12 @@
 import { Alert, Button, Form, Input } from 'antd'
 import { Field } from '../../shared/field'
+import {
+  SiteBrand,
+  SiteFooter,
+  text,
+  useSiteSettings,
+  useSiteTitle,
+} from '../site'
 
 export function SignIn({
   error,
@@ -10,15 +17,16 @@ export function SignIn({
   busy: boolean
   onLogin: (values: { username: string; password: string }) => Promise<void>
 }) {
+  const { settings } = useSiteSettings()
+  const intro = text(settings.login_intro)
+  useSiteTitle()
   return (
     <div className="auth-page">
       <section className="auth-panel">
-        <div className="auth-brand">
-          <span className="brand-mark">L</span> Linjian
-        </div>
+        <SiteBrand className="auth-brand" />
         <div>
           <h1>登录工作空间</h1>
-          <p>校园社区 · 内容管理</p>
+          {intro && <p>{intro}</p>}
         </div>
         {error && <Alert type="error" title={error} showIcon />}
         <Form layout="vertical" onFinish={onLogin} disabled={busy} className="business-form">
@@ -45,6 +53,7 @@ export function SignIn({
         <p className="auth-caption">使用管理员分配的账号进入工作空间</p>
         <a href="/docs/guide/quick-start">登录与使用帮助</a>
       </section>
+      <SiteFooter />
     </div>
   )
 }

@@ -12,10 +12,12 @@ import { PostEditor } from './post-editor'
 import { ProfilePanel } from './profile-panel'
 import { Notifications } from './notifications'
 import { FeedbackForm } from './feedback-form'
+import { useSiteTitle } from '../site'
 
 export function CommunityContent({ user }: { user: User }) {
   const [commentForm] = Form.useForm()
   const params = useParams()
+  useSiteTitle(params.id ? '帖子详情' : '校园社区')
   const location = useLocation()
   const cache = useQueryClient()
   const schools = useSchools()
