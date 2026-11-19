@@ -3,7 +3,7 @@ import { DatePicker } from '../../../shared/date-picker'
 import { UserAvatar } from './user-avatar'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Button, Descriptions, Drawer, Input, Modal, Select, Space, Table, Tag } from 'antd'
+import { Alert, Button, Card, Descriptions, Drawer, Input, Select, Space, Table, Tag } from 'antd'
 import { miniappUsers, type MiniappUser, type UserFilters } from './api'
 import { formatDate } from '../../../shared/format-date'
 import { PaginationControls } from '../../../shared/pagination-controls'
@@ -221,6 +221,7 @@ export function MiniappUsers({
       />
       <Drawer
         title="小程序用户详情"
+        size="large"
         open={!!selected}
         onClose={() => {
           setSelected(undefined)
@@ -290,46 +291,54 @@ export function MiniappUsers({
                 {record.reason} · 操作者 {record.actor_id}
               </p>
             ))}
+            {action && (
+              <Card size="small" title={titles[action]} className="user-action-panel">
+                {action === 'status' && <p>解封后须重新登录；封禁不会自动下架用户的历史内容。</p>}
+                {action === 'mobile' && (
+                  <Input
+                    aria-label="新手机号"
+                    value={value}
+                    maxLength={11}
+                    onChange={(e) => setValue(e.target.value)}
+                  />
+                )}
+                {action === 'school' && (
+                  <>
+                    <p>不会搬迁历史内容；封禁状态保留，旧小程序会话撤销。</p>
+                    <Select
+                      aria-label="新的所属学校"
+                      value={value || undefined}
+                      style={{ width: '100%' }}
+                      options={schools.map((s) => ({ value: s.id, label: s.name }))}
+                      onChange={setValue}
+                    />
+                  </>
+                )}
+                <Input.TextArea
+                  aria-label="操作原因"
+                  placeholder="请填写原因"
+                  value={reason}
+                  maxLength={500}
+                  onChange={(e) => setReason(e.target.value)}
+                />
+                <Space>
+                  <Button disabled={busy} onClick={() => setAction(undefined)}>
+                    取消
+                  </Button>
+                  <Button
+                    type="primary"
+                    loading={busy}
+                    disabled={!reason.trim() || (action !== 'status' && !value)}
+                    onClick={() => void save()}
+                  >
+                    保存
+                  </Button>
+                </Space>
+              </Card>
+            )}
           </>
         )}
       </Drawer>
-      <Modal
-        title={action ? titles[action] : ''}
-        open={!!action}
-        onCancel={() => setAction(undefined)}
-        onOk={() => void save()}
-        confirmLoading={busy}
-        okButtonProps={{ disabled: !reason.trim() || (action !== 'status' && !value) }}
-      >
-        {action === 'status' && <p>解封后须重新登录；封禁不会自动下架用户的历史内容。</p>}
-        {action === 'mobile' && (
-          <Input
-            aria-label="新手机号"
-            value={value}
-            maxLength={11}
-            onChange={(e) => setValue(e.target.value)}
-          />
-        )}
-        {action === 'school' && (
-          <>
-            <p>不会搬迁历史内容；封禁状态保留，旧小程序会话撤销。</p>
-            <Select
-              aria-label="新的所属学校"
-              value={value || undefined}
-              style={{ width: '100%' }}
-              options={schools.map((s) => ({ value: s.id, label: s.name }))}
-              onChange={setValue}
-            />
-          </>
-        )}
-        <Input.TextArea
-          aria-label="操作原因"
-          placeholder="请填写原因"
-          value={reason}
-          maxLength={500}
-          onChange={(e) => setReason(e.target.value)}
-        />
-      </Modal>
     </Space>
   )
 }

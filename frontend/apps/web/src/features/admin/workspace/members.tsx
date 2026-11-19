@@ -6,8 +6,8 @@ import {
   Alert,
   Button,
   Checkbox,
+  Drawer,
   Input,
-  Modal,
   Popconfirm,
   Radio,
   Space,
@@ -311,13 +311,13 @@ export function Members({
         columns={columns}
       />
       {grant && (
-        <Modal
+        <Drawer
           open
-          width={560}
+          size={640}
           title={`授权 · ${grant.displayName}（${grant.username}）`}
           mask={{ closable: !grantSaving }}
-          keyboard={!grantSaving}
-          onCancel={closeGrant}
+          onClose={closeGrant}
+          destroyOnHidden
           footer={
             <Space>
               <Button disabled={grantSaving} onClick={closeGrant}>
@@ -425,7 +425,7 @@ export function Members({
               </div>
             )}
           </div>
-        </Modal>
+        </Drawer>
       )}
     </ListPanel>
   )

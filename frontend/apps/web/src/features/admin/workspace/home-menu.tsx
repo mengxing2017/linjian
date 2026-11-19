@@ -1,6 +1,6 @@
 import { PaginationControls } from '../../../shared/pagination-controls'
 import { useEffect, useState } from 'react'
-import { Alert, Button, Input, Modal, Select, Space, Switch, Table, Upload } from 'antd'
+import { Alert, Button, Drawer, Input, Modal, Select, Space, Switch, Table, Upload } from 'antd'
 import { browserClient, createHomeMenuClient, type HomeMenuTag, type HomeMenuSettings, type TagInput, type HomeMenuImport, type HomeMenuQuery, requestMultipart } from './api'
 import { actionColumn, RowActions } from '../../../shared/row-actions'
 const menuOptions = [{value:'shown',label:'显示'},{value:'hot',label:'显示并作为热门标签'},{value:'hidden',label:'隐藏'}]
@@ -28,10 +28,10 @@ export function HomeMenu({school,canEdit}:{school:string;canEdit:boolean}) {
    { key: 'delete', label: '删除', danger: true, onClick: () => Modal.confirm({ title: `删除“${v.name}”？`, content: '历史帖子标签保留，删除不会改写帖子。', onOk: () => run(async () => { await api.remove(school, v.id, v.revision); await load() }) }) },
  ]} /> })]:[])
  ]}/><PaginationControls page={query.page??1} more={more} busy={busy || loading} subject="标签" change={page=>setQuery({...query,page})}/></>:<><p>排序模式包含本校全部标签。使用上移、下移调整顺序。</p>{draft.map((v,i)=><div key={v.id} draggable onDragStart={()=>setDrag(i)} onDragOver={e=>e.preventDefault()} onDrop={()=>{if(drag!==undefined){const next=[...draft];const [item]=next.splice(drag,1);next.splice(i,0,item);setDraft(next);setDrag(undefined)}}}>{v.name} <Button disabled={i===0} onClick={()=>move(i,-1)}>上移</Button><Button disabled={i===draft.length-1} onClick={()=>move(i,1)}>下移</Button></div>)}<Space><Button onClick={()=>setOrdering(false)}>取消</Button><Button type="primary" loading={busy} onClick={()=>void run(async()=>{await api.order(school,draft.map(v=>v.id),settings!.catalog_revision);await load();setOrdering(false)})}>保存排序</Button></Space></>}
- <Modal open={!!preview} title="导入预览" onCancel={()=>setPreview(undefined)} footer={<Space><Button onClick={()=>setPreview(undefined)}>取消</Button><Button type="primary" disabled={!preview || !!preview.errors.length || !preview.rows.length} loading={busy} onClick={()=>void run(async()=>{await api.commit(school,preview!.id,preview!.digest);setPreview(undefined);await load()})}>确认导入</Button></Space>}>
+ <Drawer open={!!preview} size="large" title="导入预览" onClose={()=>setPreview(undefined)} footer={<Space><Button onClick={()=>setPreview(undefined)}>取消</Button><Button type="primary" disabled={!preview || !!preview.errors.length || !preview.rows.length} loading={busy} onClick={()=>void run(async()=>{await api.commit(school,preview!.id,preview!.digest);setPreview(undefined);await load()})}>确认导入</Button></Space>}>
  <p>导出文件含只读列，不能直接导入。有效期至 {preview?.expires_at}。</p>{preview?.errors.map((e,i)=><Alert key={i} type="error" title={`第 ${e.row} 行：${e.message}`}/>)}{preview?.rows.map(v=><div key={v.row}>第 {v.row} 行：{v.name} · {v.menu_status} · {v.enable_status} · {v.sort_order}</div>)}
- </Modal>
- <Modal open={editing!==undefined} title={editing?'编辑标签':'添加标签'} onCancel={()=>setEditing(undefined)} confirmLoading={busy} onOk={()=>void run(async()=>{await api.save(school,form,editing?.id);await load();setEditing(undefined)})}>
+ </Drawer>
+ <Drawer open={editing!==undefined} size="large" title={editing?'编辑标签':'添加标签'} onClose={()=>setEditing(undefined)} footer={<Space><Button onClick={()=>setEditing(undefined)}>取消</Button><Button type="primary" loading={busy} onClick={()=>void run(async()=>{await api.save(school,form,editing?.id);await load();setEditing(undefined)})}>保存</Button></Space>}>
  <p>改名不会修改历史帖子的标签，筛选新名称只匹配新名称。</p><Input aria-label="标签名称" value={form.name} maxLength={50} onChange={e=>setForm({...form,name:e.target.value})}/><Select aria-label="菜单状态" value={form.menu_status} options={menuOptions} onChange={menu_status=>setForm({...form,menu_status})}/><Select aria-label="启用状态" value={form.enable_status} options={enableOptions} onChange={enable_status=>setForm({...form,enable_status})}/>
- </Modal></Space>
+ </Drawer></Space>
 }

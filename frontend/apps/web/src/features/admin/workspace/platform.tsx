@@ -2,7 +2,7 @@ import { navigationPagination } from '../../../shared/navigation'
 import { ListPanel } from '../../../shared/list-panel'
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Descriptions, Drawer, Input, Modal, Select, Space, Table, Tag } from 'antd'
+import { Alert, Button, Descriptions, Drawer, Input, Select, Space, Table, Tag } from 'antd'
 import { identity, workspace, type Row, type School, type User } from './api'
 import { Editor } from './editor'
 import { schoolRoleLabel } from '../../../app/shell'
@@ -188,7 +188,13 @@ export function Accounts({
         ]}
       />
       {creating && (
-        <Modal open title="新建后台账号" footer={null} onCancel={() => setCreating(false)}>
+        <Drawer
+          open
+          size="large"
+          title="新建后台账号"
+          onClose={() => setCreating(false)}
+          destroyOnHidden
+        >
           <Editor
             fields={[
               { name: 'username', title: '账号' },
@@ -206,7 +212,7 @@ export function Accounts({
               setCreating(false)
             }}
           />
-        </Modal>
+        </Drawer>
       )}
       {account && (
         <Drawer

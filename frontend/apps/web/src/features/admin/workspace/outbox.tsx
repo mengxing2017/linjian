@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Button, Descriptions, Input, Modal, Select, Space, Table, Typography } from 'antd'
+import { Alert, Button, Descriptions, Drawer, Input, Modal, Select, Space, Table, Typography } from 'antd'
 import { workspace, type Row } from './api'
 import { formatDate } from '../../../shared/format-date'
 import { PaginationControls } from '../../../shared/pagination-controls'
@@ -29,7 +29,15 @@ function preparation(row: Row) {
   const p = row.preparation
   return p && typeof p === 'object' && !Array.isArray(p) ? p : undefined
 }
-export function Outbox({ school, initialEvent }: { school: string; initialEvent?: string }) {
+export function Outbox({
+  school,
+  initialEvent,
+  inlineDetail = false,
+}: {
+  school: string
+  initialEvent?: string
+  inlineDetail?: boolean
+}) {
   const [page, setPage] = useState(1),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false)
@@ -75,6 +83,150 @@ export function Outbox({ school, initialEvent }: { school: string; initialEvent?
       setBusy(false)
     }
   }
+  const detailBody = (
+    <>
+      {detail.error && <Alert type="error" title={detail.error.message} />}
+      {detail.data && (
+        <>
+          {detail.data.attempts === 0 &&
+            (detail.data.delivery_state === 'blocked' ||
+              detail.data.preparation?.state === 'blocked') && (
+              <Button
+                danger
+                onClick={() => {
+                  setTerminating(true)
+                  setRetry(detail.data!.id)
+                  setReason('')
+                }}
+              >
+                核对并终止未尝试事件
+              </Button>
+            )}
+          <Descriptions
+            column={1}
+            items={[
+              {
+                key: 'id',
+                label: '原事件',
+                children: <Typography.Text copyable>{detail.data.id}</Typography.Text>,
+              },
+              {
+                key: 'route',
+                label: '原路由',
+                children: detail.data.route_id ? (
+                  <Typography.Text copyable>{detail.data.route_id}</Typography.Text>
+                ) : (
+                  '待绑定'
+                ),
+              },
+              {
+                key: 'binding',
+                label: '绑定修订标识',
+                children: String(detail.data.binding_version ?? '—'),
+              },
+              {
+                key: 'freeze',
+                label: '正文冻结时间',
+                children: formatDate(detail.data.frozen_at),
+              },
+              { key: 'receipt', label: '回执', children: String(detail.data.receipt_id ?? '—') },
+              { key: 'blocked', label: '阻塞原因', children: detail.data.blocked_reason ?? '—' },
+              { key: 'error', label: '最近问题', children: detail.data.last_error ?? '—' },
+            ]}
+          />
+          {detail.data.preparation && (
+            <Descriptions
+              column={1}
+              items={[
+                {
+                  key: 'preparation',
+                  label: '内容准备',
+                  children: preparationStates[detail.data.preparation.state],
+                },
+                {
+                  key: 'attempts',
+                  label: '准备次数',
+                  children: detail.data.preparation.attempts,
+                },
+                {
+                  key: 'problem',
+                  label: '准备问题',
+                  children: detail.data.preparation.error_code ?? '—',
+                },
+                {
+                  key: 'next',
+                  label: '下次准备时间',
+                  children: formatDate(detail.data.preparation.next_attempt_at),
+                },
+              ]}
+            />
+          )}
+          {detail.data.message && (
+            <>
+              <p>完整来源消息（{detail.data.message.characters} / 200 字符）</p>
+              <p className="text-content">{detail.data.message.content}</p>
+              <p>构造版本：{detail.data.message.version}</p>
+            </>
+          )}
+          {detail.data.publication && (
+            <>
+              <p>来源摘要（最多 20 字，链接生成前为草稿）：{detail.data.publication.summary}</p>
+              <p>摘要规则：{detail.data.publication.summary_algorithm}</p>
+              <p>审核修订：{detail.data.publication.approved_post_revision}</p>
+              <p>链接类型：{detail.data.publication.link_type ?? '待生成'}</p>
+              <p className="text-content">{detail.data.publication.link ?? '链接尚未生成'}</p>
+              <p>
+                链接到期：
+                {detail.data.publication.expires_at
+                  ? formatDate(detail.data.publication.expires_at)
+                  : detail.data.publication.link
+                    ? '永久'
+                    : '—'}
+              </p>
+            </>
+          )}
+          <p>关联事件</p>
+          <Table<Row>
+            className="linjian-data-table"
+            tableLayout="fixed"
+            size="small"
+            scroll={{ x: 700 }}
+            rowKey="id"
+            pagination={false}
+            dataSource={
+              Array.isArray(detail.data.related_events)
+                ? (detail.data.related_events as Row[])
+                : []
+            }
+            columns={[
+              { title: '事件', width: 320, dataIndex: 'id' },
+              { title: '路由', width: 300, dataIndex: 'route_id' },
+              { title: '版本', width: 80, dataIndex: 'sequence' },
+            ]}
+          />
+          <p>恢复记录</p>
+          <Table<{ actor_id: string; reason: string; created_at: string }>
+            className="linjian-data-table"
+            tableLayout="fixed"
+            size="small"
+            scroll={{ x: 500 }}
+            rowKey={(r) => r.created_at}
+            pagination={false}
+            dataSource={detail.data.recoveries ?? []}
+            columns={[
+              { title: '原因', width: 320, dataIndex: 'reason' },
+              {
+                title: '时间',
+                width: 180,
+                dataIndex: 'created_at',
+                render: (v) => formatDate(v),
+              },
+            ]}
+          />
+        </>
+      )}
+    </>
+  )
   return (
     <Space orientation="vertical" style={{ width: '100%' }}>
       <p>已受理表示 WeKeeper 已持久接收来源消息，不代表实际发送成功。</p>
@@ -238,153 +390,21 @@ export function Outbox({ school, initialEvent }: { school: string; initialEvent?
           placeholder="填写已修复的问题和恢复原因"
         />
       </Modal>
-      <Modal
-        title="详情"
-        open={!!selected}
-        footer={null}
-        onCancel={() => setSelected(undefined)}
-      >
-        {detail.error && <Alert type="error" title={detail.error.message} />}
-        {detail.data && (
-          <>
-            {detail.data.attempts === 0 &&
-              (detail.data.delivery_state === 'blocked' ||
-                detail.data.preparation?.state === 'blocked') && (
-                <Button
-                  danger
-                  onClick={() => {
-                    setTerminating(true)
-                    setRetry(detail.data!.id)
-                    setReason('')
-                  }}
-                >
-                  核对并终止未尝试事件
-                </Button>
-              )}
-            <Descriptions
-              column={1}
-              items={[
-                {
-                  key: 'id',
-                  label: '原事件',
-                  children: <Typography.Text copyable>{detail.data.id}</Typography.Text>,
-                },
-                {
-                  key: 'route',
-                  label: '原路由',
-                  children: detail.data.route_id ? (
-                    <Typography.Text copyable>{detail.data.route_id}</Typography.Text>
-                  ) : (
-                    '待绑定'
-                  ),
-                },
-                {
-                  key: 'binding',
-                  label: '绑定修订标识',
-                  children: String(detail.data.binding_version ?? '—'),
-                },
-                {
-                  key: 'freeze',
-                  label: '正文冻结时间',
-                  children: formatDate(detail.data.frozen_at),
-                },
-                { key: 'receipt', label: '回执', children: String(detail.data.receipt_id ?? '—') },
-                { key: 'blocked', label: '阻塞原因', children: detail.data.blocked_reason ?? '—' },
-                { key: 'error', label: '最近问题', children: detail.data.last_error ?? '—' },
-              ]}
-            />
-            {detail.data.preparation && (
-              <Descriptions
-                column={1}
-                items={[
-                  {
-                    key: 'preparation',
-                    label: '内容准备',
-                    children: preparationStates[detail.data.preparation.state],
-                  },
-                  {
-                    key: 'attempts',
-                    label: '准备次数',
-                    children: detail.data.preparation.attempts,
-                  },
-                  {
-                    key: 'problem',
-                    label: '准备问题',
-                    children: detail.data.preparation.error_code ?? '—',
-                  },
-                  {
-                    key: 'next',
-                    label: '下次准备时间',
-                    children: formatDate(detail.data.preparation.next_attempt_at),
-                  },
-                ]}
-              />
-            )}
-            {detail.data.message && (
-              <>
-                <p>完整来源消息（{detail.data.message.characters} / 200 字符）</p>
-                <p className="text-content">{detail.data.message.content}</p>
-                <p>构造版本：{detail.data.message.version}</p>
-              </>
-            )}
-            {detail.data.publication && (
-              <>
-                <p>来源摘要（最多 20 字，链接生成前为草稿）：{detail.data.publication.summary}</p>
-                <p>摘要规则：{detail.data.publication.summary_algorithm}</p>
-                <p>审核修订：{detail.data.publication.approved_post_revision}</p>
-                <p>链接类型：{detail.data.publication.link_type ?? '待生成'}</p>
-                <p className="text-content">{detail.data.publication.link ?? '链接尚未生成'}</p>
-                <p>
-                  链接到期：
-                  {detail.data.publication.expires_at
-                    ? formatDate(detail.data.publication.expires_at)
-                    : detail.data.publication.link
-                      ? '永久'
-                      : '—'}
-                </p>
-              </>
-            )}
-            <p>关联事件</p>
-            <Table<Row>
-              className="linjian-data-table"
-              tableLayout="fixed"
-              size="small"
-              scroll={{ x: 700 }}
-              rowKey="id"
-              pagination={false}
-              dataSource={
-                Array.isArray(detail.data.related_events)
-                  ? (detail.data.related_events as Row[])
-                  : []
-              }
-              columns={[
-                { title: '事件', width: 320, dataIndex: 'id' },
-                { title: '路由', width: 300, dataIndex: 'route_id' },
-                { title: '版本', width: 80, dataIndex: 'sequence' },
-              ]}
-            />
-            <p>恢复记录</p>
-            <Table<{ actor_id: string; reason: string; created_at: string }>
-              className="linjian-data-table"
-              tableLayout="fixed"
-              size="small"
-              scroll={{ x: 500 }}
-              rowKey={(r) => r.created_at}
-              pagination={false}
-              dataSource={detail.data.recoveries ?? []}
-              columns={[
-                { title: '原因', width: 320, dataIndex: 'reason' },
-                {
-                  title: '时间',
-                  width: 180,
-                  dataIndex: 'created_at',
-                  render: (v) => formatDate(v),
-                },
-              ]}
-            />
-          </>
-        )}
-      </Modal>
+      {selected && (
+        inlineDetail ? (
+          <section className="outbox-inline-detail">
+            <Space>
+              <h3>详情</h3>
+              <Button onClick={() => setSelected(undefined)}>关闭</Button>
+            </Space>
+            {detailBody}
+          </section>
+        ) : (
+          <Drawer title="详情" open size="large" onClose={() => setSelected(undefined)}>
+            {detailBody}
+          </Drawer>
+        )
+      )}
     </Space>
   )
 }

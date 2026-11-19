@@ -2,7 +2,7 @@ import { PaginationControls } from '../../../shared/pagination-controls'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Alert, Button, Card, Input, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Upload } from 'antd'
+import { Alert, Button, Card, Drawer, Input, Popconfirm, Select, Space, Switch, Table, Tag, Upload } from 'antd'
 import { browserClient, createBlockedWordsClient, requestMultipart, type BlockedWord, type BlockedWordImport } from './api'
 import { actionColumn } from '../../../shared/row-actions'
 
@@ -57,12 +57,62 @@ export function BlockedWords({ school, schoolName, canEdit, platformAdmin = fals
       ]} />
       {ordering ? <p>拖动行调整顺序，也可使用上移、下移按钮。</p> : <PaginationControls page={page} more={q.data?.has_more} busy={q.isFetching || busy} subject="屏蔽词" change={setPage}/>}
     </Card>
-    <Modal open={editing !== undefined} title={editing ? '编辑屏蔽词' : '添加屏蔽词'} onCancel={()=>setEditing(undefined)} confirmLoading={busy} onOk={()=>void run(async()=>{ await api.save(school,{word,remark,active,revision:editing?.revision ?? 0},editing?.id); setEditing(undefined) })}>
+    <Drawer
+      open={editing !== undefined}
+      size="large"
+      title={editing ? '编辑屏蔽词' : '添加屏蔽词'}
+      onClose={() => setEditing(undefined)}
+      footer={
+        <Space>
+          <Button onClick={() => setEditing(undefined)}>取消</Button>
+          <Button
+            type="primary"
+            loading={busy}
+            onClick={() =>
+              void run(async () => {
+                await api.save(
+                  school,
+                  { word, remark, active, revision: editing?.revision ?? 0 },
+                  editing?.id,
+                )
+                setEditing(undefined)
+              })
+            }
+          >
+            保存
+          </Button>
+        </Space>
+      }
+    >
       <Space orientation="vertical" className="full-width"><label>屏蔽词<Input value={word} maxLength={100} onChange={e=>setWord(e.target.value)} /></label><label>备注<Input.TextArea value={remark} maxLength={255} onChange={e=>setRemark(e.target.value)} /></label><label>启用 <Switch checked={active} onChange={setActive}/></label></Space>
-    </Modal>
-    <Modal open={!!preview} title="导入预检" onCancel={()=>setPreview(undefined)} onOk={()=>{if(preview)void run(async()=>{await api.commitImport(school,preview.id,preview.digest);setPreview(undefined)})}} okButtonProps={{disabled:!preview || preview.errors.length>0}} confirmLoading={busy}>
+    </Drawer>
+    <Drawer
+      open={!!preview}
+      size="large"
+      title="导入预检"
+      onClose={() => setPreview(undefined)}
+      footer={
+        <Space>
+          <Button onClick={() => setPreview(undefined)}>取消</Button>
+          <Button
+            type="primary"
+            loading={busy}
+            disabled={!preview || preview.errors.length > 0}
+            onClick={() =>
+              void run(async () => {
+                if (!preview) return
+                await api.commitImport(school, preview.id, preview.digest)
+                setPreview(undefined)
+              })
+            }
+          >
+            确认导入
+          </Button>
+        </Space>
+      }
+    >
       <p>有效词条 {preview?.rows.length ?? 0} 条；错误 {preview?.errors.length ?? 0} 条。全部通过后才能提交。</p>
       {preview?.errors.map((e,i)=><p key={i}>第 {e.row} 行：{e.message}</p>)}
-    </Modal>
+    </Drawer>
   </section>
 }
