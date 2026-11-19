@@ -1,5 +1,5 @@
 //! Offline snapshot tooling: source is repeatable-read/read-only; target must be
-//! an empty Linjian database. Sessions, machine credentials and sending data never move.
+//! an empty Linjian database. Sessions, machine credentials never move; source event identities and deduplication evidence are preserved.
 use crate::business::{Error, Result, require};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -10,6 +10,7 @@ pub const TABLES: &[&str] = &[
     "schools",
     "accounts",
     "school_memberships",
+    "school_member_capabilities",
     "file_assets",
     "miniapp_avatar_assets",
     "miniapp_users",
@@ -22,6 +23,16 @@ pub const TABLES: &[&str] = &[
     "notifications",
     "moderation_events",
     "forum_publication_snapshots",
+    "source_connections",
+    "source_connection_versions",
+    "school_source_bindings",
+    "school_source_binding_versions",
+    "forum_source_versions",
+    "miniapp_link_assets",
+    "forum_outbox",
+    "forum_publication_preparations",
+    "forum_post_recommendations",
+    "forum_source_terminations",
     "cases",
     "school_resources",
     "media_assets",
@@ -106,7 +117,7 @@ pub async fn export(
     tx.commit().await?;
     lock.release().await?;
     Ok(Snapshot {
-        schema_version: 3,
+        schema_version: 4,
         digest: digest(&tables),
         tables,
         files: payloads,
@@ -119,7 +130,7 @@ pub async fn import(
     files: &crate::media::south::adapter::filesystem::Files,
 ) -> Result<Value> {
     require(
-        snapshot.schema_version == 3 && snapshot.digest == digest(&snapshot.tables),
+        snapshot.schema_version == 4 && snapshot.digest == digest(&snapshot.tables),
         "快照版本或摘要不匹配",
     )?;
     require(
@@ -198,6 +209,7 @@ pub async fn import(
     // Restore immutable review evidence without applying today's live authorization policy.
     // This offline operation already requires an empty target and an exact snapshot digest.
     for (table, trigger) in [
+        ("school_source_bindings", "forum_binding_history"),
         ("posts", "forum_post_outbox"),
         ("posts", "forum_post_publication_guard"),
         ("moderation_events", "forum_decision_guard"),
@@ -228,6 +240,7 @@ pub async fn import(
         .execute(&mut *tx)
         .await?;
     for (table, trigger) in [
+        ("school_source_bindings", "forum_binding_history"),
         ("posts", "forum_post_outbox"),
         ("posts", "forum_post_publication_guard"),
         ("moderation_events", "forum_decision_guard"),
@@ -255,8 +268,8 @@ pub async fn import(
     let invalid: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM file_asset_references r JOIN file_assets f ON f.id=r.asset_id LEFT JOIN posts p ON r.object_type='posts' AND p.id=r.object_id WHERE f.state<>'ready' OR NOT f.ever_bound OR f.gc_after IS NOT NULL OR (r.object_type='posts' AND (p.id IS NULL OR p.visibility='deleted')))")
         .fetch_one(&mut *tx).await?;
     require(!invalid, "快照图片引用或清理状态不一致")?;
-    // Importing history does not enqueue it. Future content revisions continue at a stable version.
-    sqlx::query("INSERT INTO forum_source_versions(school_id,post_id,sequence,available,delivery_intent) SELECT p.school_id,p.id,greatest(p.revision,1),p.audit_status='approved' AND p.visibility='visible' AND s.active,false FROM posts p JOIN schools s ON s.id=p.school_id").execute(&mut *tx).await?;
+    // Exact restoration never creates replacement events or drops request idempotency.
+    // Active source configuration and credentials are not imported; an administrator configures the destination explicitly.
     sqlx::query("SELECT setval('legacy_public_id',greatest(1000000000000,coalesce((SELECT max(public_id) FROM legacy_aliases),0)),true)").execute(&mut *tx).await?;
     let mut actual = BTreeMap::new();
     for table in TABLES {
