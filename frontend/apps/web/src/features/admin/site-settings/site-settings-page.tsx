@@ -29,6 +29,7 @@ import {
 } from '../../site'
 import { useUnsavedChanges } from '../../../shared/unsaved-changes'
 import { formatDate } from '../../../shared/format-date'
+import { notifySuccess } from '../../../shared/notify'
 import { MediaPicker } from '../operations/media-picker'
 
 type FormValues = Omit<SiteSettingsInput, 'revision'>
@@ -182,7 +183,6 @@ export function SiteSettings() {
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [done, setDone] = useState('')
   const [conflict, setConflict] = useState(false)
   const [uncertain, setUncertain] = useState(false)
   const submitting = useRef(false)
@@ -252,7 +252,6 @@ export function SiteSettings() {
     }
     setBusy(true)
     setError('')
-    setDone('')
     setConflict(false)
     submitting.current = true
     try {
@@ -265,7 +264,7 @@ export function SiteSettings() {
       setFormValues(savedForm)
       apply(publicFromAdmin(saved))
       cache.setQueryData(['site-settings', 'admin'], saved)
-      setDone(`已保存并生效，当前版本 ${saved.revision}`)
+      notifySuccess(`已保存并生效，当前版本 ${saved.revision}`)
     } catch (e) {
       const failure = e as { status?: number; message?: string }
       if (failure.status === 409) setConflict(true)
@@ -312,7 +311,6 @@ export function SiteSettings() {
           initialValues={EMPTY_FORM}
           onValuesChange={() => {
             setDirty(true)
-            setDone('')
             setError('')
           }}
           onFinish={(value) => void save(value, false)}
@@ -455,7 +453,6 @@ export function SiteSettings() {
           )}
           <div className="form-actions form-actions-sticky">
             {error && <Alert type="error" title={error} />}
-            {done && <Alert type="success" role="status" title={done} />}
             {conflict && (
               <Alert
                 type="warning"

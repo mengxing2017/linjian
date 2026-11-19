@@ -5,6 +5,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Alert, Button, Card, Drawer, Input, Popconfirm, Select, Space, Switch, Table, Tag, Upload } from 'antd'
 import { browserClient, createBlockedWordsClient, requestMultipart, type BlockedWord, type BlockedWordImport } from './api'
 import { actionColumn } from '../../../shared/row-actions'
+import { notifySuccess } from '../../../shared/notify'
 
 export function BlockedWords({ school, schoolName, canEdit, platformAdmin = false }: { school?: string; schoolName?: string; canEdit: boolean; platformAdmin?: boolean }) {
   const [params] = useSearchParams()
@@ -81,6 +82,7 @@ export function BlockedWords({ school, schoolName, canEdit, platformAdmin = fals
                   )
                   await q.refetch()
                   setEditing(undefined)
+                  notifySuccess('屏蔽词已保存')
                 })
               }
             >
@@ -116,6 +118,7 @@ export function BlockedWords({ school, schoolName, canEdit, platformAdmin = fals
                   await api.commitImport(school, preview.id, preview.digest)
                   await q.refetch()
                   setPreview(undefined)
+                  notifySuccess('屏蔽词导入完成')
                 })
               }
             >

@@ -4,6 +4,7 @@ import { parseDate } from '../../../shared/format-date'
 import { useId, useState } from 'react'
 import { Button, ColorPicker, Form, Input, InputNumber, Select } from 'antd'
 import { FormFeedback } from '../../../shared/form-feedback'
+import { notifySuccess } from '../../../shared/notify'
 
 interface Field {
   name: string
@@ -30,16 +31,14 @@ export function Editor({
   const formName = useId()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [done, setDone] = useState(false)
   async function save(values: Record<string, string>) {
     setBusy(true)
     setError('')
-    setDone(false)
     try {
       await onSave(
         Object.fromEntries(fields.map((field) => [field.name, String(values[field.name] ?? '')])),
       )
-      setDone(true)
+      notifySuccess('已保存')
     } catch (error) {
       setError((error as Error).message)
     } finally {
@@ -94,13 +93,7 @@ export function Editor({
       ))}
       <div className="form-actions form-actions-sticky">
         <FormFeedback
-          feedback={
-            error
-              ? { type: 'error', message: error }
-              : done
-                ? { type: 'success', message: '已保存' }
-                : null
-          }
+          feedback={error ? { type: 'error', message: error } : null}
         />
         <Button type="primary" htmlType="submit" loading={busy}>
           {busy ? '正在保存…' : submit}

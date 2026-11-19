@@ -4,6 +4,7 @@ import {useQuery} from '@tanstack/react-query'
 import {Alert,Button,Input,InputNumber,Select,Space,Switch} from 'antd'
 import {product,workspace,type Row,type ResourceInput,type ResourceAction,type BusinessPreview,type PublishedResource} from './api'
 import {ResourceCard} from '../../community/resource-card'
+import { notifySuccess } from '../../../shared/notify'
 const localDate=(s:string|null)=>s?new Date(new Date(s).getTime()-new Date(s).getTimezoneOffset()*60000).toISOString().slice(0,16):''
 const kinds=[['service','校园服务'],['legal','法律文本']] as const
 export function ResourceEditor({item,school,onSaved}:{item?:Row;school?:string;onSaved:()=>Promise<unknown>}){
@@ -38,7 +39,7 @@ export function ResourceEditor({item,school,onSaved}:{item?:Row;school?:string;o
  </>:<>
  <p>范围：{school?'当前学校':'平台默认'} · {preview.summary.active?'发布启用':'保存为停用'}。学校同类有效资源优先；两端均按以下图片和使用方式展示。</p>
  <ResourceCard school={school??''} item={{...preview.summary,id:preview.summary.id??preview.id,image_url:image||null}}/>
- <Button onClick={()=>setPreview(undefined)} disabled={busy}>返回编辑</Button><Button type="primary" loading={busy} onClick={()=>void run(async()=>{await product.resources.confirm(school,{preview_id:preview.id,digest:preview.digest});await onSaved()})}>确认发布</Button>
+ <Button onClick={()=>setPreview(undefined)} disabled={busy}>返回编辑</Button><Button type="primary" loading={busy} onClick={()=>void run(async()=>{await product.resources.confirm(school,{preview_id:preview.id,digest:preview.digest});notifySuccess('资源已发布');await onSaved()})}>确认发布</Button>
  </>}
  </Space>
 }

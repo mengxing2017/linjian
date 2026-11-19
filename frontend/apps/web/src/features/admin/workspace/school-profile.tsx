@@ -23,6 +23,7 @@ import { RegionCascader } from '../../../shared/region-cascader'
 import { RegionField } from '../../../shared/region-field'
 import { formatCoordinates } from '../../../shared/format-coordinates'
 import { CoordinatesField } from '../../../shared/coordinates-field'
+import { notifySuccess } from '../../../shared/notify'
 import { FormFeedback } from '../../../shared/form-feedback'
 import {
   codesFromNames,
@@ -146,8 +147,7 @@ export function SchoolForm({
   const [form] = Form.useForm<SchoolFormValues>(),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
-    [conflict, setConflict] = useState(false),
-    [done, setDone] = useState(false)
+    [conflict, setConflict] = useState(false)
   const primary = Form.useWatch('theme_primary', form) || defaults.theme_primary,
     secondary = Form.useWatch('theme_secondary', form) || defaults.theme_secondary,
     text = Form.useWatch('theme_text_color', form) || defaults.theme_text_color
@@ -164,9 +164,7 @@ export function SchoolForm({
           type: 'warning' as const,
           message: '资料已被其他操作更新，本地输入已保留。重新加载会舍弃本地输入。',
         }
-      : done
-        ? { type: 'success' as const, message: '已保存' }
-        : null
+      : null
   async function save(v: SchoolFormValues) {
     if ((v.latitude == null) !== (v.longitude == null)) {
       setError('经纬度需同时填写或清空')
@@ -174,7 +172,6 @@ export function SchoolForm({
     }
     setBusy(true)
     setError('')
-    setDone(false)
     try {
       const { region, ...rest } = v
       const body = {
@@ -189,9 +186,9 @@ export function SchoolForm({
       const result = school
         ? await workspace.schoolProfiles.update(school.id, body)
         : await workspace.schoolProfiles.create(body)
+      notifySuccess(school ? '学校资料已保存' : '学校已创建')
       onDirtyChange?.(false)
       await onSaved(result)
-      setDone(true)
     } catch (e) {
       setError((e as Error).message)
       if (e && typeof e === 'object' && 'status' in e && e.status === 409) setConflict(true)
@@ -246,7 +243,6 @@ export function SchoolForm({
         } else void save(v)
       }}
       onValuesChange={() => {
-        setDone(false)
         onDirtyChange?.(true)
       }}
     >

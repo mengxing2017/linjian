@@ -18,6 +18,7 @@ import {
 import { workspace, type PostReview } from './api'
 import { PaginationControls } from '../../../shared/pagination-controls'
 import { formatDate } from '../../../shared/format-date'
+import { notifySuccess } from '../../../shared/notify'
 
 const states = { pending: '待审核', approved: '已通过', rejected: '已拒绝' }
 
@@ -74,6 +75,7 @@ export function ReviewDetail({
         reason,
         ...(decision === 'approved' ? { review_digest: post.review_digest } : {}),
       })
+      notifySuccess(decision === 'approved' ? '已通过审核' : decision === 'rejected' ? '已驳回内容' : '已撤销审核')
       await saved()
       close()
     } catch (e) {
@@ -103,6 +105,7 @@ export function ReviewDetail({
         { revision: post.revision, visibility: value, top_sort: topSort },
         'PUT',
       )
+      notifySuccess('展示状态已更新')
       await saved()
       close()
     } catch (e) {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Button, Card, Checkbox, Descriptions, Form, Input, Typography } from 'antd'
 import { sourceAccess, type SourceBinding } from './api'
+import { notifySuccess } from '../../../shared/notify'
 export function SourceBindings({
   school,
   readOnly = false,
@@ -28,6 +29,7 @@ export function SourceBindings({
     try {
       const values = await form.validateFields()
       await sourceAccess.bind(school, values, current?.revision ?? 0)
+      notifySuccess('学校消息路由已保存')
       await q.refetch()
     } catch (e) {
       setError((e as Error).message ?? '请核对路由配置')

@@ -6,6 +6,7 @@ import { formatDate } from '../../../shared/format-date'
 import { Outbox } from './outbox'
 import { PaginationControls } from '../../../shared/pagination-controls'
 import { actionColumn } from '../../../shared/row-actions'
+import { notifySuccess } from '../../../shared/notify'
 
 export const recommendationStates: Record<RecommendationView['state'], string> = {
   preparing: '准备中',
@@ -42,7 +43,6 @@ export function PostRecommendation({
   const [diagnostic, setDiagnostic] = useState('')
   const [reason, setReason] = useState('')
   const [error, setError] = useState('')
-  const [done, setDone] = useState('')
   const [busy, setBusy] = useState(false)
   const submitting = useRef(false)
   const request = useRef<RecommendPostInput | null>(null)
@@ -90,7 +90,7 @@ export function PostRecommendation({
       setUncertain(false)
       setOpen(false)
       setReason('')
-      setDone('已创建再次推送记录，等待处理')
+      notifySuccess('已创建再次推送记录，等待处理')
       await cache
         .invalidateQueries({ queryKey: ['linjian', 'post-management', school] })
         .catch((e: Error) => setError(e.message))
@@ -135,7 +135,6 @@ export function PostRecommendation({
               <Button
                 disabled={!p.can_recommend || preview.isFetching}
                 onClick={() => {
-                  setDone('')
                   setError('')
                   setOpen(true)
                   void preview.refetch()
@@ -194,7 +193,6 @@ export function PostRecommendation({
               </Space>
             </section>
           )}
-          {done && <Alert type="success" role="status" title={done} />}
           {p?.unavailable_reason && <p>{reasons[p.unavailable_reason] ?? '当前无法推荐'}</p>}
           {p?.next_eligible_at && <p>下次可推荐时间：{formatDate(p.next_eligible_at)}</p>}
           <p>质量由学校管理员、运营人员人工判断。已受理不代表实际发送成功。</p>

@@ -6,6 +6,7 @@ import { Alert, Button, Drawer, Input, InputNumber, Modal, Select, Space, Switch
 import { operationsApi as api, workspace, type Module, type Filters, type OperationResource, type OperationInput, type ResourceAction } from './api'
 import { MediaPicker } from './media-picker'
 import { actionColumn, RowActions } from '../../../shared/row-actions'
+import { notifySuccess } from '../../../shared/notify'
 const strategyLabels = { always: '每次进入都弹出', daily: '每天首次弹出', interval: '按间隔天数弹出' }
 const actionLabels = { none: '不跳转', internal_page: '打开站内页面', external_link: '复制外部链接', phone: '拨打电话', copy_text: '复制内容' }
 const localDate = (v: string | null) => v ? new Date(new Date(v).getTime() - new Date(v).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''
@@ -79,7 +80,10 @@ function OperationEditor({ school, module, item, readOnly, onSaved }: { school?:
     setError('')
     void api
       .save(school, module, form, item?.id)
-      .then(onSaved)
+      .then(async () => {
+        notifySuccess(item ? '运营资源已保存' : '运营资源已创建')
+        await onSaved()
+      })
       .catch((e) => setError(e instanceof Error ? e.message : '保存失败'))
       .finally(() => setBusy(false))
   }

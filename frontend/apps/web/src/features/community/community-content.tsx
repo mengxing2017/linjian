@@ -9,6 +9,7 @@ import { ResourceCard } from './resource-card'
 import { PostCards } from './post-cards'
 import { PostComments } from './post-comments'
 import { PostEditor } from './post-editor'
+import { notifySuccess } from '../../shared/notify'
 import { ProfilePanel } from './profile-panel'
 import { Notifications } from './notifications'
 import { FeedbackForm } from './feedback-form'
@@ -108,6 +109,7 @@ export function CommunityContent({ user }: { user: User }) {
         },
         editing ? 'PUT' : 'POST',
       )
+      notifySuccess(editing ? '内容已保存并重新提交审核' : '内容已提交审核')
       setEditing(undefined)
       setImages([])
       setView('mine')

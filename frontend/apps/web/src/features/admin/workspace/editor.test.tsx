@@ -20,7 +20,7 @@ it('validates required selections before saving and preserves the string payload
   await selectOption(screen.getByLabelText('状态'), '启用')
   fireEvent.click(screen.getByRole('button', { name: /^保\s*存$/ }))
   await waitFor(() => expect(save).toHaveBeenCalledWith({ name: '通知', state: 'active', sort: '3', note: '' }))
-  expect(await screen.findByRole('status')).toBeTruthy()
+  expect(await screen.findByText('已保存')).toBeTruthy()
 })
 
 it('keeps a read-only identity in the payload and allows retry after an error', async () => {
@@ -32,7 +32,7 @@ it('keeps a read-only identity in the payload and allows retry after an error', 
   fireEvent.click(screen.getByRole('button', { name: /^保\s*存$/ }))
   await waitFor(() => expect(save).toHaveBeenCalledTimes(2))
   expect(save).toHaveBeenLastCalledWith({ id: 'fixed' })
-  expect(await screen.findByRole('status')).toBeTruthy()
+  expect(await screen.findByText('已保存')).toBeTruthy()
 })
 
 it('displays a local date while preserving the original timestamp on unchanged save', async () => {

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Alert, Button, Drawer, Form, Image, Input, Modal, Select, Space, Upload } from 'antd'
 import { workspace, type PostContentInput } from './api'
 import { ReviewImage } from './review-image'
+import { notifySuccess } from '../../../shared/notify'
 
 function ContentForm({
   school,
@@ -42,6 +43,7 @@ function ContentForm({
       if (id)
         await workspace.postManagement.update(school, id, { ...input, revision: initial.revision! })
       else await workspace.postManagement.create(school, input)
+      notifySuccess(id ? '帖子已保存' : '帖子已创建')
       onDirtyChange?.(false)
       await saved()
       close()

@@ -4,6 +4,7 @@ import { workspace, type School } from './api'
 import { formatDate } from '../../../shared/format-date'
 import { label } from '../../../shared/label'
 import { useDialogs } from '../../../shared/use-dialogs'
+import { notifySuccess } from '../../../shared/notify'
 import { RecordBody, RecordInformation, RecordList, recordTitleColumn, type RecordDetailProps } from './record-list'
 import { states, stateLabel } from './state-label'
 
@@ -40,6 +41,7 @@ function CommentReviewDetail({ record, close, reload, school, refresh }: RecordD
     setError('')
     try {
       await workspace.mutate(school.id, `comments/${record.id}/moderation-decisions`, { revision: record.revision, decision, reason })
+      notifySuccess('评论审核已保存')
       await refresh()
       close()
     } catch (error) {
@@ -56,6 +58,7 @@ function CommentReviewDetail({ record, close, reload, school, refresh }: RecordD
       await workspace.setCommentVisibility(school.id, record.id, {
         revision: Number(record.revision), visibility: record.visibility === 'hidden' ? 'visible' : 'hidden',
       })
+      notifySuccess('评论显示状态已更新')
       await refresh()
       close()
     } catch (error) {

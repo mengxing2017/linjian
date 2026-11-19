@@ -5,6 +5,7 @@ import type { RecordDetailProps } from './record-list'
 import { CaseStateTag } from './case-columns'
 import { ReviewImage } from './review-image'
 import { formatDate } from '../../../shared/format-date'
+import { notifySuccess } from '../../../shared/notify'
 
 export function CaseDetail({ school, record, reload, refresh }: RecordDetailProps<CaseManagementView> & { school: string; refresh: () => Promise<void> }) {
   const [form] = Form.useForm<Omit<ResolveCaseInput, 'revision'>>()
@@ -16,6 +17,7 @@ export function CaseDetail({ school, record, reload, refresh }: RecordDetailProp
     setBusy(true); setError('')
     try {
       await workspace.resolveCase(school, record.id, { ...values, revision: record.revision })
+      notifySuccess('案件已处理')
       await refresh()
       await reload()
     } catch (cause) {

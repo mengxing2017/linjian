@@ -12,6 +12,7 @@ import { PostFilters } from './post-filters'
 import { PostRowActions } from './post-actions'
 import { PostRecommendation, recommendationStates } from './post-recommendation'
 import { movePost } from './post-sort'
+import { notifySuccess } from '../../../shared/notify'
 export function PostManagement({
   school,
   platformAdmin,
@@ -111,6 +112,7 @@ export function PostManagement({
         ordered_ids: draft.map((r) => r.id),
       })
       setDraft(undefined)
+      notifySuccess('帖子排序已保存')
       await saved()
     } catch (e) {
       setError((e as Error).message)

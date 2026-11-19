@@ -3,6 +3,7 @@ import { QuestionCircleOutlined } from '@ant-design/icons'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Form, Select, Space, Tooltip } from 'antd'
 import { workspace, type School } from './api'
+import { notifySuccess } from '../../../shared/notify'
 
 const options = [
   { value: 'manual', label: '人工审核' },
@@ -21,7 +22,6 @@ export function AuditModeFields({ disabled = false }: { disabled?: boolean }) {
   )
 }
 export function AuditModes({ school, canEdit }: { school: School; canEdit: boolean }) {
-  const [saved, setSaved] = useState(false)
   const q = useQuery({
     queryKey: ['linjian', 'audit-policy', school.id],
     queryFn: ({ signal }) => workspace.schoolProfiles.detail(school.id, signal),
@@ -30,17 +30,14 @@ export function AuditModes({ school, canEdit }: { school: School; canEdit: boole
   })
   return (
     <Space orientation="vertical" className="full-width">
-      {saved && <Alert type="success" title="审核模式已保存" />}
       {q.error && <Alert type="error" title={q.error.message} />}
       {q.data && (
         <ModeForm
           key={`${q.data.id}:${q.data.revision}`}
           school={q.data}
           canEdit={canEdit}
-          onSaved={() => setSaved(true)}
-          onChange={() => setSaved(false)}
+          onSaved={() => notifySuccess('审核模式已保存')}
           reload={async () => {
-            setSaved(false)
             await q.refetch()
           }}
         />
@@ -53,13 +50,11 @@ function ModeForm({
   canEdit,
   reload,
   onSaved,
-  onChange,
 }: {
   school: School
   canEdit: boolean
   reload: () => Promise<void>
   onSaved: () => void
-  onChange: () => void
 }) {
   const cache = useQueryClient()
   const [busy, setBusy] = useState(false)
@@ -75,7 +70,6 @@ function ModeForm({
           comment_audit_mode: school.config.comment_audit_mode === 'auto' ? 'auto' : 'manual',
         },
       }}
-      onValuesChange={onChange}
       onFinish={async (values: { config: School['config'] }) => {
         if (disabled) return
         setBusy(true)

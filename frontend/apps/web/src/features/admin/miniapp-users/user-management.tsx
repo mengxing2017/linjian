@@ -8,6 +8,7 @@ import { miniappUsers, type MiniappUser, type UserFilters } from './api'
 import { formatDate } from '../../../shared/format-date'
 import { PaginationControls } from '../../../shared/pagination-controls'
 import { actionColumn, RowActions } from '../../../shared/row-actions'
+import { notifySuccess } from '../../../shared/notify'
 export function MiniappUsers({
   school,
   platformAdmin,
@@ -58,6 +59,13 @@ export function MiniappUsers({
       else if (action === 'mobile')
         await miniappUsers.correctMobile(detail.data, value, reason.trim())
       else await miniappUsers.correctSchool(detail.data, value, reason.trim())
+      notifySuccess(
+        action === 'status'
+          ? '用户状态已更新'
+          : action === 'mobile'
+            ? '手机号已纠正'
+            : '所属学校已纠正',
+      )
       setAction(undefined)
       await q.refetch()
       await detail.refetch()

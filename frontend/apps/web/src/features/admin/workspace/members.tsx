@@ -18,6 +18,7 @@ import {
 } from 'antd'
 import { identity, workspace, type Row, type School } from './api'
 import { schoolRoleLabel } from '../../../app/shell'
+import { notifySuccess } from '../../../shared/notify'
 
 const editableRoles = ['member', 'operator', 'admin'] as const
 type EditableRole = (typeof editableRoles)[number]
@@ -76,8 +77,7 @@ export function Members({
   })
   const [search, setSearch] = useState(''),
     [page, setPage] = useState(1)
-  const [error, setError] = useState(''),
-    [done, setDone] = useState('')
+  const [error, setError] = useState('')
   const [grant, setGrant] = useState<GrantTarget | null>(null),
     [grantRole, setGrantRole] = useState<EditableRole | ''>(''),
     [confirmAdmin, setConfirmAdmin] = useState(false),
@@ -129,7 +129,6 @@ export function Members({
     setGrantRole(isEditableRole(currentRole) ? currentRole : '')
     setConfirmAdmin(false)
     setGrantError('')
-    setDone('')
   }
 
   function closeGrant() {
@@ -145,12 +144,11 @@ export function Members({
     setGrantSaving(true)
     setGrantError('')
     setError('')
-    setDone('')
     try {
       await workspace.mutate(school.id, `members/${target.id}`, { role }, 'PUT')
       setGrant(null)
       setConfirmAdmin(false)
-      setDone(`已更新 ${target.displayName} 的学校角色`)
+      notifySuccess(`已更新 ${target.displayName} 的学校角色`)
       try {
         await refresh()
         if (platformAdmin) await accounts.refetch()
@@ -168,10 +166,9 @@ export function Members({
   async function toggleRecommend(row: Row, enabled: boolean) {
     setRecommendSavingId(row.id)
     setError('')
-    setDone('')
     try {
       await workspace.setRecommendationCapability(school.id, row.id, enabled)
-      setDone(`已更新 ${rowText(row, 'display_name')} 的推荐权限`)
+      notifySuccess(`已更新 ${rowText(row, 'display_name')} 的推荐权限`)
     } catch (toggleError) {
       setError(
         `更新 ${rowText(row, 'display_name')} 的推荐权限失败：${(toggleError as Error).message}`,
@@ -279,7 +276,6 @@ export function Members({
     >
       {loadError && <Alert type="error" title={`账号或学校授权加载失败：${loadError.message}`} />}
       {error && <Alert type="error" title={error} />}
-      {done && <Alert type="info" role="status" title={done} />}
       {!platformAdmin && (
         <Alert
           type="info"
