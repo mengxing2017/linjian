@@ -79,6 +79,8 @@ export function MiniappUsers({
         {platformAdmin && (
           <Select
             aria-label="用户范围"
+            style={{ width: 200 }}
+            popupMatchSelectWidth={false}
             value={global ? 'global' : 'school'}
             options={[
               { value: 'school', label: '当前学校' },
@@ -94,8 +96,11 @@ export function MiniappUsers({
           <Select
             aria-label="所属学校"
             allowClear
+            showSearch
+            optionFilterProp="label"
+            popupMatchSelectWidth={false}
             placeholder="全部学校"
-            style={{ width: 190 }}
+            style={{ width: 220 }}
             value={filters.unbound ? 'unbound' : filters.school_id}
             options={[
               { value: 'unbound', label: '未绑定学校' },
@@ -307,6 +312,9 @@ export function MiniappUsers({
                     <p>不会搬迁历史内容；封禁状态保留，旧小程序会话撤销。</p>
                     <Select
                       aria-label="新的所属学校"
+                      showSearch
+                      optionFilterProp="label"
+                      popupMatchSelectWidth={false}
                       value={value || undefined}
                       style={{ width: '100%' }}
                       options={schools.map((s) => ({ value: s.id, label: s.name }))}

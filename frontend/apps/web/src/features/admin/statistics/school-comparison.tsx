@@ -58,6 +58,7 @@ export function SchoolComparison({
           aria-label="对比指标"
           value={metric}
           style={{ minWidth: 200 }}
+          popupMatchSelectWidth={false}
           options={schoolMetrics.map((key) => ({ value: key, label: metricNames[key] }))}
           onChange={(value) => {
             setMetric(value)

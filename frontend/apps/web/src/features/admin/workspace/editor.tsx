@@ -75,7 +75,7 @@ export function Editor({
           rules={[{ required: !field.optional, message: `请填写${field.title}` }]}
         >
           {field.options ? (
-            <Select placeholder="请选择" options={field.options} aria-label={field.title} />
+            <Select placeholder="请选择" options={field.options} aria-label={field.title} style={{ width: '100%' }} popupMatchSelectWidth={false} />
           ) : field.type === 'datetime' ? (
             <DatePicker showTime format="YYYY/M/D HH:mm:ss" className="full-width" />
           ) : field.type === 'color' ? (

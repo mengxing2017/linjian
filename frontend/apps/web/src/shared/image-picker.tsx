@@ -25,6 +25,7 @@ export function ImagePicker({ scope, label, value, onChange, onBusyChange, load,
   }
   return <Space orientation="vertical" className="full-width">
     <Select aria-label={label} allowClear value={value ?? undefined} disabled={busy} placeholder="选择图片或上传本地文件"
+      style={{ width: '100%' }} popupMatchSelectWidth={false} styles={{ popup: { root: { minWidth: 280 } } }}
       options={q.data?.items.map(v => ({ value: v.id, label: <Space><img src={v.url ?? source(v.id)} alt="素材缩略图" width={36} height={28} /><span>{v.id.slice(0, 8)} · {v.width}×{v.height}{v.size_bytes ? ` · ${Math.ceil(v.size_bytes / 1024)} KiB` : ''}</span></Space> }))}
       onChange={id => onChange(id ?? null)} />
     <Space><Button disabled={page <= 1 || busy} onClick={() => setPage(page - 1)}>上一页</Button><span>第 {page} 页</span><Button disabled={!q.data?.page?.has_more || busy} onClick={() => setPage(page + 1)}>下一页</Button></Space>

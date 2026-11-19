@@ -12,10 +12,10 @@ export function CommentReviews({ school, refresh }: { school: School; refresh: (
   const [visibility, setVisibility] = useState('')
   return <RecordList school={school.id} resource="comments" scrollWidth={1330}
     status={status} onStatusChange={setStatus} extraQuery={visibility ? { visibility } : {}}
-    filters={change => <Space><Select aria-label="审核状态" value={status} style={{ width: 140 }} onChange={change} options={[
+    filters={change => <Space><Select aria-label="审核状态" value={status} style={{ width: 150 }} onChange={change} options={[
       { value: '', label: '全部审核状态' },
       ...['pending', 'approved', 'rejected'].map(value => ({ value, label: states[value] })),
-    ]} /><Select aria-label="显示状态" value={visibility} style={{ width: 140 }} onChange={value => { setVisibility(value); change(status) }} options={[
+    ]} /><Select aria-label="显示状态" value={visibility} style={{ width: 150 }} onChange={value => { setVisibility(value); change(status) }} options={[
       { value: '', label: '全部显示状态' }, { value: 'visible', label: '正常' }, { value: 'hidden', label: '隐藏' },
     ]} /></Space>}
     columns={open => [recordTitleColumn(open),

@@ -12,10 +12,10 @@ export function AuditModeFields({ disabled = false }: { disabled?: boolean }) {
   return (
     <>
       <Form.Item name={['config', 'post_audit_mode']} label="帖子审核模式">
-        <Select aria-label="帖子审核模式" disabled={disabled} options={options} />
+        <Select aria-label="帖子审核模式" disabled={disabled} style={{ minWidth: 220 }} popupMatchSelectWidth={false} options={options} />
       </Form.Item>
       <Form.Item name={['config', 'comment_audit_mode']} label="评论审核模式">
-        <Select aria-label="评论审核模式" disabled={disabled} options={options} />
+        <Select aria-label="评论审核模式" disabled={disabled} style={{ minWidth: 220 }} popupMatchSelectWidth={false} options={options} />
       </Form.Item>
     </>
   )

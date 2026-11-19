@@ -151,6 +151,9 @@ export function CommunityContent({ user }: { user: User }) {
         <Select
           className="full-width"
           aria-label="学校"
+          showSearch
+          optionFilterProp="label"
+          popupMatchSelectWidth={false}
           value={s}
           onChange={async (value) => {
             await cache.cancelQueries({ queryKey: ['business'] })

@@ -17,8 +17,8 @@ export function OperationFeedback({ school, canDelete }: { school: string; canDe
     <Input aria-label="正文查询" placeholder="问题和建议" value={filters.search ?? ''} onChange={e => change({ search: e.target.value })} />
     <Input aria-label="联系方式查询" placeholder="联系方式" value={filters.contact ?? ''} onChange={e => change({ contact: e.target.value })} />
     <Input aria-label="用户查询" placeholder="用户昵称或ID" value={filters.user ?? ''} onChange={e => change({ user: e.target.value })} />
-    <Select aria-label="类型筛选" value={filters.feedback_type ?? ''} options={[{ value: '', label: '全部反馈类型' }, ...Object.entries(types).map(([value, label]) => ({ value, label }))]} onChange={feedback_type => change({ feedback_type })} />
-    <Select aria-label="处理状态筛选" value={filters.status ?? ''} options={[{ value: '', label: '全部处理状态' }, ...Object.entries(states).map(([value, label]) => ({ value, label }))]} onChange={status => change({ status })} />
+    <Select aria-label="类型筛选" style={{ width: 150 }} value={filters.feedback_type ?? ''} options={[{ value: '', label: '全部反馈类型' }, ...Object.entries(types).map(([value, label]) => ({ value, label }))]} onChange={feedback_type => change({ feedback_type })} />
+    <Select aria-label="处理状态筛选" style={{ width: 150 }} value={filters.status ?? ''} options={[{ value: '', label: '全部处理状态' }, ...Object.entries(states).map(([value, label]) => ({ value, label }))]} onChange={status => change({ status })} />
     <label>提交时间自<LocalDateTimePicker onChange={value => change({ starts_at: value ? new Date(value).toISOString() : undefined })} /></label>
     <label>提交时间至<LocalDateTimePicker onChange={value => change({ ends_at: value ? new Date(value).toISOString() : undefined })} /></label>
     <Button onClick={() => setFilters({ page: 1, size: 20 })}>重置筛选</Button><Button onClick={() => void q.refetch()}>刷新</Button>

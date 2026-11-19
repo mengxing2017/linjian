@@ -47,7 +47,7 @@ export function CaseDetail({ school, record, reload, refresh }: RecordDetailProp
       }}>重新加载案件</Button>} />}
       {record.state === 'open' && <Form form={form} layout="vertical" onFinish={save} disabled={busy || conflict}>
         <Form.Item name="resolution" label="处理说明" rules={[{ required: true, whitespace: true, message: '请填写处理说明' }, { max: 2000 }]}><Input.TextArea rows={4} maxLength={2000} /></Form.Item>
-        <Form.Item name="state" label="处理结果" rules={[{ required: true, message: '请选择处理结果' }]}><Select options={[{ value: 'resolved', label: '已处理' }, { value: 'dismissed', label: '已驳回' }]} /></Form.Item>
+        <Form.Item name="state" label="处理结果" rules={[{ required: true, message: '请选择处理结果' }]}><Select style={{ width: '100%' }} options={[{ value: 'resolved', label: '已处理' }, { value: 'dismissed', label: '已驳回' }]} /></Form.Item>
         <Button type="primary" htmlType="submit" loading={busy} disabled={busy || conflict}>保存</Button>
       </Form>}
     </section>

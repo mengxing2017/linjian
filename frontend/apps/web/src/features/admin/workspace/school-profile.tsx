@@ -274,6 +274,7 @@ export function SchoolForm({
         <>
           <Form.Item name="status" label="状态">
             <Select
+              style={{ width: 120 }}
               options={[
                 { value: 'normal', label: '正常' },
                 { value: 'hidden', label: '隐藏' },
@@ -513,6 +514,7 @@ export function Schools({
         <Select
           aria-label="状态筛选"
           allowClear
+          style={{ width: 120 }}
           placeholder="全部状态"
           value={filters.status}
           options={[

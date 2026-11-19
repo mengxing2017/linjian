@@ -172,6 +172,9 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
                   aria-label="当前学校"
                   className="school-select"
                   loading={q.isPending}
+                  showSearch
+                  optionFilterProp="label"
+                  popupMatchSelectWidth={false}
                   value={school?.id}
                   options={visibleSchools?.map((s) => ({ value: s.id, label: s.name }))}
                   placeholder="选择学校"

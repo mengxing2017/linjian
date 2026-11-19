@@ -122,6 +122,7 @@ export function Accounts({
             />
             <Select
               aria-label="状态筛选"
+              style={{ width: 120 }}
               value={status}
               options={statusOptions}
               onChange={(v) => {

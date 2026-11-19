@@ -168,6 +168,7 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
           <Select
             aria-label="学校范围"
             style={{ minWidth: 200 }}
+            popupMatchSelectWidth={false}
             showSearch
             optionFilterProp="label"
             value={scope}
@@ -186,6 +187,7 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
         {!scope && user.platform_admin && (
           <Select
             aria-label="状态筛选"
+            style={{ width: 160 }}
             value={query.school_status ?? ''}
             options={[
               { value: '', label: '全部学校状态' },
@@ -240,6 +242,7 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
               </label>
               <Select
                 aria-label="统计粒度"
+                style={{ width: 120 }}
                 value={query.granularity}
                 options={['day', 'week', 'month'].map((value, i) => ({
                   value,
@@ -267,6 +270,7 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
           {view !== 'overview' && view !== 'schools' && (
             <Select
               aria-label="图表对比期"
+              style={{ width: 140 }}
               value={comparison}
               options={[
                 { value: 'previous', label: '环比' },
