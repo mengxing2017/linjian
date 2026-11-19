@@ -170,8 +170,8 @@ export const navigation: NavigationItem[] = [
   {
     key: 'accounts',
     icon: <IdcardOutlined />,
-    label: '登录账号管理',
-    description: '管理全平台普通账号及登录状态。',
+    label: '后台账号',
+    description: '管理可登录论坛管理后台的普通账号、登录状态与学校授权。',
     domain: 'administration',
     scope: 'global',
     capability: 'global.manage',

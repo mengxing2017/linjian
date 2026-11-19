@@ -94,7 +94,7 @@ export function Accounts({
   }
   return (
     <ListPanel
-      title={administrators ? '平台管理员列表' : '登录账号列表'}
+      title={administrators ? '平台管理员列表' : '后台账号列表'}
       actions={
         !administrators && (
           <Button
@@ -188,14 +188,14 @@ export function Accounts({
         ]}
       />
       {creating && (
-        <Modal open title="新建账号" footer={null} onCancel={() => setCreating(false)}>
+        <Modal open title="新建后台账号" footer={null} onCancel={() => setCreating(false)}>
           <Editor
             fields={[
               { name: 'username', title: '账号' },
               { name: 'display_name', title: '昵称' },
               { name: 'password', title: '初始密码（至少12个字符）', type: 'password' },
             ]}
-            submit="创建账号"
+            submit="创建后台账号"
             onSave={async (v) => {
               await identity.create({
                 username: v.username,

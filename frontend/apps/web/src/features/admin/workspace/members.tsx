@@ -298,7 +298,7 @@ export function Members({
           emptyText: loadError
             ? '加载失败，请刷新重试'
             : platformAdmin
-              ? '没有匹配的账号，请调整搜索条件或先新建账号'
+              ? '没有匹配的后台账号，请调整搜索条件或先新建后台账号'
               : '本校暂无成员',
         }}
         pagination={{
