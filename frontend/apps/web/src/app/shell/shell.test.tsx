@@ -88,7 +88,7 @@ it('shows role-appropriate navigation and routes business selections', () => {
 it('provides platform management and logout for an administrator', async () => {
   const { onLogout } = show(true)
   expect(screen.getByRole('menuitem', { name: '学校管理' })).toBeTruthy()
-  expect(screen.getByRole('menuitem', { name: '登录账号管理' })).toBeTruthy()
+  expect(screen.getByRole('menuitem', { name: '后台账号' })).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: '账号菜单' }))
   fireEvent.click(await screen.findByRole('menuitem', { name: '退出登录' }))
   expect(onLogout).toHaveBeenCalledTimes(1)

@@ -97,6 +97,7 @@ it('keeps the legacy comment review URL subject to school management permission'
 
 it('separates ordinary accounts and administrators by privilege, not display name or current school', async () => {
   showManagement('accounts')
+  expect(await screen.findByText('后台账号列表')).toBeTruthy()
   expect(await screen.findByText('ordinary')).toBeTruthy()
   expect(screen.queryByLabelText('当前学校')).toBeNull()
   expect(screen.queryByText('平台维护者')).toBeNull()
@@ -165,7 +166,7 @@ it.each(['member','operator'] as const)('blocks school settings and member admin
   expect(screen.queryByRole('menuitem', {name:'学校设置'})).toBeNull()
   expect(screen.queryByRole('menuitem', {name:'学校成员与权限'})).toBeNull()
   expect(screen.queryByLabelText('名称')).toBeNull()
-  expect(screen.queryByRole('menuitem', {name:'登录账号管理'})).toBeNull()
+  expect(screen.queryByRole('menuitem', {name:'后台账号'})).toBeNull()
 })
 
 it('allows a school administrator to read members without offering grant changes', async () => {

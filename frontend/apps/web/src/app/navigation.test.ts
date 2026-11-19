@@ -53,6 +53,7 @@ it('keeps platform account and school management separate from school operators'
   expect(visibleNavigationKeys(false, 'admin')).not.toContain('schools')
   expect(visibleNavigationKeys(false, 'member')).toEqual([])
   expect(visibleNavigationKeys(true)).toContain('accounts')
+  expect(navigation.find((item) => item.key === 'accounts')?.label).toBe('后台账号')
 })
 
 it('places separate statistics navigation before forum and limits school comparison to platform admins', () => {
