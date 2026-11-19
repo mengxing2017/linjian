@@ -26,6 +26,8 @@ export const identity = {
 import { postManagement } from './post-management'
 export const workspace = {
     postManagement,
+    setRecommendationCapability: (school: string, account: string, enabled: boolean) => requestResource<null>(scope(school, `members/${part(account)}/recommendation-capability`), 'PUT', {enabled}),
+    terminateSource: (school: string, event: string, reason: string) => requestResource<null>(scope(school, `source-outbox/${part(event)}/terminations`), 'POST', {reason}),
     globalResources: () => requestResource<Row[]>('/api/v1/platform/resources'),
     schools: () => requestResource<School[]>('/api/v1/schools'),
     directory: schoolClient.directory,

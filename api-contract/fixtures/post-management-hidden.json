@@ -28,7 +28,8 @@
       "decided_at": null,
       "moderator_id": null,
       "is_top": true,
-      "cover_image": "/api/v1/schools/50000000-0000-0000-0000-000000000001/media/60000000-0000-0000-0000-000000000003"
+      "cover_image": "/api/v1/schools/50000000-0000-0000-0000-000000000001/media/60000000-0000-0000-0000-000000000003",
+      "source_summary": null
     }
   }
 }

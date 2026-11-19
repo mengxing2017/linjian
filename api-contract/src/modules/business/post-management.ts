@@ -6,9 +6,13 @@ import {
   invalidDocument,
   type PageMeta,
 } from "../../http";
-import type { PostReview } from "./types";
+import type { PostReview, Row } from "./types";
 export type PostVisibility = "visible" | "hidden" | "offline";
 export interface PostManagementView extends PostReview {
+  source_summary: Pick<
+    RecommendationView,
+    "id" | "state" | "created_at"
+  > | null;
   visibility: PostVisibility;
   is_top: boolean;
   cover_image: string | null;
@@ -49,6 +53,7 @@ export interface PostManagementPage {
   items: PostManagementView[];
   page?: PageMeta;
   order_revision: number;
+  can_recommend?: boolean;
 }
 export interface PostOrderInput {
   order_revision: number;
@@ -80,7 +85,88 @@ const path = (school: string, tail = "") =>
   `/api/v1/schools/${part(school)}/post-management${tail}`;
 const imports = (school: string, tail = "") =>
   `/api/v1/schools/${part(school)}/post-imports${tail}`;
+export interface RecommendPostInput {
+  revision: number;
+  content_revision: number;
+  publication_snapshot_id: string;
+  reason: string;
+  idempotency_key: string;
+}
+export interface RecommendationView extends Row {
+  id: string;
+  school_id: string;
+  post_id: string;
+  recommendation_id: string | null;
+  trigger_type: "review_publication" | "manual_recommendation";
+  state: "preparing" | "processing" | "accepted" | "blocked" | "cancelled";
+  created_at: string;
+  accepted_at: string | null;
+  actor_name: string | null;
+  reason: string | null;
+  terminated_reason: string | null;
+}
+export interface RecommendationPreview {
+  id: string;
+  school_id: string;
+  school_name: string;
+  title: string;
+  summary: string | null;
+  revision: number;
+  content_revision: number;
+  publication_snapshot_id: string | null;
+  authorized: boolean;
+  can_recommend: boolean;
+  unavailable_reason: string | null;
+  next_eligible_at: string | null;
+  latest: RecommendationView | null;
+}
 export const postManagement = {
+  recommendationPreview: (school: string, id: string, signal?: AbortSignal) =>
+    requestResource<RecommendationPreview>(
+      path(school, `/${part(id)}/recommendation-preview`),
+      "GET",
+      undefined,
+      signal,
+    ),
+  recommend: (school: string, id: string, input: RecommendPostInput) =>
+    requestResource<RecommendationView>(
+      path(school, `/${part(id)}/recommendations`),
+      "POST",
+      input,
+    ),
+  recommendations: async (
+    school: string,
+    id: string,
+    page = 1,
+    signal?: AbortSignal,
+  ) => {
+    const doc = await requestDocument(
+      path(
+        school,
+        `/${part(id)}/recommendations?page[number]=${page}&page[size]=10`,
+      ),
+      "GET",
+      undefined,
+      signal,
+    );
+    if (!Array.isArray(doc.data)) return invalidDocument();
+    return {
+      items: doc.data.map(decodeResource) as RecommendationView[],
+      page: doc.meta?.page,
+    };
+  },
+  recommendation: (
+    school: string,
+    id: string,
+    record: string,
+    signal?: AbortSignal,
+  ) =>
+    requestResource<RecommendationView>(
+      path(school, `/${part(id)}/recommendations/${part(record)}`),
+      "GET",
+      undefined,
+      signal,
+    ),
   async list(
     school: string,
     filter: PostManagementFilter = {},
@@ -118,6 +204,7 @@ export const postManagement = {
       items: doc.data.map(decodeResource) as PostManagementView[],
       page: doc.meta?.page,
       order_revision: Number(doc.meta?.order_revision),
+      can_recommend: doc.meta?.can_recommend === true,
     };
   },
   detail: (school: string, id: string, signal?: AbortSignal) =>

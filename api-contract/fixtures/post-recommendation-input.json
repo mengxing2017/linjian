@@ -1,0 +1,12 @@
+{
+  "data": {
+    "type": "post-recommendations",
+    "attributes": {
+      "revision": 12,
+      "content_revision": 3,
+      "publication_snapshot_id": "00000000-0000-0000-0000-000000000005",
+      "reason": "当前仍有参考价值",
+      "idempotency_key": "00000000-0000-0000-0000-000000000006"
+    }
+  }
+}

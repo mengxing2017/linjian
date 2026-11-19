@@ -1,0 +1,18 @@
+{
+  "data": {
+    "type": "post-recommendations",
+    "id": "00000000-0000-0000-0000-000000000004",
+    "attributes": {
+      "school_id": "00000000-0000-0000-0000-000000000001",
+      "post_id": "00000000-0000-0000-0000-000000000002",
+      "recommendation_id": "00000000-0000-0000-0000-000000000003",
+      "trigger_type": "manual_recommendation",
+      "state": "preparing",
+      "created_at": "2026-11-19T00:00:00Z",
+      "accepted_at": null,
+      "actor_name": "学校运营",
+      "reason": "当前仍有参考价值",
+      "terminated_reason": null
+    }
+  }
+}

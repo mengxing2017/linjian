@@ -106,6 +106,9 @@ export function resourceType(path: string): string {
   if (parts[1] === 'v2' && parts[2] === 'schools' && parts[4] === 'source-bindings') return 'source-bindings';
   if (parts[0] !== "api" || parts[1] !== "v1")
     throw new Error("Unknown resource path");
+  if(parts[2]==='schools' && parts[4]==='source-outbox' && parts[6]==='terminations')return 'source-event-terminations';
+  if(parts[2]==='schools' && parts[4]==='members' && parts[6]==='recommendation-capability')return 'post-recommendation-capabilities';
+  if(parts[2]==='schools' && parts[4]==='post-management' && parts[6]==='recommendations')return 'post-recommendations';
   if(parts[2]==='schools' && parts[4]==='source-outbox' && parts[6]==='preparation-retries')return 'source-preparation-retries';
   if(parts[2]==='schools' && parts[4]==='source-outbox' && parts[6]==='replays')return 'source-outbox-replays';
   if(parts[2]==='schools' && (parts[4]==='post-reviews' || (parts[4]==='posts' && parts[6]==='review')))return 'post-reviews';

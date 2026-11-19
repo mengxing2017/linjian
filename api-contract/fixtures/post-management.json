@@ -24,7 +24,8 @@
       "decided_at": null,
       "moderator_id": null,
       "is_top": false,
-      "cover_image": null
+      "cover_image": null,
+      "source_summary": null
     }
   }
 }
