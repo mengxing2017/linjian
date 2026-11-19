@@ -4849,3 +4849,6 @@ mod media_gc_tests;
 
 #[path = "post_recommendation/mod.rs"]
 mod post_recommendation_tests;
+
+#[path = "site_settings/mod.rs"]
+mod site_settings_tests;

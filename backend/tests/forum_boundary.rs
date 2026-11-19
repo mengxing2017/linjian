@@ -19,6 +19,44 @@ async fn blocked_words_jsonapi_matches_shared_fixture() {
         serde_json::from_slice(&to_bytes(response.into_body(), 8192).await.unwrap()).unwrap();
     assert_eq!(actual, fixture);
 }
+#[test]
+fn site_settings_fixtures_match_rust_contract() {
+    use linjian_api::site::domain::{AdminSiteSettings, PublicSiteSettings, SiteSettingsInput};
+    for name in ["site-settings-public-empty", "site-settings-public"] {
+        let mut attrs: serde_json::Value = serde_json::from_str(include_str!(
+            "../../api-contract/fixtures/site-settings-public.json"
+        ))
+        .unwrap();
+        if name == "site-settings-public-empty" {
+            attrs = serde_json::from_str(include_str!(
+                "../../api-contract/fixtures/site-settings-public-empty.json"
+            ))
+            .unwrap();
+        }
+        let attributes = attrs["data"]["attributes"].clone();
+        let public: PublicSiteSettings = serde_json::from_value(attributes.clone()).unwrap();
+        assert_eq!(serde_json::to_value(public).unwrap(), attributes);
+    }
+    let admin: serde_json::Value = serde_json::from_str(include_str!(
+        "../../api-contract/fixtures/site-settings-admin.json"
+    ))
+    .unwrap();
+    let attributes = admin["data"]["attributes"].clone();
+    let value: AdminSiteSettings = serde_json::from_value(attributes.clone()).unwrap();
+    assert_eq!(serde_json::to_value(value).unwrap(), attributes);
+    let input: serde_json::Value = serde_json::from_str(include_str!(
+        "../../api-contract/fixtures/site-settings-input.json"
+    ))
+    .unwrap();
+    let attributes = input["data"]["attributes"].clone();
+    let value = SiteSettingsInput::parse(attributes).unwrap();
+    assert_eq!(value.revision, 3);
+    assert_eq!(
+        value.normalize(2026).unwrap().copyright_owner.as_deref(),
+        Some("示例运营主体")
+    );
+}
+
 #[tokio::test]
 async fn routing_has_no_sender_or_shared_session_dependency() {
     let pool = sqlx::postgres::PgPoolOptions::new()
