@@ -1,9 +1,14 @@
 use super::*;
 
-fn input(revision: i64, site_name: Option<&str>) -> linjian_api::site::domain::SiteSettingsInput {
+fn input(
+    revision: i64,
+    site_name: Option<&str>,
+    logo_asset_id: Option<Uuid>,
+) -> linjian_api::site::domain::SiteSettingsInput {
     serde_json::from_value(json!({
         "revision": revision,
         "site_name": site_name,
+        "logo_asset_id": logo_asset_id,
         "title_subtitle": null,
         "login_intro": null,
         "icp_number": null,
@@ -77,14 +82,14 @@ async fn site_settings_are_public_atomic_and_platform_only() {
     assert!(app.site.admin(&non_platform).await.is_err());
     assert!(
         app.site
-            .update(&non_platform, input(0, Some("不应保存")))
+            .update(&non_platform, input(0, Some("不应保存"), None))
             .await
             .is_err()
     );
 
     let saved = app
         .site
-        .update(&actor, input(0, Some("示例校园")))
+        .update(&actor, input(0, Some("示例校园"), None))
         .await
         .unwrap();
     assert_eq!(saved.revision, 1);
@@ -94,7 +99,7 @@ async fn site_settings_are_public_atomic_and_platform_only() {
 
     let repeated = app
         .site
-        .update(&actor, input(1, Some("示例校园")))
+        .update(&actor, input(1, Some("示例校园"), None))
         .await
         .unwrap();
     assert_eq!(repeated.revision, 1);
@@ -108,10 +113,53 @@ async fn site_settings_are_public_atomic_and_platform_only() {
         1
     );
 
+    let mut bytes = Vec::new();
+    image::DynamicImage::new_rgba8(64, 64)
+        .write_to(
+            &mut std::io::Cursor::new(&mut bytes),
+            image::ImageFormat::Png,
+        )
+        .unwrap();
+    let uploaded = app
+        .media
+        .0
+        .upload(
+            &actor,
+            None,
+            "operation_artwork",
+            bytes.clone(),
+            Uuid::new_v4(),
+        )
+        .await
+        .unwrap();
+    let logo: Uuid = uploaded["id"].as_str().unwrap().parse().unwrap();
+    let with_logo = app
+        .site
+        .update(&actor, input(1, Some("示例校园"), Some(logo)))
+        .await
+        .unwrap();
+    assert_eq!(with_logo.revision, 2);
+    assert_eq!(
+        app.site.public().await.unwrap().logo_url.as_deref(),
+        Some("/api/v1/site-branding/logo?v=2")
+    );
+    let (mime, stored) = app.site.logo().await.unwrap();
+    assert_eq!(mime, "image/png");
+    assert_eq!(stored, bytes);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM file_asset_references WHERE object_type='site_settings'"
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        1
+    );
+
     assert!(
         matches!(
             app.site
-                .update(&actor, input(0, Some("旧版本")))
+                .update(&actor, input(0, Some("旧版本"), None))
                 .await
                 .unwrap_err(),
             linjian_api::business::Error::Conflict
@@ -119,9 +167,19 @@ async fn site_settings_are_public_atomic_and_platform_only() {
         "stale revisions must not overwrite the current value"
     );
 
-    let cleared = app.site.update(&actor, input(2, None)).await.unwrap();
+    let cleared = app.site.update(&actor, input(2, None, None)).await.unwrap();
     assert_eq!(cleared.revision, 3);
     assert_eq!(app.site.public().await.unwrap().site_name, None);
+    assert_eq!(app.site.public().await.unwrap().logo_url, None);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM file_asset_references WHERE object_type='site_settings'"
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        0
+    );
     assert_eq!(
         sqlx::query_scalar::<_, i64>("SELECT count(*) FROM forum_outbox")
             .fetch_one(&pool)
