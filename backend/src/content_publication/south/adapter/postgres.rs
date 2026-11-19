@@ -12,11 +12,10 @@ use uuid::Uuid;
 pub struct Repository(pub PgPool);
 impl Repository {
     pub async fn retry(&self, a: &Actor, school: Uuid, id: Uuid, input: Retry) -> Result<()> {
-        if !a.is_admin_browser() || !a.can(school, "operator") {
-            return Err(Error::NotFound);
-        }
+        a.platform()?;
         let reason = text(&input.reason, 1, 500)?;
         let mut tx = self.0.begin().await?;
+        crate::schools::south::adapter::postgres::preview::platform(&mut tx, a).await?;
         sqlx::query("SELECT id FROM schools WHERE id=$1 FOR UPDATE")
             .bind(school)
             .fetch_optional(&mut *tx)
