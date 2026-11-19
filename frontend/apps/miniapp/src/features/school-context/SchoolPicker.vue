@@ -7,8 +7,10 @@ import { session, restoreSession } from '../identity/session'
 import { usePage, confirm } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
 import BrandImage from './BrandImage.vue'
+import RegionPicker from './RegionPicker.vue'
 const directory = shallowRef<SchoolDisplay[]>([]),
   search = ref(''),
+  province = ref(''),
   city = ref(''),
   page = ref(1),
   more = ref(false)
@@ -21,6 +23,7 @@ const choices = computed(() =>
     ? schoolContext.schools.filter(
         (s) =>
           (s.name + s.short_name + s.area).includes(search.value) &&
+          (!province.value || s.province === province.value) &&
           (!city.value || s.city === city.value),
       )
     : directory.value,
@@ -38,6 +41,7 @@ function load(reset = true) {
     const result = await schoolsApi.directory({
       page: next,
       search: search.value,
+      province: province.value,
       city: city.value,
     })
     if (current()) {
@@ -64,7 +68,7 @@ defineExpose({ show: () => load() })
     <text class="heading">{{ session.user?.bound_school_id ? '选择学校' : '绑定学校' }}</text>
     <text class="muted">选择浏览范围不会增加学校权限；绑定后不能自行换校。</text>
     <input v-model="search" class="input" placeholder="搜索名称 / 简称 / 区域" />
-    <input v-model="city" class="input" placeholder="筛选城市" />
+    <RegionPicker v-model:province="province" v-model:city="city" />
     <button :disabled="busy" @tap="load()">搜索学校</button>
     <PageStatus :busy="busy" :error="error" :empty="!choices.length" @retry="load()" />
     <text v-if="session.user?.bound_school_id && !schoolContext.schools.length">
