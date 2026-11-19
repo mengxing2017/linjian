@@ -21,9 +21,11 @@ import { PaginationControls } from '../../../shared/pagination-controls'
 import { actionColumn, RowActions } from '../../../shared/row-actions'
 import { RegionCascader } from '../../../shared/region-cascader'
 import { RegionField } from '../../../shared/region-field'
+import { formatCoordinates } from '../../../shared/format-coordinates'
 import { CoordinatesField } from '../../../shared/coordinates-field'
 import {
   codesFromNames,
+  formatRegion,
   namesFromCodes,
   type RegionValue,
 } from '@linjian/china-regions'
@@ -528,20 +530,31 @@ export function Schools({
         pagination={false}
         dataSource={q.data?.items ?? []}
         loading={q.isFetching}
-        scroll={{ x: 1450 }}
+        scroll={{ x: 1270 }}
         columns={[
           {
             title: '图标',
             width: 100,
             render: (_, s) => <SchoolImage school={s.id} id={s.logo_asset_id} alt="学校图标" />,
           },
-          ...(['name', 'short_name', 'province', 'city', 'area'] as const).map((key, i) => ({
-            title: ['名称', '简称', '省份', '城市', '区域'][i],
+          ...(['name', 'short_name'] as const).map((key, i) => ({
+            title: ['名称', '简称'][i],
             dataIndex: key,
-            width: [200, 140, 100, 100, 140][i],
+            width: [200, 140][i],
           })),
-          { title: '纬度', width: 120, dataIndex: 'latitude' },
-          { title: '经度', width: 120, dataIndex: 'longitude' },
+          {
+            title: '地区',
+            key: 'region',
+            width: 240,
+            ellipsis: true,
+            render: (_, s) => formatRegion(s) || '—',
+          },
+          {
+            title: '坐标',
+            key: 'coordinates',
+            width: 160,
+            render: (_, s) => formatCoordinates(s.latitude, s.longitude),
+          },
           { title: '状态', width: 100, render: (_, s) => (s.status === 'normal' ? '正常' : '隐藏') },
           {
             title: '资料',
@@ -610,42 +623,34 @@ export function Schools({
             <Descriptions
               column={1}
               items={[
-                ...(
-                  [
-                    'name',
-                    'short_name',
-                    'province',
-                    'city',
-                    'area',
-                    'latitude',
-                    'longitude',
-                    'status',
-                    'theme_primary',
-                    'theme_secondary',
-                    'theme_text_color',
-                  ] as const
-                ).map((k, i) => ({
-                  key: k,
-                  label: [
-                    '名称',
-                    '简称',
-                    '省份',
-                    '城市',
-                    '区域',
-                    '纬度',
-                    '经度',
-                    '状态',
-                    '主题主色',
-                    '主题辅色',
-                    '主题文字色',
-                  ][i],
-                  children:
-                    k === 'status'
-                      ? detail.status === 'normal'
-                        ? '正常'
-                        : '隐藏'
-                      : String(detail[k] ?? '未填写'),
-                })),
+                { key: 'name', label: '名称', children: detail.name || '未填写' },
+                { key: 'short_name', label: '简称', children: detail.short_name || '未填写' },
+                { key: 'region', label: '地区', children: formatRegion(detail) || '未填写' },
+                {
+                  key: 'coordinates',
+                  label: '坐标',
+                  children: formatCoordinates(detail.latitude, detail.longitude),
+                },
+                {
+                  key: 'status',
+                  label: '状态',
+                  children: detail.status === 'normal' ? '正常' : '隐藏',
+                },
+                {
+                  key: 'theme_primary',
+                  label: '主题主色',
+                  children: detail.theme_primary || '未填写',
+                },
+                {
+                  key: 'theme_secondary',
+                  label: '主题辅色',
+                  children: detail.theme_secondary || '未填写',
+                },
+                {
+                  key: 'theme_text_color',
+                  label: '主题文字色',
+                  children: detail.theme_text_color || '未填写',
+                },
               ]}
             />
             <SchoolImage school={detail.id} id={detail.logo_asset_id} alt="学校图标" />

@@ -87,6 +87,17 @@ it('closes the create drawer and shows the created school name',async()=>{
  expect(await screen.findByText(/已创建「新学校」/,{}, {timeout:5000})).toBeTruthy()
  expect(screen.queryByText('资料与图片')).toBeNull()
 })
+it('shows regions and coordinates in merged columns',async()=>{
+ const item={...school,id:'school-1',name:'示例学校',province:'广东省',city:'广州市',area:'天河区',latitude:23.129163,longitude:113.264435}
+ vi.mocked(workspace.schoolProfiles.platform).mockResolvedValue({items:[item],page:{number:1,size:30,has_more:false}})
+ render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><Schools schools={[]} loading={false} refresh={async()=>{}} enter={()=>{}}/></QueryClientProvider>)
+ expect(await screen.findByRole('columnheader',{name:'地区'})).toBeTruthy()
+ expect(screen.getByRole('columnheader',{name:'坐标'})).toBeTruthy()
+ expect(screen.queryByRole('columnheader',{name:'省份'})).toBeNull()
+ expect(screen.queryByRole('columnheader',{name:'纬度'})).toBeNull()
+ expect(await screen.findByText('广东省 / 广州市 / 天河区')).toBeTruthy()
+ expect(screen.getByText('23.129163, 113.264435')).toBeTruthy()
+})
 it('filters schools by the selected region',async()=>{
  vi.mocked(workspace.schoolProfiles.platform).mockResolvedValue({items:[],page:{number:1,size:30,has_more:false}})
  render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><Schools schools={[]} loading={false} refresh={async()=>{}} enter={()=>{}}/></QueryClientProvider>)
