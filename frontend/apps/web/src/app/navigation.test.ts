@@ -20,6 +20,7 @@ it('exposes complete forum management without sending capabilities', () => {
       'settings',
       'schools',
       'accounts',
+      'site-settings',
     ]),
   )
   expect(
@@ -35,7 +36,7 @@ it('exposes complete forum management without sending capabilities', () => {
     operations: ['group-qrcodes','home-banners','customer-config','feedback'],
     school: ['schools', 'miniapp-users', 'members', 'settings'],
     source: ['source-connections', 'source-bindings', 'source-outbox'],
-    administration: ['administrators', 'accounts', 'audit'],
+    administration: ['administrators', 'accounts', 'site-settings', 'audit'],
   })
   expect(navigation.some((item) => item.key === 'comments')).toBe(false)
   expect(navigation.map((v) => v.key)).not.toEqual(
