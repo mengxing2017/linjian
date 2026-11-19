@@ -1,19 +1,21 @@
 import {afterEach,expect,it,vi} from 'vitest'
 import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react'
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query'
-import {SchoolForm} from './school-profile'
+import {SchoolForm,Schools} from './school-profile'
 import {workspace,type School} from './api'
 import {schoolDefaults} from '../../../test/school'
-vi.mock('./api',()=>({workspace:{schoolProfiles:{create:vi.fn(),update:vi.fn(),detail:vi.fn(),branding:vi.fn(),artwork:vi.fn()}},product:{resources:{artwork:vi.fn().mockResolvedValue({items:[]}),upload:vi.fn()}}}))
+vi.mock('./api',()=>({workspace:{schoolProfiles:{create:vi.fn(),update:vi.fn(),detail:vi.fn(),platform:vi.fn(),branding:vi.fn(),artwork:vi.fn()}},product:{resources:{artwork:vi.fn().mockResolvedValue({items:[]}),upload:vi.fn()}}}))
 afterEach(()=>{cleanup();vi.clearAllMocks()})
 const school:School={...schoolDefaults,id:'school',name:'示例学校',revision:3,config:{post_audit_mode:'manual',comment_audit_mode:'manual'}}
 function mount(platform:boolean,existing?:School){render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><SchoolForm school={existing} platform={platform} onSaved={async()=>{}}/></QueryClientProvider>)}
-it('provides the distinct coordinate and three theme fields, with images configured after creation',async()=>{
+it('creates with basics only and keeps theme defaults in the payload',async()=>{
  mount(true)
- for(const label of ['名称','简称','省份','城市','区域','纬度','经度','状态','主题主色','主题辅色','主题文字色'])expect(screen.getByLabelText(label)).toBeTruthy()
- expect(screen.getByText(/先保存资料/)).toBeTruthy()
+ for(const label of ['名称','简称','省份','城市','区域','纬度','经度','状态'])expect(screen.getByLabelText(label)).toBeTruthy()
+ expect(screen.queryByLabelText('主题主色')).toBeNull()
+ expect(screen.queryByLabelText('图标')).toBeNull()
+ expect(screen.getByText(/图标、背景图与主题色可在创建后完善/)).toBeTruthy()
  fireEvent.change(screen.getByLabelText('名称'),{target:{value:'新学校'}})
- fireEvent.click(screen.getByRole('button',{name:'保存资料'}))
+ fireEvent.click(screen.getByRole('button',{name:'创建学校'}))
  await waitFor(()=>expect(workspace.schoolProfiles.create).toHaveBeenCalledWith(expect.objectContaining({name:'新学校',status:'normal',revision:0,theme_primary:'#6A5AF9'})),{timeout:5000})
 })
 it('submits the revision and keeps school status out of a school administrator update',async()=>{
@@ -33,4 +35,19 @@ it('preserves local edits and disables overwrite after a revision conflict',asyn
  await screen.findByText('修订冲突',{}, {timeout:5000})
  expect(screen.getByLabelText('名称')).toHaveProperty('value','本地学校名称')
  expect(screen.getByRole('button',{name:'保存资料'})).toHaveProperty('disabled',true)
+})
+it('shows a saved notice after an edit succeeds',async()=>{
+ mount(true,school)
+ fireEvent.click(screen.getByRole('button',{name:'保存资料'}))
+ expect(await screen.findByText('已保存',{}, {timeout:5000})).toBeTruthy()
+})
+it('closes the create modal and shows the created school name',async()=>{
+ vi.mocked(workspace.schoolProfiles.platform).mockResolvedValue({items:[],page:{number:1,size:30,has_more:false}})
+ vi.mocked(workspace.schoolProfiles.create).mockResolvedValue({...school,id:'new-school',name:'新学校',revision:1})
+ render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><Schools schools={[]} loading={false} refresh={async()=>{}} enter={()=>{}}/></QueryClientProvider>)
+ fireEvent.click(screen.getByRole('button',{name:/^新\s*建$/}))
+ fireEvent.change(await screen.findByLabelText('名称'),{target:{value:'新学校'}})
+ fireEvent.click(screen.getByRole('button',{name:'创建学校'}))
+ expect(await screen.findByText(/已创建「新学校」/,{}, {timeout:5000})).toBeTruthy()
+ expect(screen.queryByText('资料与图片')).toBeNull()
 })
