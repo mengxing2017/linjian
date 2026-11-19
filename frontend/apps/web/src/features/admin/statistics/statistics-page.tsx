@@ -159,7 +159,6 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
     )
   return (
     <div className="business-panel" aria-label={titles[view]}>
-      <h2>{titles[view]}</h2>
       <Space wrap style={{ marginBottom: 16 }}>
         {view === 'schools' ? (
           <Tag>全部学校</Tag>
@@ -298,7 +297,13 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
           </p>
           <Row gutter={[12, 12]}>
             {metricKeys.map((key) => (
-              <Col xs={24} sm={12} xl={view === 'overview' ? 6 : 8} key={key}>
+              <Col
+                xs={24}
+                sm={12}
+                lg={view === 'registration' ? 6 : undefined}
+                xl={view === 'overview' || view === 'registration' ? 6 : 8}
+                key={key}
+              >
                 <Card size="small">
                   <Statistic title={metricNames[key]} value={r.summary[key] ?? '—'} />
                   {r.summary[key] == null ? (
