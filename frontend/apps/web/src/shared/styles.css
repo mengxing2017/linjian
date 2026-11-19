@@ -391,6 +391,17 @@ a:focus-visible {
   width: 100%;
   white-space: nowrap;
 }
+.linjian-data-table .school-row-new > td {
+  background: #f2efff;
+}
+.linjian-data-table .school-row-new > td:first-child {
+  box-shadow: inset 3px 0 0 #6a5af9;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .linjian-data-table .school-row-new > td {
+    transition: background-color 0.2s ease;
+  }
+}
 .table-cell-images {
   display: flex;
   flex-wrap: wrap;
@@ -488,6 +499,18 @@ a:focus-visible {
   gap: 24px;
   max-width: 800px;
   margin: 16px 0;
+}
+.school-form-section {
+  margin: 8px 0 -8px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.school-form-section:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 .business-form .ant-form-item {
   margin-bottom: 0;
