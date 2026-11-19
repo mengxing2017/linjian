@@ -49,3 +49,29 @@ test('keeps public indexes as session wiring and compatibility exports', () => {
     0,
   )
 })
+
+test('requires row action columns to stay fixed on the right', () => {
+  const file = 'apps/web/src/features/admin/example.tsx'
+  assert.equal(
+    violations(file, "const column={title:'操作',width:120,render:()=>null}").length,
+    1,
+  )
+  assert.equal(
+    violations(file, "const column={title:'操作',width:120,fixed:'right',render:()=>null}").length,
+    0,
+  )
+  assert.equal(
+    violations(
+      file,
+      "const column={title:'操作',width:120,fixed:'right' as const,render:()=>null}",
+    ).length,
+    0,
+  )
+  assert.equal(
+    violations(
+      'apps/web/src/shared/row-actions.tsx',
+      "const column={title:'操作',width:120,render:()=>null}",
+    ).length,
+    0,
+  )
+})

@@ -44,6 +44,36 @@ export function imports(source, filename) {
   }
   return found
 }
+export function actionColumnViolations(file, source) {
+  if (!/\.(?:ts|tsx)$/.test(file)) return []
+  if (/\/shared\/(?:row-actions|table-action)\.tsx?$/.test(file)) return []
+  const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const errors = []
+  const name = (node) =>
+    ts.isIdentifier(node) || ts.isStringLiteral(node) ? node.text : undefined
+  const literal = (node) => {
+    let value = node
+    while (ts.isAsExpression(value) || ts.isParenthesizedExpression(value))
+      value = value.expression
+    return ts.isStringLiteral(value) ? value.text : undefined
+  }
+  function visit(node) {
+    if (ts.isObjectLiteralExpression(node)) {
+      let title
+      let fixed
+      for (const property of node.properties) {
+        if (!ts.isPropertyAssignment(property)) continue
+        if (name(property.name) === 'title') title = literal(property.initializer)
+        if (name(property.name) === 'fixed') fixed = literal(property.initializer)
+      }
+      if (title === '操作' && fixed !== 'right')
+        errors.push('操作列必须设置 fixed: \'right\'')
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(tree)
+  return errors
+}
 export function violations(file, source) {
   const errors = []
   if (/^apps\/(web|miniapp)\/src\/.*\/index\.tsx?$/.test(file) && !/\/api\/index\.ts$/.test(file)) {
@@ -67,6 +97,7 @@ export function violations(file, source) {
         errors.push('index 不承载状态、查询或业务初始化，请移到具名模块')
     }
   }
+  for (const error of actionColumnViolations(file, source)) errors.push(error)
   for (const spec of imports(source, file)) {
     if (spec === '<computed-import>') errors.push('动态导入必须使用可检查的字面量')
     if (spec.startsWith('@linjian/api-contract') && !/\/features\/.+\/api\/index\.ts$/.test(file))
