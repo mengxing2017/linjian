@@ -12,6 +12,8 @@ vi.mock('./api', () => ({
       delete: vi.fn(),
       reorder: vi.fn(),
       detail: vi.fn(),
+      recommendationPreview: vi.fn().mockResolvedValue({authorized: false, can_recommend: false, latest: null}),
+      recommendations: vi.fn().mockResolvedValue({items: []}),
     },
     review: vi.fn(),
     mutate: vi.fn(),
@@ -33,6 +35,7 @@ const post: PostManagementView = {
   top_sort: 0,
   is_top: false,
   cover_image: null,
+  source_summary: null,
   revision: 3,
   content_revision: 1,
   review_digest: 'digest',
@@ -90,6 +93,7 @@ it('shows the ten business columns in order and separates creation privileges fr
     '主图',
     '图集',
     '创建时间',
+    '最近推送',
     '操作',
   ])
   expect(screen.getAllByText('校园、生活')).toHaveLength(2)
