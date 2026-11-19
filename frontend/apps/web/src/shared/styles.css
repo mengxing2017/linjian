@@ -569,6 +569,24 @@ a:focus-visible {
   margin-bottom: 0;
   min-width: 0;
 }
+.form-pair {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+  align-items: start;
+}
+.form-pair > label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.form-pair > label .ant-picker,
+.form-pair > label .ant-select,
+.form-pair > label .ant-input-number {
+  width: 100%;
+}
 .coordinate-field {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -577,6 +595,7 @@ a:focus-visible {
 @media (max-width: 768px) {
   .form-grid,
   .form-grid--3,
+  .form-pair,
   .coordinate-field {
     grid-template-columns: minmax(0, 1fr);
   }
