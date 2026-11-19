@@ -46,10 +46,14 @@ pub(super) async fn guard(
     }
     crate::schools::south::adapter::postgres::profiles::lock_active_school(tx, s).await
 }
-const VIEW: &str = "jsonb_build_object('id',p.id,'school_id',p.school_id,'school_name',s.name,'author_id',p.author_id,'author_nickname',coalesce(nullif(btrim(u.nickname),''),nullif(btrim(a.display_name),''),'未知用户'),'title',p.title,'content',p.content,'images',p.images,'tags',p.tags,'created_at',p.created_at,'audit_status',p.audit_status,'visibility',p.visibility,'top_sort',p.top_sort,'revision',p.revision,'content_revision',p.content_revision,'is_top',p.is_top,'cover_image',p.images->>0)||forum_decision_details(p.school_id,p.id,'post',p.content_revision,p.audit_status)";
+const VIEW: &str = "jsonb_build_object('id',p.id,'school_id',p.school_id,'school_name',s.name,'author_id',p.author_id,'author_nickname',coalesce(nullif(btrim(u.nickname),''),nullif(btrim(a.display_name),''),'未知用户'),'title',p.title,'content',p.content,'images',p.images,'tags',p.tags,'created_at',p.created_at,'audit_status',p.audit_status,'visibility',p.visibility,'top_sort',p.top_sort,'revision',p.revision,'content_revision',p.content_revision,'is_top',p.is_top,'cover_image',p.images->>0,'source_summary',(SELECT jsonb_build_object('id',o.id,'state',CASE WHEN o.delivery_state='accepted' THEN 'accepted' WHEN o.delivery_state='cancelled' THEN 'cancelled' WHEN o.delivery_state IN ('blocked','waiting_binding','waiting_configuration','paused') OR prep.state='blocked' THEN 'blocked' WHEN o.request_body IS NULL THEN 'preparing' ELSE 'processing' END,'created_at',o.created_at) FROM forum_outbox o LEFT JOIN forum_publication_preparations prep ON prep.event_id=o.id WHERE o.school_id=p.school_id AND o.post_id=p.id ORDER BY o.created_at DESC,o.id DESC LIMIT 1))||forum_decision_details(p.school_id,p.id,'post',p.content_revision,p.audit_status)";
 const JOIN: &str = " FROM posts p JOIN schools s ON s.id=p.school_id LEFT JOIN accounts a ON a.id=p.author_id LEFT JOIN miniapp_users u ON u.account_id=p.author_id ";
 fn decode(mut row: Value) -> Result<PostManagementView> {
     row["review_digest"] = review::digest(&row)?.into();
+    let source_summary = row.get("source_summary").filter(|v| !v.is_null()).cloned();
+    row.as_object_mut()
+        .ok_or(Error::Unavailable)?
+        .remove("source_summary");
     let is_top = row["is_top"].as_bool().ok_or(Error::Unavailable)?;
     let cover_image = row["cover_image"].as_str().map(str::to_owned);
     row.as_object_mut()
@@ -60,6 +64,7 @@ fn decode(mut row: Value) -> Result<PostManagementView> {
         post: serde_json::from_value(row).map_err(|_| Error::Unavailable)?,
         is_top,
         cover_image,
+        source_summary,
     })
 }
 pub(super) async fn detail(
@@ -162,11 +167,13 @@ impl Repository {
         let (limit, offset) = f.pagination().fetch_bounds()?;
         let rows:Vec<Value>=sqlx::query_scalar(&format!("SELECT {VIEW}{JOIN} WHERE p.school_id=$1 AND p.visibility<>'deleted' AND ($2::text IS NULL OR $2='' OR p.audit_status=$2) AND ($3::text IS NULL OR $3='' OR p.visibility=$3) AND ($4::boolean IS NULL OR p.is_top=$4) AND (p.title ILIKE '%'||$5||'%' OR p.content ILIKE '%'||$5||'%' OR coalesce(nullif(btrim(u.nickname),''),a.display_name,'未知用户') ILIKE '%'||$5||'%') AND ($6::text IS NULL OR $6='' OR p.tags ? $6) AND ($7::timestamptz IS NULL OR p.created_at>=$7) AND ($8::timestamptz IS NULL OR p.created_at<=$8) ORDER BY p.is_top DESC,p.sort_order DESC,p.created_at DESC,p.id LIMIT $9 OFFSET $10"))
   .bind(s).bind(f.audit_status).bind(f.visibility).bind(f.is_top).bind(f.search.unwrap_or_default()).bind(f.tag).bind(f.created_from).bind(f.created_to).bind(limit).bind(offset).fetch_all(&mut *tx).await?;
+        let can_recommend = super::post_recommendation::can_recommend(&mut tx, a, s).await?;
         let items = rows.into_iter().map(decode).collect::<Result<_>>()?;
         tx.commit().await?;
         Ok(PostManagementPage {
             items,
             order_revision,
+            can_recommend,
         })
     }
     pub async fn management_detail(

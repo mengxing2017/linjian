@@ -166,3 +166,9 @@ mod tests {
 pub mod profile;
 
 pub mod home_menu;
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecommendationCapability {
+    pub enabled: bool,
+}

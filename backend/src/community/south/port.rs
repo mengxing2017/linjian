@@ -5,6 +5,28 @@ use crate::community::domain::{post_import::*, post_management::*};
 use serde_json::Value;
 use uuid::Uuid;
 pub trait Store: Clone + Send + Sync + 'static {
+    fn recommendation_preview(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+    ) -> impl std::future::Future<Output = Result<Value>> + Send;
+    fn recommend_post(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+        input: crate::community::domain::post_recommendation::RecommendPost,
+    ) -> impl std::future::Future<Output = Result<(Value, bool)>> + Send;
+    fn recommendations(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+        record: Option<Uuid>,
+        page: Page,
+    ) -> impl std::future::Future<Output = Result<Vec<Value>>> + Send;
+
     fn management_list(
         &self,
         a: &Actor,

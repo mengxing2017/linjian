@@ -154,8 +154,26 @@ async fn global_resources(State(a): State<Application>, actor: Actor) -> Result<
         a.schools.global_resources(&actor).await?,
     ))
 }
+
+async fn recommendation_capability(
+    State(app): State<Application>,
+    actor: Actor,
+    Path((school, id)): Path<(Uuid, Uuid)>,
+    input: Input,
+) -> Result<ApiResponse> {
+    let v: crate::schools::domain::RecommendationCapability =
+        input.decode("post-recommendation-capabilities")?;
+    app.schools
+        .recommendation_capability(&actor, school, id, v.enabled)
+        .await?;
+    Ok(completed())
+}
 pub fn router() -> Router<Application> {
     Router::new()
+        .route(
+            "/api/v1/schools/{school}/members/{id}/recommendation-capability",
+            put(recommendation_capability),
+        )
         .route("/api/v1/platform/resources", get(global_resources))
         .route("/api/v1/platform/schools", get(platform_list))
         .route(

@@ -76,3 +76,38 @@ impl<R: Store> Service<R> {
         self.0.management_reorder(a, s, v).await
     }
 }
+
+impl<R: Store> Service<R> {
+    pub async fn recommendation_preview(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+    ) -> Result<serde_json::Value> {
+        a.authorize(s, "operator")?;
+        self.0.recommendation_preview(a, s, id).await
+    }
+    pub async fn recommend_post(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+        mut input: crate::community::domain::post_recommendation::RecommendPost,
+    ) -> Result<(serde_json::Value, bool)> {
+        a.authorize(s, "operator")?;
+        input.validate()?;
+        self.0.recommend_post(a, s, id, input).await
+    }
+    pub async fn recommendations(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+        record: Option<Uuid>,
+        page: Page,
+    ) -> Result<Vec<serde_json::Value>> {
+        a.authorize(s, "operator")?;
+        page.bounds()?;
+        self.0.recommendations(a, s, id, record, page).await
+    }
+}

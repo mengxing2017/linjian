@@ -8,6 +8,7 @@ pub struct PostManagementView {
     pub post: PostReview,
     pub is_top: bool,
     pub cover_image: Option<String>,
+    pub source_summary: Option<serde_json::Value>,
 }
 #[derive(Default, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -57,6 +58,7 @@ impl PostManagementFilters {
 pub struct PostManagementPage {
     pub items: Vec<PostManagementView>,
     pub order_revision: i64,
+    pub can_recommend: bool,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

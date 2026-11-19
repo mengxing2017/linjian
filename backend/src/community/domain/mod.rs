@@ -70,3 +70,5 @@ pub mod case;
 
 pub mod post_import;
 pub mod post_management;
+
+pub mod post_recommendation;

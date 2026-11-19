@@ -6,6 +6,7 @@ mod post_content;
 mod post_import;
 mod post_management;
 mod post_order;
+mod post_recommendation;
 mod reviews;
 use crate::business::{Actor, Decision, Error, Page, Result, require};
 use crate::community::domain::{CommentInput, PostInput};
@@ -369,6 +370,29 @@ impl Repository {
 }
 
 impl crate::community::south::port::Store for Repository {
+    async fn recommendation_preview(&self, a: &Actor, s: Uuid, id: Uuid) -> Result<Value> {
+        Repository::recommendation_preview(self, a, s, id).await
+    }
+    async fn recommend_post(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+        input: crate::community::domain::post_recommendation::RecommendPost,
+    ) -> Result<(Value, bool)> {
+        Repository::recommend_post(self, a, s, id, input).await
+    }
+    async fn recommendations(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+        record: Option<Uuid>,
+        page: Page,
+    ) -> Result<Vec<Value>> {
+        Repository::recommendations(self, a, s, id, record, page).await
+    }
+
     async fn management_list(
         &self,
         a: &Actor,

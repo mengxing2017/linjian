@@ -44,10 +44,9 @@ async fn list(
         .map(serde_json::to_value)
         .collect::<std::result::Result<Vec<_>, _>>()
         .map_err(|_| Error::Unavailable)?;
-    Ok(private(
-        collection("post-management", values, &page)
-            .meta(json!({"order_revision":result.order_revision})),
-    ))
+    Ok(private(collection("post-management", values, &page).meta(
+        json!({"order_revision":result.order_revision,"can_recommend":result.can_recommend}),
+    )))
 }
 async fn detail(
     State(app): State<Application>,
@@ -225,8 +224,73 @@ async fn commit(
             .await?,
     )))
 }
+
+async fn recommendation_preview(
+    State(app): State<Application>,
+    a: Actor,
+    Path((s, id)): Path<(Uuid, Uuid)>,
+) -> Result<Response> {
+    Ok(private(resource(
+        "post-recommendation-previews",
+        app.community.recommendation_preview(&a, s, id).await?,
+    )))
+}
+async fn recommend(
+    State(app): State<Application>,
+    a: Actor,
+    Path((s, id)): Path<(Uuid, Uuid)>,
+    input: Input,
+) -> Result<Response> {
+    let (value, created) = app
+        .community
+        .recommend_post(&a, s, id, input.decode("post-recommendations")?)
+        .await?;
+    let mut response = private(resource("post-recommendations", value));
+    if created {
+        *response.status_mut() = axum::http::StatusCode::CREATED;
+    }
+    Ok(response)
+}
+async fn recommendations(
+    State(app): State<Application>,
+    a: Actor,
+    Path((s, id)): Path<(Uuid, Uuid)>,
+    Query(page): Query<crate::business::Page>,
+) -> Result<Response> {
+    let rows = app
+        .community
+        .recommendations(&a, s, id, None, page.clone())
+        .await?;
+    Ok(private(collection("post-recommendations", rows, &page)))
+}
+async fn recommendation(
+    State(app): State<Application>,
+    a: Actor,
+    Path((s, id, event)): Path<(Uuid, Uuid, Uuid)>,
+) -> Result<Response> {
+    let row = app
+        .community
+        .recommendations(&a, s, id, Some(event), crate::business::Page::default())
+        .await?
+        .into_iter()
+        .next()
+        .ok_or(Error::NotFound)?;
+    Ok(private(resource("post-recommendations", row)))
+}
 pub(super) fn router() -> Router<Application> {
     Router::new()
+        .route(
+            "/api/v1/schools/{school}/post-management/{id}/recommendation-preview",
+            get(recommendation_preview),
+        )
+        .route(
+            "/api/v1/schools/{school}/post-management/{id}/recommendations",
+            get(recommendations).post(recommend),
+        )
+        .route(
+            "/api/v1/schools/{school}/post-management/{id}/recommendations/{event}",
+            get(recommendation),
+        )
         .route(
             "/api/v1/schools/{school}/post-management",
             get(list).post(create),

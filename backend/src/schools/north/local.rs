@@ -62,3 +62,16 @@ impl Service<Repository> {
             .map_err(|_| crate::business::Error::Unavailable)
     }
 }
+
+impl Service<Repository> {
+    pub async fn recommendation_capability(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        id: Uuid,
+        enabled: bool,
+    ) -> Result<()> {
+        a.authorize(s, "admin")?;
+        self.0.recommendation_capability(a, s, id, enabled).await
+    }
+}
