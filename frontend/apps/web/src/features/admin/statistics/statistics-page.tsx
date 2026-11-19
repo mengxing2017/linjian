@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
+import dayjs from 'dayjs'
 import {
   Alert,
   Collapse,
@@ -26,6 +27,7 @@ import { metricNames, shanghai } from './metrics'
 import { titles, metricGroups, coverageReasons } from './views'
 import { PeriodPanel } from './period-panel'
 import { SchoolComparison } from './school-comparison'
+import { DatePicker } from '../../../shared/date-picker'
 interface Props {
   view?: StatisticsView
   user: { id: string; platform_admin: boolean; grants: { school_id: string; role: string }[] }
@@ -216,22 +218,24 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
             <>
               <label>
                 开始日期{' '}
-                <input
+                <DatePicker
                   aria-label="开始日期"
-                  type="date"
-                  max={date()}
-                  value={query.start_date}
-                  onChange={(e) => update({ start: e.target.value })}
+                  value={query.start_date ? dayjs(query.start_date) : null}
+                  maxDate={dayjs(date())}
+                  allowClear={false}
+                  format="YYYY-MM-DD"
+                  onChange={(value) => update({ start: value?.format('YYYY-MM-DD') ?? '' })}
                 />
               </label>
               <label>
                 结束日期{' '}
-                <input
+                <DatePicker
                   aria-label="结束日期"
-                  type="date"
-                  max={date()}
-                  value={query.end_date}
-                  onChange={(e) => update({ end: e.target.value })}
+                  value={query.end_date ? dayjs(query.end_date) : null}
+                  maxDate={dayjs(date())}
+                  allowClear={false}
+                  format="YYYY-MM-DD"
+                  onChange={(value) => update({ end: value?.format('YYYY-MM-DD') ?? '' })}
                 />
               </label>
               <Select
@@ -247,12 +251,13 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
           ) : (
             <>
               <Button onClick={() => shift(-1)}>上一周期</Button>
-              <input
+              <DatePicker
                 aria-label="周期日期"
-                type="date"
-                max={date()}
-                value={query.anchor_date}
-                onChange={(e) => update({ date: e.target.value })}
+                value={query.anchor_date ? dayjs(query.anchor_date) : null}
+                maxDate={dayjs(date())}
+                allowClear={false}
+                format="YYYY-MM-DD"
+                onChange={(value) => update({ date: value?.format('YYYY-MM-DD') ?? '' })}
               />
               <Button disabled={shiftedDate(1) > date()} onClick={() => shift(1)}>
                 下一周期
