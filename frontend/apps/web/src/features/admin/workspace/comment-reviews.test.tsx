@@ -32,7 +32,7 @@ it('requires reloading a conflicted comment before submitting its new revision',
 
   vi.mocked(workspace.list).mockResolvedValue({ items: [{ ...comment, content: '新评论', revision: 2 }] })
   vi.mocked(workspace.mutate).mockResolvedValue({ id: comment.id })
-  fireEvent.click(detail.getByRole('button', { name: '重新加载评论全文' }))
+  fireEvent.click(detail.getByRole('button', { name: '重新加载全文' }))
   await detail.findByText('新评论')
   await waitFor(() => expect(detail.getByRole('button', { name: '已拒绝' })).toHaveProperty('disabled', false))
   fireEvent.click(detail.getByRole('button', { name: '已拒绝' }))

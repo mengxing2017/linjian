@@ -47,7 +47,7 @@ it('opens platform statistics without choosing the first school', async () => {
       expect.any(AbortSignal),
     ),
   )
-  expect(screen.getByLabelText('统计学校范围')).toBeTruthy()
+  expect(screen.getByLabelText('学校范围')).toBeTruthy()
   expect(screen.getByLabelText('统计概览')).toBeTruthy()
   expect(statisticsApi.schools).not.toHaveBeenCalled()
 })
@@ -61,7 +61,7 @@ it('fixes a school administrator to their authorized school', async () => {
       expect.any(AbortSignal),
     ),
   )
-  expect(screen.queryByLabelText('统计学校范围')).toBeNull()
+  expect(screen.queryByLabelText('学校范围')).toBeNull()
   expect(screen.getByText('统计学校：甲校')).toBeTruthy()
   expect(await screen.findByText('统计服务暂时不可用')).toBeTruthy()
 })
@@ -76,7 +76,7 @@ it('allows a platform administrator to open a school before selector options loa
     ),
   )
   expect(screen.queryByText('无权查看该学校统计，请选择有管理授权的学校。')).toBeNull()
-  expect(screen.getByLabelText('统计学校范围')).toBeTruthy()
+  expect(screen.getByLabelText('学校范围')).toBeTruthy()
 })
 it('keeps platform scope controls available when a direct-linked school is absent from the list', async () => {
   vi.mocked(statisticsApi.report).mockRejectedValue(new Error('学校不存在'))
@@ -88,7 +88,7 @@ it('keeps platform scope controls available when a direct-linked school is absen
     expect.any(AbortSignal),
   )
   expect(screen.queryByText('无权查看该学校统计，请选择有管理授权的学校。')).toBeNull()
-  expect(screen.getByLabelText('统计学校范围')).toBeTruthy()
+  expect(screen.getByLabelText('学校范围')).toBeTruthy()
 })
 it('does not request another school through a forged statistics URL', () => {
   show(false, '&statistics_school=b')

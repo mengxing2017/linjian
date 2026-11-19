@@ -58,7 +58,7 @@ it('requires a reason and submits the user revision when banning within the scho
     { timeout: 5000 },
   )) as HTMLButtonElement
   expect(confirm.disabled).toBe(true)
-  fireEvent.change(screen.getByLabelText('用户操作原因'), { target: { value: '违反学校规则' } })
+  fireEvent.change(screen.getByLabelText('操作原因'), { target: { value: '违反学校规则' } })
   fireEvent.click(confirm)
   await waitFor(() =>
     expect(miniappUsers.status).toHaveBeenCalledWith('school-1', user, 'banned', '违反学校规则'),

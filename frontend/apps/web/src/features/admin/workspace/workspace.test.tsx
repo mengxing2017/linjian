@@ -30,8 +30,8 @@ it('restores the selected school and business page from its URL', async () => {
   const schoolsTitle = await screen.findByText('学校管理', { selector: 'h1' })
   expect(within(schoolsTitle.parentElement!).getByRole('heading', { name: '学校管理', level: 1 })).toBe(schoolsTitle)
   expect(screen.queryByLabelText('当前学校')).toBeNull()
-  fireEvent.click(screen.getByRole('button', { name: '新建学校' }))
-  expect(await screen.findByLabelText('学校名称')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: /^新\s*建$/ }))
+  expect(await screen.findByLabelText('名称')).toBeTruthy()
 })
 
 function LocationProbe() {
@@ -100,13 +100,13 @@ it('separates ordinary accounts and administrators by privilege, not display nam
   expect(await screen.findByText('ordinary')).toBeTruthy()
   expect(screen.queryByLabelText('当前学校')).toBeNull()
   expect(screen.queryByText('平台维护者')).toBeNull()
-  expect(screen.queryByText('新建学校', { exact: true })).toBeNull()
+  expect(screen.queryByRole('heading', { name: '学校管理', level: 1 })).toBeNull()
   fireEvent.click(within(screen.getByRole('menu')).getByText('平台管理员', { exact: true }))
   const adminRow = (await screen.findByText('平台维护者')).closest('tr')!
   expect(adminRow).toBeTruthy()
   expect(screen.queryByText('ordinary')).toBeNull()
-  expect(screen.queryByText('新建账号', { exact: true })).toBeNull()
-  expect(within(adminRow).queryByRole('button', {name:'编辑账号'})).toBeNull()
+  expect(screen.queryByRole('button', { name: /^新\s*建$/ })).toBeNull()
+  expect(within(adminRow).queryByRole('button', {name:/^编\s*辑$/})).toBeNull()
 })
 
 it('requires a new session after resetting the current platform administrator password', async () => {
@@ -129,11 +129,11 @@ it('searches and paginates schools, and opens settings for the selected row', as
   expect(screen.queryByText('学校-11')).toBeNull()
   fireEvent.click(screen.getByRole('button',{name:'下一页'}))
   expect(await screen.findByText('学校-11')).toBeTruthy()
-  fireEvent.change(screen.getByLabelText('搜索学校'), {target:{value:'学校-11'}})
+  fireEvent.change(screen.getByLabelText('搜索名称、简称或区域'), {target:{value:'学校-11'}})
   const row = (await screen.findByText('学校-11')).closest('tr')!
-  fireEvent.click(within(row).getByRole('button', {name:'学校配置'}))
-  expect(await screen.findByLabelText('学校名称')).toHaveProperty('value','学校-11')
-  expect(screen.getByText('学校-11 · 学校设置')).toBeTruthy()
+  fireEvent.click(within(row).getByRole('button', {name:/^设\s*置$/}))
+  expect(await screen.findByLabelText('名称')).toHaveProperty('value','学校-11')
+  expect(screen.getByText('学校-11 · 设置')).toBeTruthy()
 })
 
 it('shows account grants across schools and saves global account state without a school id', async () => {
@@ -148,7 +148,7 @@ it('shows account grants across schools and saves global account state without a
   const details = screen.getByRole('dialog')
   fireEvent.click(within(details).getByRole('button', {name:'Close'}))
   await waitFor(() => expect(details.isConnected).toBe(false))
-  fireEvent.click(row.getByRole('button', {name:'编辑账号'}))
+  fireEvent.click(row.getByRole('button', {name:/^编\s*辑$/}))
   const editor = within(screen.getByRole('dialog'))
   await selectOption(editor.getByLabelText('账号状态（全平台）'), '停用')
   fireEvent.click(editor.getByRole('button', {name:/^保\s*存$/}))
@@ -161,7 +161,7 @@ it.each(['member','operator'] as const)('blocks school settings and member admin
   await waitFor(() => expect(workspace.schools).toHaveBeenCalled())
   expect(screen.queryByRole('menuitem', {name:'学校设置'})).toBeNull()
   expect(screen.queryByRole('menuitem', {name:'学校成员与权限'})).toBeNull()
-  expect(screen.queryByLabelText('学校名称')).toBeNull()
+  expect(screen.queryByLabelText('名称')).toBeNull()
   expect(screen.queryByRole('menuitem', {name:'登录账号管理'})).toBeNull()
 })
 
@@ -284,7 +284,7 @@ it('keeps member identity first and only offers row authorization to platform ad
 
 it('keeps school settings scoped after moving them into platform functions', async () => {
   showManagement('settings', false, 'admin')
-  expect(await screen.findByLabelText('学校名称')).toBeTruthy()
+  expect(await screen.findByLabelText('名称')).toBeTruthy()
   expect(screen.getByLabelText('当前学校')).toBeTruthy()
   expect(screen.queryByText('范围：全平台')).toBeNull()
 })

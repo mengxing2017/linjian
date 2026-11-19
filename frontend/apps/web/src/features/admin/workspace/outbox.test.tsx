@@ -55,7 +55,7 @@ it('opens complete identifiers and errors from the compact list in the detail di
  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Outbox school="school-1" /></QueryClientProvider>)
  fireEvent.click(await screen.findByRole('button', { name: event.id }))
  const dialog = within(await screen.findByRole('dialog'))
- expect(dialog.getByText('发件详情')).toBeTruthy()
+ expect(dialog.getByText('详情')).toBeTruthy()
  expect(await dialog.findByText(event.last_error)).toBeTruthy()
  expect(dialog.getByText(event.blocked_reason)).toBeTruthy()
  expect(dialog.getByText(event.id)).toBeTruthy()
