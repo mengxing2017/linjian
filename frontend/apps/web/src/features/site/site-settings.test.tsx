@@ -14,6 +14,7 @@ vi.mock('./api', () => ({
 const full: PublicSiteSettings = {
   revision: 3,
   site_name: '示例校园',
+  logo_url: null,
   title_subtitle: '校园内容运营',
   login_intro: '连接学校、内容与社区',
   icp_number: '京ICP备00000000号-1',
@@ -62,6 +63,20 @@ it('renders no brand container when the site name is empty', () => {
   expect(view.container.textContent).toBe('')
   view.rerender(<SiteBrand value={{ ...full, site_name: '  ' }} />)
   expect(view.container.textContent).toBe('')
+})
+
+it('renders a configured logo without a fixed letter fallback', () => {
+  render(
+    <SiteBrand
+      value={{
+        ...full,
+        site_name: null,
+        logo_url: '/api/v1/site-branding/logo?v=3',
+      }}
+    />,
+  )
+  const logo = screen.getByRole('img', { name: '站点标志' })
+  expect(logo.getAttribute('src')).toBe('/api/v1/site-branding/logo?v=3')
 })
 
 it('loads public settings once and reuses the last successful value', async () => {

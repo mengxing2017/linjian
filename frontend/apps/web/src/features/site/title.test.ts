@@ -6,6 +6,7 @@ import { entryTitle, pageTitle } from './title'
 const full: PublicSiteSettings = {
   revision: 3,
   site_name: '示例校园',
+  logo_url: null,
   title_subtitle: '校园内容运营',
   login_intro: null,
   icp_number: null,

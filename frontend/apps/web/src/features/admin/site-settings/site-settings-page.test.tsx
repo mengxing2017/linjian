@@ -11,10 +11,15 @@ vi.mock('../../site', async (importOriginal) => {
     siteSettings: { read: vi.fn(), update: vi.fn() },
   }
 })
+vi.mock('../operations/media-picker', () => ({
+  MediaPicker: () => <span>平台 Logo 选择器</span>,
+}))
 
 const empty: AdminSiteSettings = {
   revision: 0,
   site_name: null,
+  logo_asset_id: null,
+  logo_url: null,
   title_subtitle: null,
   login_intro: null,
   icp_number: null,
@@ -63,6 +68,7 @@ it('saves every field with the loaded revision', async () => {
   expect(vi.mocked(siteSettings.update).mock.calls[0][0]).toMatchObject({
     revision: 0,
     site_name: '示例校园',
+    logo_asset_id: null,
     title_subtitle: null,
     icp_number: null,
     police_number: null,
