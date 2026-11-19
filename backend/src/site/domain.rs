@@ -15,6 +15,7 @@ pub enum CopyrightEndMode {
 #[serde(deny_unknown_fields)]
 pub struct SiteConfig {
     pub site_name: Option<String>,
+    pub logo_asset_id: Option<Uuid>,
     pub title_subtitle: Option<String>,
     pub login_intro: Option<String>,
     pub icp_number: Option<String>,
@@ -32,6 +33,7 @@ pub struct SiteConfig {
 pub struct SiteSettingsInput {
     pub revision: i64,
     pub site_name: Option<String>,
+    pub logo_asset_id: Option<Uuid>,
     pub title_subtitle: Option<String>,
     pub login_intro: Option<String>,
     pub icp_number: Option<String>,
@@ -47,6 +49,7 @@ pub struct SiteSettingsInput {
 const FIELDS: &[&str] = &[
     "revision",
     "site_name",
+    "logo_asset_id",
     "title_subtitle",
     "login_intro",
     "icp_number",
@@ -136,6 +139,7 @@ impl SiteSettingsInput {
             };
         Ok(SiteConfig {
             site_name,
+            logo_asset_id: self.logo_asset_id,
             title_subtitle,
             login_intro,
             icp_number,
@@ -252,6 +256,9 @@ impl SiteConfig {
         PublicSiteSettings {
             revision,
             site_name: self.site_name.clone(),
+            logo_url: self
+                .logo_asset_id
+                .map(|_| format!("/api/v1/site-branding/logo?v={revision}")),
             title_subtitle: self.title_subtitle.clone(),
             login_intro: self.login_intro.clone(),
             icp_number: self.icp_number.clone(),
@@ -274,6 +281,10 @@ impl SiteConfig {
         AdminSiteSettings {
             revision,
             site_name: self.site_name.clone(),
+            logo_asset_id: self.logo_asset_id,
+            logo_url: self
+                .logo_asset_id
+                .map(|_| format!("/api/v1/site-branding/logo?v={revision}")),
             title_subtitle: self.title_subtitle.clone(),
             login_intro: self.login_intro.clone(),
             icp_number: self.icp_number.clone(),
@@ -297,6 +308,7 @@ impl SiteConfig {
 pub struct PublicSiteSettings {
     pub revision: i64,
     pub site_name: Option<String>,
+    pub logo_url: Option<String>,
     pub title_subtitle: Option<String>,
     pub login_intro: Option<String>,
     pub icp_number: Option<String>,
@@ -325,6 +337,8 @@ pub struct SiteSettingsHistory {
 pub struct AdminSiteSettings {
     pub revision: i64,
     pub site_name: Option<String>,
+    pub logo_asset_id: Option<Uuid>,
+    pub logo_url: Option<String>,
     pub title_subtitle: Option<String>,
     pub login_intro: Option<String>,
     pub icp_number: Option<String>,
@@ -404,11 +418,12 @@ mod tests {
     #[test]
     fn all_fields_are_required_and_empty_values_normalize_to_null() {
         assert!(
-            SiteSettingsInput::parse(json!({"revision":0,"site_name":null})).is_err(),
+            SiteSettingsInput::parse(json!({"revision":0,"logo_asset_id":null,"site_name":null}))
+                .is_err(),
             "an absent field must not be treated as a clear operation"
         );
         let value = input(json!({
-            "revision":0,"site_name":"  示例校园  ","title_subtitle":"  ","login_intro":null,
+            "revision":0,"logo_asset_id":null,"site_name":"  示例校园  ","title_subtitle":"  ","login_intro":null,
             "icp_number":null,"police_number":null,"police_url":null,"copyright_owner":null,
             "copyright_start_year":null,"copyright_end_mode":null,"copyright_end_year":null,
             "copyright_notice":null
@@ -421,7 +436,7 @@ mod tests {
     #[test]
     fn text_and_police_link_are_explicit() {
         let base = json!({
-            "revision":0,"site_name":"<b>x</b>","title_subtitle":null,"login_intro":null,
+            "revision":0,"logo_asset_id":null,"site_name":"<b>x</b>","title_subtitle":null,"login_intro":null,
             "icp_number":null,"police_number":null,"police_url":null,"copyright_owner":null,
             "copyright_start_year":null,"copyright_end_mode":null,"copyright_end_year":null,
             "copyright_notice":null
@@ -436,7 +451,7 @@ mod tests {
             "https://beian.mps.gov.cn:8443/x",
         ] {
             let mut value = json!({
-                "revision":0,"site_name":null,"title_subtitle":null,"login_intro":null,
+                "revision":0,"logo_asset_id":null,"site_name":null,"title_subtitle":null,"login_intro":null,
                 "icp_number":null,"police_number":"京公网安备 11000000000000号","police_url":url,
                 "copyright_owner":null,"copyright_start_year":null,"copyright_end_mode":null,
                 "copyright_end_year":null,"copyright_notice":null
@@ -446,7 +461,7 @@ mod tests {
         }
 
         let value = input(json!({
-            "revision":0,"site_name":"示例校园","title_subtitle":null,"login_intro":null,
+            "revision":0,"logo_asset_id":null,"site_name":"示例校园","title_subtitle":null,"login_intro":null,
             "icp_number":"京ICP备00000000号-1","police_number":"京公网安备 11000000000000号",
             "police_url":"https://beian.mps.gov.cn/#/query/webSearch?code=1",
             "copyright_owner":null,"copyright_start_year":null,"copyright_end_mode":null,
@@ -462,7 +477,7 @@ mod tests {
     #[test]
     fn copyright_group_and_years_are_consistent() {
         let value = input(json!({
-            "revision":0,"site_name":null,"title_subtitle":null,"login_intro":null,
+            "revision":0,"logo_asset_id":null,"site_name":null,"title_subtitle":null,"login_intro":null,
             "icp_number":null,"police_number":null,"police_url":null,
             "copyright_owner":"示例运营主体","copyright_start_year":2024,
             "copyright_end_mode":"auto","copyright_end_year":null,"copyright_notice":"保留权利"
@@ -481,7 +496,7 @@ mod tests {
             json!({"copyright_owner":"主体","copyright_start_year":2027,"copyright_end_mode":"auto","copyright_end_year":null,"copyright_notice":null}),
         ] {
             let mut base = json!({
-                "revision":0,"site_name":null,"title_subtitle":null,"login_intro":null,
+                "revision":0,"logo_asset_id":null,"site_name":null,"title_subtitle":null,"login_intro":null,
                 "icp_number":null,"police_number":null,"police_url":null,
                 "copyright_owner":null,"copyright_start_year":null,"copyright_end_mode":null,
                 "copyright_end_year":null,"copyright_notice":null
@@ -509,5 +524,6 @@ mod tests {
         let value = serde_json::to_value(public).unwrap();
         assert!(value.get("updated_by_name").is_none());
         assert!(value.get("copyright_end_mode").is_none());
+        assert!(value.get("logo_asset_id").is_none());
     }
 }

@@ -11,6 +11,10 @@ impl<R: Store> Service<R> {
         self.0.public().await
     }
 
+    pub async fn logo(&self) -> Result<(String, Vec<u8>)> {
+        self.0.logo().await
+    }
+
     pub async fn admin(&self, a: &Actor) -> Result<AdminSiteSettings> {
         a.platform()?;
         self.0.admin(a).await

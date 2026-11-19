@@ -1,5 +1,6 @@
 use super::super::port::Store;
 use crate::business::{Actor, Error, Result};
+use crate::media::south::adapter::filesystem::Files;
 use crate::site::domain::{
     AdminSiteSettings, PublicSiteSettings, SiteConfig, SiteSettingsHistory, SiteSettingsInput,
     StoredSiteSettings, business_year, diff,
@@ -10,13 +11,14 @@ use sqlx::{PgConnection, PgPool, Postgres, Row, Transaction};
 use uuid::Uuid;
 
 #[derive(Clone)]
-pub struct Repository(pub PgPool);
+pub struct Repository(pub PgPool, pub Files);
 
-const COLUMNS: &str = "s.id,s.revision,s.site_name,s.title_subtitle,s.login_intro,s.icp_number,s.police_number,s.police_url,s.copyright_owner,s.copyright_start_year,s.copyright_end_mode,s.copyright_end_year,s.copyright_notice,s.updated_at,(SELECT coalesce(nullif(btrim(a.display_name),''),a.username) FROM accounts a WHERE a.id=s.updated_by) AS updated_by_name";
+const COLUMNS: &str = "s.id,s.revision,s.site_name,s.logo_asset_id,s.title_subtitle,s.login_intro,s.icp_number,s.police_number,s.police_url,s.copyright_owner,s.copyright_start_year,s.copyright_end_mode,s.copyright_end_year,s.copyright_notice,s.updated_at,(SELECT coalesce(nullif(btrim(a.display_name),''),a.username) FROM accounts a WHERE a.id=s.updated_by) AS updated_by_name";
 
 fn decode(row: &sqlx::postgres::PgRow) -> Result<StoredSiteSettings> {
     let config = SiteConfig {
         site_name: row.get("site_name"),
+        logo_asset_id: row.get("logo_asset_id"),
         title_subtitle: row.get("title_subtitle"),
         login_intro: row.get("login_intro"),
         icp_number: row.get("icp_number"),
@@ -102,6 +104,17 @@ impl Repository {
         Ok(stored.public(business_year()))
     }
 
+    pub async fn logo(&self) -> Result<(String, Vec<u8>)> {
+        let id: Option<Uuid> = sqlx::query_scalar("SELECT s.logo_asset_id FROM site_settings s JOIN operational_media m ON m.id=s.logo_asset_id JOIN file_assets f ON f.id=m.id WHERE s.singleton AND m.school_id IS NULL AND f.purpose='operation_artwork' AND f.state='ready'")
+            .fetch_optional(&self.0)
+            .await?
+            .flatten();
+        let id = id.ok_or(Error::NotFound)?;
+        crate::media::south::adapter::postgres::Repository(self.0.clone(), self.1.clone())
+            .read(id)
+            .await
+    }
+
     pub async fn admin(&self, a: &Actor) -> Result<AdminSiteSettings> {
         let mut tx = self.0.begin().await?;
         crate::schools::south::adapter::postgres::preview::platform(&mut tx, a).await?;
@@ -120,14 +133,22 @@ impl Repository {
         if input.revision != stored.revision {
             return Err(Error::Conflict);
         }
+        if let Some(asset) = config.logo_asset_id {
+            sqlx::query("SELECT f.id FROM file_assets f JOIN operational_media m ON m.id=f.id WHERE f.id=$1 AND f.purpose='operation_artwork' AND f.state='ready' AND f.school_id IS NULL AND m.school_id IS NULL FOR KEY SHARE OF f")
+                .bind(asset)
+                .fetch_optional(&mut *tx)
+                .await?
+                .ok_or_else(|| Error::Invalid("平台 Logo 无效或不可用".into()))?;
+        }
         if config == stored.config {
             let history = history(&mut tx, stored.id).await?;
             tx.commit().await?;
             return Ok(stored.admin(current_year, history));
         }
         let (changed, cleared) = diff(&stored.config, &config);
-        let updated_at: DateTime<Utc> = sqlx::query_scalar("UPDATE site_settings SET revision=revision+1,site_name=$1,title_subtitle=$2,login_intro=$3,icp_number=$4,police_number=$5,police_url=$6,copyright_owner=$7,copyright_start_year=$8,copyright_end_mode=$9,copyright_end_year=$10,copyright_notice=$11,updated_by=$12,updated_at=now() WHERE singleton RETURNING updated_at")
+        let updated_at: DateTime<Utc> = sqlx::query_scalar("UPDATE site_settings SET revision=revision+1,site_name=$1,logo_asset_id=$2,title_subtitle=$3,login_intro=$4,icp_number=$5,police_number=$6,police_url=$7,copyright_owner=$8,copyright_start_year=$9,copyright_end_mode=$10,copyright_end_year=$11,copyright_notice=$12,updated_by=$13,updated_at=now() WHERE singleton RETURNING updated_at")
             .bind(&config.site_name)
+            .bind(config.logo_asset_id)
             .bind(&config.title_subtitle)
             .bind(&config.login_intro)
             .bind(&config.icp_number)
@@ -180,6 +201,10 @@ impl Repository {
 impl Store for Repository {
     async fn public(&self) -> Result<PublicSiteSettings> {
         Repository::public(self).await
+    }
+
+    async fn logo(&self) -> Result<(String, Vec<u8>)> {
+        Repository::logo(self).await
     }
 
     async fn admin(&self, a: &Actor) -> Result<AdminSiteSettings> {

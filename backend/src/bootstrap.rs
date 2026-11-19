@@ -76,7 +76,7 @@ pub fn build_application(pool: PgPool, options: Options) -> Application {
             crate::schools::south::adapter::postgres::Repository(pool.clone()),
         ),
         site: crate::site::north::local::Service(
-            crate::site::south::adapter::postgres::Repository(pool.clone()),
+            crate::site::south::adapter::postgres::Repository(pool.clone(), files.clone()),
         ),
         community: crate::community::north::local::Service(
             crate::community::south::adapter::postgres::Repository(pool.clone()),

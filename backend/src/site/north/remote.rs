@@ -30,6 +30,19 @@ async fn public_read(State(app): State<Application>) -> Result<Response> {
     ))
 }
 
+async fn public_logo(State(app): State<Application>) -> Result<Response> {
+    let (mime, bytes) = app.site.logo().await?;
+    Ok((
+        [
+            (header::CONTENT_TYPE, mime),
+            (header::CACHE_CONTROL, PUBLIC_CACHE.to_owned()),
+            (header::X_CONTENT_TYPE_OPTIONS, "nosniff".to_owned()),
+        ],
+        bytes,
+    )
+        .into_response())
+}
+
 async fn admin_read(State(app): State<Application>, actor: Actor) -> Result<Response> {
     Ok(cached(
         singleton("site-settings", "current", app.site.admin(&actor).await?),
@@ -53,6 +66,7 @@ async fn update(State(app): State<Application>, actor: Actor, input: Input) -> R
 pub fn router() -> Router<Application> {
     Router::new()
         .route("/api/v1/site-settings", get(public_read))
+        .route("/api/v1/site-branding/logo", get(public_logo))
         .route(
             "/api/v1/platform/site-settings",
             get(admin_read).put(update),
