@@ -2,7 +2,7 @@
 
 独立论坛项目，包含 Rust API、React Web 管理后台、uni-app Vue 3 小程序及本项目的 `@linjian/api-contract`。
 
-- 全部论坛功能、学校管理与设置、学校成员与权限、登录账号管理、整个小程序均在本项目实现。
+- 全部论坛功能、学校管理与设置、学校成员与权限、后台账号管理、整个小程序均在本项目实现。
 - 不修改 `../wekeeper`；不依赖其源码、工作区、数据库、登录会话或运行服务。
 - 不引入手机、目标群、官方群发或发送设备模块。Outbox 是来源推送，不产生发送任务或发送授权。
 - Rust 保留 domain、north/local、north/remote、south/port、south/adapter 分层；HTTP 不写 SQL。
