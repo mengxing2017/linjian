@@ -34,7 +34,8 @@ export function PostManagement({
     [orderConflict, setOrderConflict] = useState(false)
   const [offline, setOffline] = useState<PostManagementView>(),
     [reason, setReason] = useState('')
-  const [recommendation, setRecommendation] = useState('')
+  const [recommendation, setRecommendation] = useState(''),
+    [recommendationBlocking, setRecommendationBlocking] = useState(false)
   const dragged = useRef('')
   const cache = useQueryClient()
   const q = useQuery({
@@ -277,7 +278,11 @@ export function PostManagement({
         open={!!recommendation}
         title="推送"
         size="large"
-        onClose={() => setRecommendation('')}
+        closable={!recommendationBlocking}
+        mask={{ closable: !recommendationBlocking }}
+        onClose={() => {
+          if (!recommendationBlocking) setRecommendation('')
+        }}
         destroyOnHidden
       >
         {recommendation && (
@@ -288,6 +293,7 @@ export function PostManagement({
             school={school}
             id={recommendation}
             saved={saved}
+            onBlockingChange={setRecommendationBlocking}
           />
         )}
       </Drawer>

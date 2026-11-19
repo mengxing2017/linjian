@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Drawer, Input, Modal, Space, Table } from 'antd'
+import { Alert, Button, Input, Space, Table } from 'antd'
 import { workspace, type RecommendPostInput, type RecommendationView } from './api'
 import { formatDate } from '../../../shared/format-date'
 import { Outbox } from './outbox'
@@ -28,12 +28,14 @@ export function PostRecommendation({
   saved,
   autoOpen = false,
   platformAdmin = false,
+  onBlockingChange,
 }: {
   school: string
   id: string
   saved: () => Promise<void>
   autoOpen?: boolean
   platformAdmin?: boolean
+  onBlockingChange?: (blocking: boolean) => void
 }) {
   const [open, setOpen] = useState(autoOpen)
   const [page, setPage] = useState(1)
@@ -46,6 +48,10 @@ export function PostRecommendation({
   const request = useRef<RecommendPostInput | null>(null)
   const [uncertain, setUncertain] = useState(false)
   const cache = useQueryClient()
+  useEffect(() => {
+    onBlockingChange?.(busy || uncertain)
+    return () => onBlockingChange?.(false)
+  }, [busy, uncertain, onBlockingChange])
   const preview = useQuery({
     queryKey: ['linjian', 'recommendation-preview', school, id],
     queryFn: ({ signal }) => workspace.postManagement.recommendationPreview(school, id, signal),
@@ -110,129 +116,138 @@ export function PostRecommendation({
       {(preview.error || history.error) && (
         <Alert type="error" title={preview.error?.message ?? history.error?.message} />
       )}
-      <Space>
-        {p?.authorized && (
-          <Button
-            disabled={!p.can_recommend || preview.isFetching}
-            onClick={() => {
-              setDone('')
-              setError('')
-              setOpen(true)
-              void preview.refetch()
-            }}
-          >
-            {p.latest ? '重推' : '推送'}
-          </Button>
-        )}
-        <Button onClick={() => void refresh()} loading={preview.isFetching || history.isFetching}>
-          刷新推送记录
-        </Button>
-      </Space>
-      {p?.unavailable_reason && <p>{reasons[p.unavailable_reason] ?? '当前无法推荐'}</p>}
-      {p?.next_eligible_at && <p>下次可推荐时间：{formatDate(p.next_eligible_at)}</p>}
-      <p>质量由学校管理员、运营人员人工判断。已受理不代表实际发送成功。</p>
-      <Table<RecommendationView>
-        rowKey="id"
-        tableLayout="fixed"
-        size="small"
-        pagination={false}
-        scroll={{ x: platformAdmin ? 1150 : 1030 }}
-        dataSource={history.data?.items ?? []}
-        columns={[
-          { title: '发起时间', width: 170, render: (_, r) => formatDate(r.created_at) },
-          {
-            title: '发起类型',
-            width: 100,
-            render: (_, r) =>
-              r.trigger_type === 'manual_recommendation' ? '人工推荐' : '审核自动推送',
-          },
-          { title: '状态', width: 110, render: (_, r) => recommendationStates[r.state] },
-          {
-            title: '受理时间',
-            width: 170,
-            render: (_, r) => (r.accepted_at ? formatDate(r.accepted_at) : '—'),
-          },
-          { title: '操作者', width: 120, render: (_, r) => r.actor_name ?? '审核发布流程' },
-          { title: '推荐原因', width: 200, render: (_, r) => r.reason ?? '—' },
-          { title: '终止说明', width: 160, render: (_, r) => r.terminated_reason ?? '—' },
-          ...(platformAdmin
-            ? [
-                actionColumn<RecommendationView>({
-                  width: 120,
-                  render: (r) => (
-                    <Button
-                      type="link"
-                      aria-label={`查看来源诊断 ${formatDate(r.created_at)}`}
-                      onClick={() => setDiagnostic(r.id)}
-                    >
-                      查看来源诊断
-                    </Button>
-                  ),
-                }),
-              ]
-            : []),
-        ]}
-      />
-      <PaginationControls
-        page={page}
-        more={history.data?.page?.has_more}
-        busy={history.isFetching}
-        change={setPage}
-      />
-      <Drawer
-        open={!!diagnostic}
-        title="来源诊断"
-        size="large"
-        onClose={() => setDiagnostic('')}
-        destroyOnHidden
-      >
-        {diagnostic && (
-          <Outbox key={`${school}:${diagnostic}`} school={school} initialEvent={diagnostic} />
-        )}
-      </Drawer>
-      <Modal
-        open={open}
-        title={p?.latest ? '再次推送' : '推送'}
-        okText={uncertain ? '核对原请求' : p?.latest ? '确认重推' : '确认推送'}
-        confirmLoading={busy}
-        okButtonProps={{
-          disabled: !uncertain && (!p?.can_recommend || !reason.trim() || preview.isFetching),
-        }}
-        cancelButtonProps={{ disabled: busy || uncertain }}
-        closable={!busy && !uncertain}
-        mask={{ closable: !busy && !uncertain }}
-        onCancel={() => {
-          if (!busy && !uncertain) setOpen(false)
-        }}
-        onOk={() => void submit()}
-      >
-        {error && <Alert type="error" title={error} />}
-        {uncertain && (
-          <Alert
-            type="warning"
-            title="请求结果尚未确认，请核对原请求；保留原请求身份，不会重复创建。"
+      {diagnostic ? (
+        <section className="recommendation-diagnostic">
+          <Space>
+            <h3>来源诊断</h3>
+            <Button onClick={() => setDiagnostic('')}>返回推送</Button>
+          </Space>
+          <Outbox
+            key={`${school}:${diagnostic}`}
+            school={school}
+            initialEvent={diagnostic}
+            inlineDetail
           />
-        )}
-        <p>
-          学校：{p?.school_name}；标题：{p?.title}
-        </p>
-        <p>审核摘要：{p?.summary ?? '暂无有效审核摘要'}</p>
-        <p>
-          最近推送：
-          {p?.latest
-            ? `${formatDate(p.latest.created_at)} ${recommendationStates[p.latest.state]}`
-            : '尚无推送记录'}
-        </p>
-        <p>将向本校当前消息路由提交一条新的来源消息。WeKeeper 受理不代表实际发送成功。</p>
-        <Input.TextArea
-          aria-label="再次推荐原因"
-          value={reason}
-          disabled={busy || uncertain}
-          maxLength={500}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="请填写人工推荐原因"
-        />
-      </Modal>
+        </section>
+      ) : (
+        <>
+          <Space>
+            {p?.authorized && (
+              <Button
+                disabled={!p.can_recommend || preview.isFetching}
+                onClick={() => {
+                  setDone('')
+                  setError('')
+                  setOpen(true)
+                  void preview.refetch()
+                }}
+              >
+                {p.latest ? '重推' : '推送'}
+              </Button>
+            )}
+            <Button onClick={() => void refresh()} loading={preview.isFetching || history.isFetching}>
+              刷新推送记录
+            </Button>
+          </Space>
+          {open && (
+            <section className="recommendation-confirm">
+              <h3>{p?.latest ? '再次推送' : '推送'}</h3>
+              {error && <Alert type="error" title={error} />}
+              {uncertain && (
+                <Alert
+                  type="warning"
+                  title="请求结果尚未确认，请核对原请求；保留原请求身份，不会重复创建。"
+                />
+              )}
+              <p>
+                学校：{p?.school_name}；标题：{p?.title}
+              </p>
+              <p>审核摘要：{p?.summary ?? '暂无有效审核摘要'}</p>
+              <p>
+                最近推送：
+                {p?.latest
+                  ? `${formatDate(p.latest.created_at)} ${recommendationStates[p.latest.state]}`
+                  : '尚无推送记录'}
+              </p>
+              <p>将向本校当前消息路由提交一条新的来源消息。WeKeeper 受理不代表实际发送成功。</p>
+              <Input.TextArea
+                aria-label="再次推荐原因"
+                value={reason}
+                disabled={busy || uncertain}
+                maxLength={500}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="请填写人工推荐原因"
+              />
+              <Space>
+                <Button disabled={busy || uncertain} onClick={() => setOpen(false)}>
+                  取消
+                </Button>
+                <Button
+                  type="primary"
+                  loading={busy}
+                  disabled={
+                    !uncertain && (!p?.can_recommend || !reason.trim() || preview.isFetching)
+                  }
+                  onClick={() => void submit()}
+                >
+                  {uncertain ? '核对原请求' : p?.latest ? '确认重推' : '确认推送'}
+                </Button>
+              </Space>
+            </section>
+          )}
+          {p?.unavailable_reason && <p>{reasons[p.unavailable_reason] ?? '当前无法推荐'}</p>}
+          {p?.next_eligible_at && <p>下次可推荐时间：{formatDate(p.next_eligible_at)}</p>}
+          <p>质量由学校管理员、运营人员人工判断。已受理不代表实际发送成功。</p>
+          <Table<RecommendationView>
+            rowKey="id"
+            tableLayout="fixed"
+            size="small"
+            pagination={false}
+            scroll={{ x: platformAdmin ? 1150 : 1030 }}
+            dataSource={history.data?.items ?? []}
+            columns={[
+              { title: '发起时间', width: 170, render: (_, r) => formatDate(r.created_at) },
+              {
+                title: '发起类型',
+                width: 100,
+                render: (_, r) =>
+                  r.trigger_type === 'manual_recommendation' ? '人工推荐' : '审核自动推送',
+              },
+              { title: '状态', width: 110, render: (_, r) => recommendationStates[r.state] },
+              {
+                title: '受理时间',
+                width: 170,
+                render: (_, r) => (r.accepted_at ? formatDate(r.accepted_at) : '—'),
+              },
+              { title: '操作者', width: 120, render: (_, r) => r.actor_name ?? '审核发布流程' },
+              { title: '推荐原因', width: 200, render: (_, r) => r.reason ?? '—' },
+              { title: '终止说明', width: 160, render: (_, r) => r.terminated_reason ?? '—' },
+              ...(platformAdmin
+                ? [
+                    actionColumn<RecommendationView>({
+                      width: 120,
+                      render: (r) => (
+                        <Button
+                          type="link"
+                          aria-label={`查看来源诊断 ${formatDate(r.created_at)}`}
+                          onClick={() => setDiagnostic(r.id)}
+                        >
+                          查看来源诊断
+                        </Button>
+                      ),
+                    }),
+                  ]
+                : []),
+            ]}
+          />
+          <PaginationControls
+            page={page}
+            more={history.data?.page?.has_more}
+            busy={history.isFetching}
+            change={setPage}
+          />
+        </>
+      )}
     </Space>
   )
 }
