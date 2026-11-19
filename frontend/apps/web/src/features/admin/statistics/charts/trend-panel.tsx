@@ -48,7 +48,7 @@ export function TrendPanel({
   if (!choice) return null
   const model = trendModel(
     report,
-    `${view === 'content' ? '内容' : view === 'registration' ? '注册' : '活跃'}统计 · ${choice.label}趋势`,
+    `${choice.label}趋势`,
     choice.keys,
     comparison,
     bars && mode !== 'total',
