@@ -33,6 +33,7 @@ function cancel() {
           我同意使用微信身份登录并选择学校
         </label>
       </checkbox-group>
+      <text v-if="session.error" class="error">{{ session.error }}</text>
       <button
         class="primary"
         :disabled="!accepted || session.busy"
@@ -42,7 +43,6 @@ function cancel() {
         微信登录
       </button>
       <button @tap="cancel">暂不登录</button>
-      <text v-if="session.error" class="error">{{ session.error }}</text>
     </view>
   </view>
 </template>

@@ -63,8 +63,9 @@ defineExpose({ show: load })
       />
       <input v-model="contact" class="input" maxlength="120" placeholder="联系方式（必填）" />
       <ImageUploads v-model="images" purpose="feedback_evidence" :disabled="busy" @busy="uploading = $event" />
-      <button class="primary" :disabled="busy || uploading" @tap="submit">提交反馈</button>
       <text v-if="submitted" class="muted">已提交，感谢你的反馈。</text>
+      <text v-if="error" class="error">{{ error }}</text>
+      <button class="primary" :disabled="busy || uploading" @tap="submit">提交反馈</button>
     </view>
   </view>
 </template>

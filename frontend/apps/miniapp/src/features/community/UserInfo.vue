@@ -71,6 +71,7 @@ defineExpose({ show: load })
       <button open-type="chooseAvatar" :disabled="busy" @chooseavatar="choose">选择头像</button>
       <text>昵称</text>
       <input v-model="name" type="nickname" maxlength="100" class="input" placeholder="昵称" />
+      <text v-if="error" class="error">{{ error }}</text>
       <button class="primary" :disabled="busy || !name.trim()" @tap="save">保存头像昵称</button>
       <text>手机号</text>
       <input
@@ -82,6 +83,7 @@ defineExpose({ show: load })
         :disabled="!!profile.mobile"
       />
       <text class="muted">联系手机号为本人填写，未作验证；登记后需联系平台管理员纠正。</text>
+      <text v-if="error" class="error">{{ error }}</text>
       <button v-if="!profile.mobile" :disabled="busy || !mobile" @tap="registerMobile">
         登记手机号
       </button>

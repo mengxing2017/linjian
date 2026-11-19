@@ -189,6 +189,7 @@ defineExpose({ show: load, hide: saveDraft })
         <button size="mini" :disabled="busy || uploading" @tap="saveDraft">保存本地草稿</button>
         <button size="mini" :disabled="busy || uploading" @tap="discard">丢弃草稿</button>
       </view>
+      <text v-if="error" class="error">{{ error }}</text>
       <button class="primary" :disabled="busy || uploading" :loading="busy" @tap="submit">发布</button>
       <text class="muted">网络中断时请先在“我的发布”核对结果，再决定是否重新提交。</text>
     </view>
