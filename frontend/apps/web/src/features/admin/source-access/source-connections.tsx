@@ -28,7 +28,7 @@ export function SourceConnections() {
         type="info"
         title="WeKeeper 地址和调用方凭据由部署配置统一管理。此处只查看连接和验证凭据，secret 不在页面填写或显示。"
       />
-      {(error || q.error) && <Alert type="error" title={error || q.error?.message} />}
+      {q.error && <Alert type="error" title={q.error.message} />}
       {q.data?.configured ? (
         <>
           <Descriptions
@@ -43,6 +43,7 @@ export function SourceConnections() {
               { key: 'secret', label: '签名密钥（secret）', children: '已配置' },
             ]}
           />
+          {error && <Alert type="error" title={error} />}
           <Button type="primary" loading={busy} onClick={verify}>
             验证连接
           </Button>

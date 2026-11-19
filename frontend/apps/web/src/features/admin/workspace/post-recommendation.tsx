@@ -112,7 +112,6 @@ export function PostRecommendation({
   }
   return (
     <Space orientation="vertical" className="full-width">
-      {done && <Alert type="success" title={done} />}
       {(preview.error || history.error) && (
         <Alert type="error" title={preview.error?.message ?? history.error?.message} />
       )}
@@ -195,6 +194,7 @@ export function PostRecommendation({
               </Space>
             </section>
           )}
+          {done && <Alert type="success" role="status" title={done} />}
           {p?.unavailable_reason && <p>{reasons[p.unavailable_reason] ?? '当前无法推荐'}</p>}
           {p?.next_eligible_at && <p>下次可推荐时间：{formatDate(p.next_eligible_at)}</p>}
           <p>质量由学校管理员、运营人员人工判断。已受理不代表实际发送成功。</p>

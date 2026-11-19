@@ -1,4 +1,4 @@
-import { Button, Form, Input } from 'antd'
+import { Alert, Button, Form, Input } from 'antd'
 import { Field } from '../../shared/field'
 import { workspace } from './api'
 import type { CommunityAction } from './actions'
@@ -7,10 +7,12 @@ export function FeedbackForm({
   school: s,
   busy,
   run,
+  error,
 }: {
   school: string
   busy: boolean
   run: CommunityAction
+  error?: string
 }) {
   return (
     <Form
@@ -29,9 +31,12 @@ export function FeedbackForm({
       <Field name="contact" label="联系方式">
         <Input />
       </Field>
-      <Button type="primary" htmlType="submit" loading={busy} disabled={busy}>
-        提交反馈
-      </Button>
+      <div className="form-actions form-actions-sticky">
+        {error && <Alert type="error" title={error} />}
+        <Button type="primary" htmlType="submit" loading={busy} disabled={busy}>
+          提交反馈
+        </Button>
+      </div>
     </Form>
   )
 }

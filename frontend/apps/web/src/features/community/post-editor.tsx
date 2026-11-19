@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Form, Input, Select, Upload } from 'antd'
+import { Button, Alert, Form, Input, Select, Upload } from 'antd'
 import { Field } from '../../shared/field'
 import { workspace, type Post } from './api'
 import type { CommunityAction } from './actions'
@@ -12,6 +12,7 @@ export function PostEditor({
   busy,
   run,
   publish,
+  error,
 }: {
   school: string
   editing?: Post
@@ -20,6 +21,7 @@ export function PostEditor({
   busy: boolean
   run: CommunityAction
   publish: (values: { title: string; content: string; tags?: string[] }) => Promise<void>
+  error?: string
 }) {
   const [failed, setFailed] = useState<File[]>([])
   return (
@@ -86,9 +88,12 @@ export function PostEditor({
           </Button>
         </div>
       ))}
-      <Button type="primary" htmlType="submit" loading={busy} disabled={busy}>
-        提交审核
-      </Button>
+      <div className="form-actions form-actions-sticky">
+        {error && <Alert type="error" title={error} />}
+        <Button type="primary" htmlType="submit" loading={busy} disabled={busy}>
+          提交审核
+        </Button>
+      </div>
     </Form>
   )
 }

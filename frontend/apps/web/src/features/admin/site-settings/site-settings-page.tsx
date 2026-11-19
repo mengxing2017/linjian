@@ -306,22 +306,6 @@ export function SiteSettings() {
             action={<Button onClick={() => void reload()}>重试</Button>}
           />
         )}
-        {error && <Alert type="error" title={error} />}
-        {done && <Alert type="success" title={done} />}
-        {conflict && (
-          <Alert
-            type="warning"
-            title="配置已被其他管理员更新，本地输入仍保留。请重新加载当前版本后再合并。"
-            action={<Button onClick={() => void reload()}>重新加载</Button>}
-          />
-        )}
-        {uncertain && (
-          <Alert
-            type="warning"
-            title="保存结果尚未确认，请重新读取当前版本核对；不要直接覆盖。"
-            action={<Button onClick={() => void reload()}>核对当前版本</Button>}
-          />
-        )}
         <Form
           form={form}
           layout="vertical"
@@ -469,36 +453,54 @@ export function SiteSettings() {
               未填写版权所有者时，起始年、截止年模式和补充声明不生效。
             </p>
           )}
-          <Space>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={busy}
-              disabled={busy || conflict || !query.data}
-            >
-              保存并生效
-            </Button>
-            <Button
-              disabled={busy}
-              onClick={() => {
-                Modal.confirm({
-                  title: '放弃未保存的修改？',
-                  content: '表单将恢复为最近一次读取或保存的生效版本。',
-                  okText: '放弃修改',
-                  cancelText: '继续编辑',
-                  onOk: () => {
-                    form.setFieldsValue(loaded)
-                    setDirty(false)
-                    setError('')
-                    setConflict(false)
-                    setUncertain(false)
-                  },
-                })
-              }}
-            >
-              取消
-            </Button>
-          </Space>
+          <div className="form-actions form-actions-sticky">
+            {error && <Alert type="error" title={error} />}
+            {done && <Alert type="success" role="status" title={done} />}
+            {conflict && (
+              <Alert
+                type="warning"
+                title="配置已被其他管理员更新，本地输入仍保留。请重新加载当前版本后再合并。"
+                action={<Button onClick={() => void reload()}>重新加载</Button>}
+              />
+            )}
+            {uncertain && (
+              <Alert
+                type="warning"
+                title="保存结果尚未确认，请重新读取当前版本核对；不要直接覆盖。"
+                action={<Button onClick={() => void reload()}>核对当前版本</Button>}
+              />
+            )}
+            <Space>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={busy}
+                disabled={busy || conflict || !query.data}
+              >
+                保存并生效
+              </Button>
+              <Button
+                disabled={busy}
+                onClick={() => {
+                  Modal.confirm({
+                    title: '放弃未保存的修改？',
+                    content: '表单将恢复为最近一次读取或保存的生效版本。',
+                    okText: '放弃修改',
+                    cancelText: '继续编辑',
+                    onOk: () => {
+                      form.setFieldsValue(loaded)
+                      setDirty(false)
+                      setError('')
+                      setConflict(false)
+                      setUncertain(false)
+                    },
+                  })
+                }}
+              >
+                取消
+              </Button>
+            </Space>
+          </div>
         </Form>
       </Card>
 

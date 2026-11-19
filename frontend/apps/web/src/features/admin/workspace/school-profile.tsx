@@ -23,6 +23,7 @@ import { RegionCascader } from '../../../shared/region-cascader'
 import { RegionField } from '../../../shared/region-field'
 import { formatCoordinates } from '../../../shared/format-coordinates'
 import { CoordinatesField } from '../../../shared/coordinates-field'
+import { FormFeedback } from '../../../shared/form-feedback'
 import {
   codesFromNames,
   formatRegion,
@@ -156,6 +157,16 @@ export function SchoolForm({
   const previewText = validColor.test(text) ? text : defaults.theme_text_color
   const logo = Form.useWatch('logo_asset_id', form),
     header = Form.useWatch('header_bg_asset_id', form)
+  const feedback = error
+    ? { type: 'error' as const, message: error }
+    : conflict
+      ? {
+          type: 'warning' as const,
+          message: '资料已被其他操作更新，本地输入已保留。重新加载会舍弃本地输入。',
+        }
+      : done
+        ? { type: 'success' as const, message: '已保存' }
+        : null
   async function save(v: SchoolFormValues) {
     if ((v.latitude == null) !== (v.longitude == null)) {
       setError('经纬度需同时填写或清空')
@@ -239,13 +250,6 @@ export function SchoolForm({
         onDirtyChange?.(true)
       }}
     >
-      {error && <Alert type="error" title={error} />}
-      {conflict && (
-        <>
-          <p>资料已被其他操作更新，本地输入已保留。重新加载会舍弃本地输入。</p>
-          <Button onClick={() => void reload()}>重新加载资料</Button>
-        </>
-      )}
       {school && <h3 className="school-form-section">基本信息</h3>}
       <Form.Item
         label="名称"
@@ -359,12 +363,15 @@ export function SchoolForm({
       ) : (
         <p>图标、背景图与主题色可在创建后完善。</p>
       )}
-      <div className="form-actions">
+      <div className="form-actions form-actions-sticky">
+        <FormFeedback
+          feedback={feedback}
+          action={conflict ? <Button onClick={() => void reload()}>重新加载资料</Button> : undefined}
+        />
         <Button type="primary" htmlType="submit" loading={busy} disabled={conflict || busy}>
           {school ? (busy ? '正在保存…' : '保存资料') : busy ? '正在创建…' : '创建学校'}
         </Button>
       </div>
-      {done && <Alert type="success" role="status" showIcon title="已保存" />}
     </Form>
   )
 }

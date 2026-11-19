@@ -1,4 +1,4 @@
-import { Button, Form, Input, type FormInstance } from 'antd'
+import { Alert, Button, Form, Input, type FormInstance } from 'antd'
 import { Field } from '../../shared/field'
 import { PaginationControls } from '../../shared/pagination-controls'
 import { label } from '../../shared/label'
@@ -18,6 +18,7 @@ export function PostComments({
   more,
   onPage,
   run,
+  error,
 }: {
   school: string
   postId: string
@@ -30,6 +31,7 @@ export function PostComments({
   more?: boolean
   onPage: (page: number) => void
   run: CommunityAction
+  error?: string
 }) {
   const dialogs = useDialogs()
   return (
@@ -52,9 +54,12 @@ export function PostComments({
           <Field name="content" required label="评论内容">
             <Input.TextArea maxLength={2000} />
           </Field>
-          <Button type="primary" htmlType="submit" loading={busy}>
-            提交评论
-          </Button>
+          <div className="form-actions form-actions-sticky">
+            {error && <Alert type="error" title={error} />}
+            <Button type="primary" htmlType="submit" loading={busy}>
+              提交评论
+            </Button>
+          </div>
         </Form>
         {comments.map((c) => (
           <article key={c.id}>

@@ -106,17 +106,17 @@ function ModeForm({
       >
         <Button type="text" icon={<QuestionCircleOutlined />} aria-label="审核模式说明" />
       </Tooltip>
-      {canEdit && (
-        <Button htmlType="submit" type="primary" disabled={disabled} loading={busy}>
-          保存审核模式
-        </Button>
-      )}
       {error && <Alert type="error" title={error} />}
       {conflict && (
         <Space>
           <Alert type="warning" title="学校配置已变更，选择已保留，请重新加载后核对。" />
           <Button onClick={() => void reload()}>重新加载审核模式</Button>
         </Space>
+      )}
+      {canEdit && (
+        <Button htmlType="submit" type="primary" disabled={disabled} loading={busy}>
+          保存审核模式
+        </Button>
       )}
     </Form>
   )

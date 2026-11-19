@@ -245,6 +245,7 @@ export function CommunityContent({ user }: { user: User }) {
                 more={comments.data?.page?.has_more}
                 onPage={setCommentPage}
                 run={run}
+                error={error}
               />
             )}
           </>
@@ -258,6 +259,7 @@ export function CommunityContent({ user }: { user: User }) {
             busy={busy}
             run={run}
             publish={publish}
+            error={error}
           />
         )}
         {view === 'notifications' && (
@@ -294,9 +296,10 @@ export function CommunityContent({ user }: { user: User }) {
             follows={follows.data?.items ?? []}
             busy={busy}
             run={run}
+            error={error}
           />
         )}
-        {view === 'feedback' && <FeedbackForm school={s} busy={busy} run={run} />}
+        {view === 'feedback' && <FeedbackForm school={s} busy={busy} run={run} error={error} />}
       </div>
     </ConfigProvider>
   )

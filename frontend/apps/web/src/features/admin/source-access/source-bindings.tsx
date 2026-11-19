@@ -41,7 +41,7 @@ export function SourceBindings({
         type="info"
         title="每所学校只维护一条消息路由；所有学校统一使用部署配置中的 WeKeeper，各校使用独立的 route_id。保存会更新本校路由。"
       />
-      {(error || q.error) && <Alert type="error" title={error || q.error?.message} />}
+      {q.error && <Alert type="error" title={q.error.message} />}
       {current && (
         <Descriptions
           column={1}
@@ -76,6 +76,7 @@ export function SourceBindings({
         <Form.Item name="active" valuePropName="checked">
           <Checkbox>启用消息推送</Checkbox>
         </Form.Item>
+        {error && <Alert type="error" title={error} />}
         <Button
           type="primary"
           loading={busy}

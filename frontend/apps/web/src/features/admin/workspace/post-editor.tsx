@@ -61,11 +61,6 @@ function ContentForm({
       onValuesChange={() => onDirtyChange?.(true)}
       onFinish={(values) => void submit(values)}
     >
-      {error && <Alert type="error" title={error} />}
-      {conflict && (
-        <Alert type="warning" title="帖子已被修改，草稿已保留。请核对最新详情后重新加载编辑。" />
-      )}
-      {conflict && <Button onClick={reload}>重新加载编辑（替换草稿）</Button>}
       <Form.Item name="title" label="标题" rules={[{ required: true, whitespace: true, max: 200 }]}>
         <Input maxLength={200} />
       </Form.Item>
@@ -140,7 +135,15 @@ function ContentForm({
       >
         <Button loading={uploading}>上传图片</Button>
       </Upload>
-      <div className="form-actions">
+      <div className="form-actions form-actions-sticky">
+        {error && <Alert type="error" title={error} />}
+        {conflict && (
+          <Alert
+            type="warning"
+            title="帖子已被修改，草稿已保留。请核对最新详情后重新加载编辑。"
+            action={<Button onClick={reload}>重新加载编辑（替换草稿）</Button>}
+          />
+        )}
         <Button
           type="primary"
           htmlType="submit"

@@ -65,6 +65,7 @@ it('shows a saved notice after an edit succeeds',async()=>{
  mount(true,school)
  fireEvent.click(screen.getByRole('button',{name:'保存资料'}))
  expect(await screen.findByText('已保存',{}, {timeout:5000})).toBeTruthy()
+ expect(screen.getByText('已保存').closest('.form-actions-sticky')).toBeTruthy()
 })
 it('uses color pickers and saves normalized theme colors',async()=>{
  mount(true,school)

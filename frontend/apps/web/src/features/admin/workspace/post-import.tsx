@@ -19,6 +19,7 @@ export function PostImport({
   const [job, setJob] = useState<PostImportPreview>(),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
+    [actionError, setActionError] = useState(''),
     [uncertain, setUncertain] = useState(false)
   const key = useRef<string>(createIdempotencyUuid())
   const storageKey = owner ? `linjian:post-import:${owner}:${school}` : ''
@@ -68,6 +69,7 @@ export function PostImport({
   async function preview(file: File) {
     setBusy(true)
     setError('')
+    setActionError('')
     setJob(undefined)
     setUncertain(false)
     key.current = createIdempotencyUuid()
@@ -84,7 +86,7 @@ export function PostImport({
   async function commit() {
     if (!job) return
     setBusy(true)
-    setError('')
+    setActionError('')
     remember(job.id, true)
     try {
       const result = await workspace.postManagement.commit(school, job.id, {
@@ -98,7 +100,7 @@ export function PostImport({
       await saved()
     } catch (e) {
       const pending = !(e && typeof e === 'object' && 'status' in e && Number(e.status) > 0)
-      setError((e as Error).message)
+      setActionError((e as Error).message)
       setUncertain(pending)
       remember(job.id, pending)
     } finally {
@@ -108,6 +110,7 @@ export function PostImport({
   async function lookup() {
     if (!job) return
     setBusy(true)
+    setActionError('')
     try {
       const latest = await workspace.postManagement.importDetail(school, job.id)
       setJob(latest)
@@ -117,7 +120,7 @@ export function PostImport({
       }
       if (latest.state === 'committed') await saved()
     } catch (e) {
-      setError((e as Error).message)
+      setActionError((e as Error).message)
     } finally {
       setBusy(false)
     }
@@ -161,9 +164,7 @@ export function PostImport({
             {job.errors.length} 条。
           </p>
           {job.state === 'expired' && <Alert type="warning" title="预览已过期，请重新选择文件" />}
-          {job.state === 'committed' ? (
-            <Alert type="success" title={`导入完成，共 ${job.result.length} 条帖子`} />
-          ) : (
+          {job.state !== 'committed' && (
             <>
               {!!job.errors.length && (
                 <Alert type="warning" title="存在错误，尚未创建任何帖子。请修正文件后重新预览。" />
@@ -194,10 +195,24 @@ export function PostImport({
                   { title: '图片数', width: 100, render: (_, r) => r.post.images.length },
                 ]}
               />
-              <Space>
+            </>
+          )}
+        </>
+      )}
+      {(job || actionError) && (
+        <div className="form-actions form-actions-sticky">
+          {actionError && <Alert type="error" title={actionError} />}
+          {job?.state === 'committed' && (
+            <Alert type="success" role="status" title={`导入完成，共 ${job.result.length} 条帖子`} />
+          )}
+          <Space>
+            {job?.state === 'committed' ? (
+              <Button type="primary" onClick={close}>完成</Button>
+            ) : (
+              <>
                 <Button
                   type="primary"
-                  disabled={job.state !== 'preview' || !!job.errors.length || !job.rows.length}
+                  disabled={!job || job.state !== 'preview' || !!job.errors.length || !job.rows.length}
                   loading={busy}
                   onClick={() => void commit()}
                 >
@@ -206,10 +221,10 @@ export function PostImport({
                 <Button disabled={busy} onClick={() => void lookup()}>
                   查询导入结果
                 </Button>
-              </Space>
-            </>
-          )}
-        </>
+              </>
+            )}
+          </Space>
+        </div>
       )}
     </Drawer>
   )

@@ -69,7 +69,6 @@ function OperationEditor({ school, module, item, readOnly, onSaved }: { school?:
     if (action.kind === 'internal_page' && action.page === 'post' && !action.object_id) throw new Error('请选择目标帖子')
   }
   return <Space orientation="vertical" className="full-width">
-    {error && <Alert type="error" title={error} />}
     <fieldset disabled={readOnly || busy} style={{ border: 0, padding: 0 }}><div className="form-grid">
       <label className="form-wide">{qr ? '名称' : '标题'}<Input aria-label={qr ? '名称' : '标题'} value={form.title} maxLength={100} onChange={e => change({ title: e.target.value })} /></label>
       <label className="form-wide">展示说明<Input.TextArea value={form.content} maxLength={qr ? 255 : 20000} onChange={e => change({ content: e.target.value })} /></label>
@@ -88,6 +87,13 @@ function OperationEditor({ school, module, item, readOnly, onSaved }: { school?:
       <label>开始展示时间<LocalDateTimePicker disabled={readOnly || busy} value={localDate(form.starts_at)} onChange={value => change({ starts_at: value ? new Date(value).toISOString() : null })} /></label>
       <label>结束展示时间<LocalDateTimePicker disabled={readOnly || busy} value={localDate(form.ends_at)} onChange={value => change({ ends_at: value ? new Date(value).toISOString() : null })} /></label>
     </div></fieldset>
-    {!readOnly && <>{preview ? <Alert type="info" title={`确认保存：${form.title}`} description={`${form.active ? '正常' : '隐藏'}；${time(form.starts_at)} 至 ${time(form.ends_at)}；${qr ? strategyLabels[form.popup_strategy] : target(action)}`} /> : null}<Button disabled={busy} onClick={() => { try { validate(); setError(''); setPreview(true) } catch (e) { setError((e as Error).message) } }}>预览</Button><Button type="primary" disabled={!preview} loading={busy} onClick={() => { setBusy(true); setError(''); void api.save(school, module, form, item?.id).then(onSaved).catch(e => setError(e instanceof Error ? e.message : '保存失败')).finally(() => setBusy(false)) }}>确认保存</Button></>}
+    {!readOnly && <div className="form-actions form-actions-sticky">
+      {error && <Alert type="error" title={error} />}
+      {preview ? <Alert type="info" title={`确认保存：${form.title}`} description={`${form.active ? '正常' : '隐藏'}；${time(form.starts_at)} 至 ${time(form.ends_at)}；${qr ? strategyLabels[form.popup_strategy] : target(action)}`} /> : null}
+      <Space>
+        <Button disabled={busy} onClick={() => { try { validate(); setError(''); setPreview(true) } catch (e) { setError((e as Error).message) } }}>预览</Button>
+        <Button type="primary" disabled={!preview} loading={busy} onClick={() => { setBusy(true); setError(''); void api.save(school, module, form, item?.id).then(onSaved).catch(e => setError(e instanceof Error ? e.message : '保存失败')).finally(() => setBusy(false)) }}>确认保存</Button>
+      </Space>
+    </div>}
   </Space>
 }

@@ -1,4 +1,4 @@
-import { Button, Form, Input } from 'antd'
+import { Alert, Button, Form, Input } from 'antd'
 import { useQueryClient } from '@tanstack/react-query'
 import { Field } from '../../shared/field'
 import { label } from '../../shared/label'
@@ -11,12 +11,14 @@ export function ProfilePanel({
   follows,
   busy,
   run,
+  error,
 }: {
   school: string
   user: User
   follows: Row[]
   busy: boolean
   run: CommunityAction
+  error?: string
 }) {
   const cache = useQueryClient()
   return (
@@ -35,9 +37,12 @@ export function ProfilePanel({
       <Field name="name" required label="昵称">
         <Input />
       </Field>
-      <Button type="primary" htmlType="submit" loading={busy} disabled={busy}>
-        更新昵称
-      </Button>
+      <div className="form-actions form-actions-sticky">
+        {error && <Alert type="error" title={error} />}
+        <Button type="primary" htmlType="submit" loading={busy} disabled={busy}>
+          更新昵称
+        </Button>
+      </div>
       <h2>我的关注</h2>
       {follows.map((f) => (
         <p key={f.id}>

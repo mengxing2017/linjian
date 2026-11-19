@@ -2,7 +2,8 @@ import { DatePicker } from '../../../shared/date-picker'
 import dayjs from 'dayjs'
 import { parseDate } from '../../../shared/format-date'
 import { useId, useState } from 'react'
-import { Alert, Button, ColorPicker, Form, Input, InputNumber, Select } from 'antd'
+import { Button, ColorPicker, Form, Input, InputNumber, Select } from 'antd'
+import { FormFeedback } from '../../../shared/form-feedback'
 
 interface Field {
   name: string
@@ -91,13 +92,20 @@ export function Editor({
           )}
         </Form.Item>
       ))}
-      <div className="form-actions">
+      <div className="form-actions form-actions-sticky">
+        <FormFeedback
+          feedback={
+            error
+              ? { type: 'error', message: error }
+              : done
+                ? { type: 'success', message: '已保存' }
+                : null
+          }
+        />
         <Button type="primary" htmlType="submit" loading={busy}>
           {busy ? '正在保存…' : submit}
         </Button>
       </div>
-      {error && <Alert type="error" title={error} showIcon />}
-      {done && <Alert type="success" role="status" title="已保存" showIcon />}
     </Form>
   )
 }
