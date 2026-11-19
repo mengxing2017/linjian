@@ -191,7 +191,7 @@ export function PostManagement({
         pagination={false}
         loading={q.isFetching || busy}
         dataSource={rows}
-        scroll={{ x: 2100 }}
+        scroll={{ x: sorting ? 1880 : 2000 }}
         onRow={(row, index) =>
           sorting
             ? {

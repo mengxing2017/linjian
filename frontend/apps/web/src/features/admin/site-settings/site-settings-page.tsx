@@ -535,6 +535,8 @@ export function SiteSettings() {
       <Card title="变更记录">
         <Table<SiteSettingsHistory>
           rowKey="id"
+          tableLayout="fixed"
+          scroll={{ x: 820 }}
           size="small"
           pagination={false}
           dataSource={query.data?.history ?? []}

@@ -270,7 +270,7 @@ export function PostReviews({ school }: { school: string }) {
         pagination={false}
         loading={q.isFetching}
         dataSource={q.data?.items ?? []}
-        scroll={{ x: 1300 }}
+        scroll={{ x: 1290 }}
         columns={[
           {
             title: '标题',

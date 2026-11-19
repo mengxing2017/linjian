@@ -10,7 +10,7 @@ import { states, stateLabel } from './state-label'
 export function CommentReviews({ school, refresh }: { school: School; refresh: () => Promise<void> }) {
   const [status, setStatus] = useState('')
   const [visibility, setVisibility] = useState('')
-  return <RecordList school={school.id} resource="comments" scrollWidth={1430}
+  return <RecordList school={school.id} resource="comments" scrollWidth={1330}
     status={status} onStatusChange={setStatus} extraQuery={visibility ? { visibility } : {}}
     filters={change => <Space><Select aria-label="审核状态" value={status} style={{ width: 140 }} onChange={change} options={[
       { value: '', label: '全部审核状态' },
