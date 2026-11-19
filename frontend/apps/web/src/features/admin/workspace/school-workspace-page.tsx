@@ -29,7 +29,7 @@ export function SchoolWorkspacePage({ view, school, platformAdmin, schoolAdmin, 
     case 'audit': return <AuditLog school={school.id} />
     case 'source-outbox': return <Outbox school={school.id} />
     case 'members': return <Members school={school} platformAdmin={platformAdmin} currentUserId={publisherId} refresh={refresh} />
-    case 'settings': return <Card title={`${school.name} · 设置`}>
+    case 'settings': return <Card title={`${school.name} · 学校资料`}>
       <SchoolForm key={`${school.id}:${school.revision}`} school={school} platform={platformAdmin} onSaved={refresh} />
     </Card>
     default: return <Alert type="warning" title="页面不存在" />

@@ -387,7 +387,6 @@ export function Schools({
   const [filters, setFilters] = useState<SchoolFilters>({}),
     [creating, setCreating] = useState(false),
     [detail, setDetail] = useState<School>(),
-    [editing, setEditing] = useState<School>(),
     [notice, setNotice] = useState<School>(),
     [highlight, setHighlight] = useState<string>(),
     [dirty, setDirty] = useState(false)
@@ -419,26 +418,13 @@ export function Schools({
     setHighlight(result.id)
     await refreshSchools()
   }
-  async function updated(result?: School) {
-    if (!result) return
-    setEditing(result)
-    setDirty(false)
-    await refreshSchools()
-  }
   function openCreate() {
     setDirty(false)
-    setEditing(undefined)
     setCreating(true)
   }
-  function openEdit(school: School) {
-    setDirty(false)
-    setCreating(false)
-    setEditing(school)
-  }
-  function closeEditor() {
+  function closeCreate() {
     if (!dirty) {
       setCreating(false)
-      setEditing(undefined)
       return
     }
     Modal.confirm({
@@ -449,7 +435,6 @@ export function Schools({
       okButtonProps: { danger: true },
       onOk: () => {
         setCreating(false)
-        setEditing(undefined)
         setDirty(false)
       },
     })
@@ -468,17 +453,17 @@ export function Schools({
           role="status"
           closable
           onClose={() => setNotice(undefined)}
-          title={`已创建「${notice.name}」。图标与背景图尚未配置。`}
+          title={`已创建「${notice.name}」。学校资料尚未完善。`}
           action={
             <Space>
               <Button
                 size="small"
                 onClick={() => {
-                  openEdit(notice)
+                  enter(notice.id, 'settings')
                   setNotice(undefined)
                 }}
               >
-                完善图标与背景
+                完善学校资料
               </Button>
               <Button
                 size="small"
@@ -582,8 +567,7 @@ export function Schools({
                 label={s.name}
                 actions={[
                   { key: 'detail', label: '详情', onClick: () => setDetail(s) },
-                  { key: 'edit', label: '编辑资料', onClick: () => openEdit(s) },
-                  { key: 'settings', label: '设置', onClick: () => enter(s.id, 'settings') },
+                  { key: 'settings', label: '资料', onClick: () => enter(s.id, 'settings') },
                   {
                     key: 'members',
                     label: '成员',
@@ -603,22 +587,14 @@ export function Schools({
         change={(page) => setFilters((v) => ({ ...v, page }))}
       />
       <Drawer
-        open={creating || !!editing}
+        open={creating}
         size="large"
-        title={editing ? `${editing.name} · 学校资料` : '新建学校'}
-        onClose={closeEditor}
+        title="新建学校"
+        onClose={closeCreate}
         destroyOnHidden
       >
         {creating ? (
           <SchoolForm key="new" platform onSaved={created} onDirtyChange={setDirty} />
-        ) : editing ? (
-          <SchoolForm
-            key={editing.id}
-            school={editing}
-            platform
-            onSaved={updated}
-            onDirtyChange={setDirty}
-          />
         ) : null}
       </Drawer>
       <Drawer

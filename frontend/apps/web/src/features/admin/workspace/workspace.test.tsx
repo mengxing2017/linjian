@@ -124,7 +124,7 @@ it('requires a new session after resetting the current platform administrator pa
   expect(await screen.findByText('登录工作空间', {selector:'h1'})).toBeTruthy()
 })
 
-it('searches and paginates schools, and opens settings for the selected row', async () => {
+it('searches and paginates schools, and opens school profile for the selected row', async () => {
   showManagement('schools')
   vi.mocked(workspace.schools).mockResolvedValue(Array.from({length:12}, (_, i) => ({id:`s${i}`,name:`学校-${i}`,...schoolDefaults,revision:1,config:{}})))
   expect(await screen.findByText('学校-0')).toBeTruthy()
@@ -133,10 +133,9 @@ it('searches and paginates schools, and opens settings for the selected row', as
   expect(await screen.findByText('学校-11')).toBeTruthy()
   fireEvent.change(screen.getByLabelText('搜索名称、简称或区域'), {target:{value:'学校-11'}})
   const row = (await screen.findByText('学校-11')).closest('tr')!
-  fireEvent.click(within(row).getByRole('button', {name:'学校-11 更多操作'}))
-  fireEvent.click(await screen.findByRole('menuitem', {name:'设置'}))
+  fireEvent.click(within(row).getByRole('button', {name:'资料 学校-11'}))
   expect(await screen.findByLabelText('名称')).toHaveProperty('value','学校-11')
-  expect(screen.getByText('学校-11 · 设置')).toBeTruthy()
+  expect(screen.getByText('学校-11 · 学校资料')).toBeTruthy()
 })
 
 it('shows account grants across schools and saves global account state without a school id', async () => {
@@ -159,11 +158,11 @@ it('shows account grants across schools and saves global account state without a
   await waitFor(() => expect(identity.update).toHaveBeenCalledWith('ordinary', {display_name:'本地管理员',active:false}))
 })
 
-it.each(['member','operator'] as const)('blocks school settings and member administration for %s even through a direct URL', async role => {
+it.each(['member','operator'] as const)('blocks school profile and member administration for %s even through a direct URL', async role => {
   showManagement('settings',false,role)
   await screen.findByLabelText('当前学校')
   await waitFor(() => expect(workspace.schools).toHaveBeenCalled())
-  expect(screen.queryByRole('menuitem', {name:'学校设置'})).toBeNull()
+  expect(screen.queryByRole('menuitem', {name:'学校资料'})).toBeNull()
   expect(screen.queryByRole('menuitem', {name:'学校成员与权限'})).toBeNull()
   expect(screen.queryByLabelText('名称')).toBeNull()
   expect(screen.queryByRole('menuitem', {name:'后台账号'})).toBeNull()
@@ -286,7 +285,7 @@ it('keeps member identity first and only offers row authorization to platform ad
 
 
 
-it('keeps school settings scoped after moving them into platform functions', async () => {
+it('keeps school profile scoped after moving it into platform functions', async () => {
   showManagement('settings', false, 'admin')
   expect(await screen.findByLabelText('名称')).toBeTruthy()
   expect(screen.getByLabelText('当前学校')).toBeTruthy()

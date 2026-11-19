@@ -125,8 +125,8 @@ export const navigation: NavigationItem[] = [
   {
     key: 'settings',
     icon: <SettingOutlined />,
-    label: '学校设置',
-    description: '设置学校信息、审核方式与主题颜色。',
+    label: '学校资料',
+    description: '维护学校信息、图标、主题与审核规则。',
     domain: 'school',
     scope: 'school',
     capability: 'school.admin',
