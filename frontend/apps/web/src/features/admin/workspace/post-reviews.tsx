@@ -1,3 +1,4 @@
+import { PostRecommendation } from './post-recommendation'
 import { ReviewImage } from './review-image'
 import { useCallback, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -32,12 +33,14 @@ export function ReviewDetail({
   close,
   saved,
   management = false,
+  platformAdmin = false,
 }: {
   school: string
   id: string
   close: () => void
   saved: () => Promise<void>
   management?: boolean
+  platformAdmin?: boolean
 }) {
   const [reason, setReason] = useState(''),
     [busy, setBusy] = useState(false),
@@ -121,6 +124,7 @@ export function ReviewDetail({
         </Button>
       )}
       {q.isFetching && <p>正在读取最新全文…</p>}
+      {management && <PostRecommendation key={`${school}:${id}`} school={school} id={id} saved={saved} platformAdmin={platformAdmin} />}
       {post && (
         <>
           <Descriptions

@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Input, Modal, Space, Table } from 'antd'
+import { Alert, Button, Input, Modal, Space, Table, Drawer } from 'antd'
 import { workspace, type PostManagementFilter, type PostManagementView } from './api'
+import { formatDate } from '../../../shared/format-date'
 import { PaginationControls } from '../../../shared/pagination-controls'
 import { postColumns } from './post-columns'
 import { ReviewDetail } from './post-reviews'
@@ -9,6 +10,7 @@ import { PostEditor } from './post-editor'
 import { PostImport } from './post-import'
 import { PostFilters } from './post-filters'
 import { PostRowActions } from './post-actions'
+import { PostRecommendation, recommendationStates } from './post-recommendation'
 import { movePost } from './post-sort'
 export function PostManagement({
   school,
@@ -32,6 +34,7 @@ export function PostManagement({
     [orderConflict, setOrderConflict] = useState(false)
   const [offline, setOffline] = useState<PostManagementView>(),
     [reason, setReason] = useState('')
+  const [recommendation, setRecommendation] = useState('')
   const dragged = useRef('')
   const cache = useQueryClient()
   const q = useQuery({
@@ -208,6 +211,20 @@ export function PostManagement({
         columns={[
           ...postColumns(school, setSelected),
           {
+            title: '最近推送',
+            width: 180,
+            render: (_, row) =>
+              row.source_summary ? (
+                <span>
+                  {recommendationStates[row.source_summary.state]}
+                  <br />
+                  {formatDate(row.source_summary.created_at)}
+                </span>
+              ) : (
+                '尚无推送记录'
+              ),
+          },
+          {
             title: '操作',
             fixed: 'right',
             width: sorting ? 150 : 270,
@@ -235,6 +252,7 @@ export function PostManagement({
                   row={row}
                   disabled={disabled}
                   review={setSelected}
+                  recommend={q.data?.can_recommend ? setRecommendation : undefined}
                   edit={setEditor}
                   act={act}
                   offline={(row) => {
@@ -255,9 +273,28 @@ export function PostManagement({
           setDraft(undefined)
         }}
       />
+      <Drawer
+        open={!!recommendation}
+        title="帖子推送"
+        size="large"
+        onClose={() => setRecommendation('')}
+        destroyOnHidden
+      >
+        {recommendation && (
+          <PostRecommendation
+            autoOpen
+            platformAdmin={platformAdmin}
+            key={`${school}:${recommendation}`}
+            school={school}
+            id={recommendation}
+            saved={saved}
+          />
+        )}
+      </Drawer>
       {selected && (
         <ReviewDetail
           management
+          platformAdmin={platformAdmin}
           key={selected}
           school={school}
           id={selected}

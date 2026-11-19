@@ -3,7 +3,7 @@ import { ListPanel } from '../../../shared/list-panel'
 import { Field } from '../../../shared/field'
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Input, Select, Space, Table } from 'antd'
+import { Alert, Button, Input, Select, Space, Table, Switch } from 'antd'
 import { identity, workspace, type Row, type School } from './api'
 import { schoolRoleLabel } from '../../../app/shell'
 
@@ -35,7 +35,11 @@ export function Members({
     [done, setDone] = useState('')
   const grants = new Map(members.data?.items.map((m) => [m.id, m]))
   const rows: Row[] = platformAdmin
-    ? (accounts.data ?? []).map((a) => ({ ...a, role: grants.get(a.id)?.role ?? 'unassigned' }))
+    ? (accounts.data ?? []).map((a) => ({
+        ...a,
+        role: grants.get(a.id)?.role ?? 'unassigned',
+        can_recommend: grants.get(a.id)?.can_recommend ?? false,
+      }))
     : (members.data?.items ?? [])
   const filtered = rows.filter((a) =>
     `${a.username ?? ''} ${a.display_name ?? ''}`
@@ -110,7 +114,13 @@ export function Members({
               ? '没有匹配的账号，请调整搜索条件或先新建账号'
               : '本校暂无成员',
         }}
-        pagination={{ ...navigationPagination, current: page, pageSize: 10, showSizeChanger: false, onChange: setPage }}
+        pagination={{
+          ...navigationPagination,
+          current: page,
+          pageSize: 10,
+          showSizeChanger: false,
+          onChange: setPage,
+        }}
         rowSelection={
           platformAdmin
             ? {
@@ -123,6 +133,31 @@ export function Members({
             : undefined
         }
         columns={[
+          {
+            title: '允许推荐帖子',
+            width: 160,
+            render: (_, a) =>
+              a.role === 'admin' ? (
+                '学校管理员默认允许'
+              ) : a.role === 'operator' ? (
+                <Switch
+                  aria-label={`允许 ${String(a.display_name)} 推荐帖子`}
+                  checked={a.can_recommend === true}
+                  disabled={busy}
+                  onChange={(enabled) => {
+                    setBusy(true)
+                    setError('')
+                    void workspace
+                      .setRecommendationCapability(school.id, a.id, enabled)
+                      .then(() => members.refetch())
+                      .catch((e: Error) => setError(e.message))
+                      .finally(() => setBusy(false))
+                  }}
+                />
+              ) : (
+                '—'
+              ),
+          },
           { title: '账号', width: 160, render: (_, a) => String(a.username ?? '') },
           {
             title: '平台身份',
@@ -143,7 +178,11 @@ export function Members({
           },
           ...(platformAdmin
             ? [
-                { title: '账号状态', width: 120, render: (_: unknown, a: Row) => (a.active ? '启用' : '停用') },
+                {
+                  title: '账号状态',
+                  width: 120,
+                  render: (_: unknown, a: Row) => (a.active ? '启用' : '停用'),
+                },
               ]
             : []),
         ]}

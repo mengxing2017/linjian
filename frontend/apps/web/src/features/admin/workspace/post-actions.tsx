@@ -6,6 +6,7 @@ export function PostRowActions({
   row,
   disabled,
   review,
+  recommend,
   edit,
   offline,
   act,
@@ -13,6 +14,7 @@ export function PostRowActions({
   school: string
   row: PostManagementView
   disabled: boolean
+  recommend?: (id: string) => void
   review: (id: string) => void
   edit: (id: string) => void
   offline: (row: PostManagementView) => void
@@ -20,6 +22,11 @@ export function PostRowActions({
 }) {
   return (
     <Space wrap>
+      {recommend && (
+        <Button disabled={disabled} onClick={() => recommend(row.id)}>
+          {row.source_summary ? '重推' : '推送'}
+        </Button>
+      )}
       <Button disabled={disabled} onClick={() => review(row.id)}>
         {row.audit_status === 'pending' ? '审核详情' : '详情'}
       </Button>
