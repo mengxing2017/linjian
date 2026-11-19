@@ -19,6 +19,13 @@ import {
 import { workspace, type School, type SchoolInput, type SchoolFilters } from './api'
 import { PaginationControls } from '../../../shared/pagination-controls'
 import { actionColumn, RowActions } from '../../../shared/row-actions'
+import { RegionCascader } from '../../../shared/region-cascader'
+import { RegionField } from '../../../shared/region-field'
+import {
+  codesFromNames,
+  namesFromCodes,
+  type RegionValue,
+} from '@linjian/china-regions'
 const defaults = {
   name: '',
   short_name: '',
@@ -32,6 +39,9 @@ const defaults = {
   theme_primary: '#6A5AF9',
   theme_secondary: '#8F6BFF',
   theme_text_color: '#FFFFFF',
+}
+type SchoolFormValues = Omit<SchoolInput, 'province' | 'city' | 'area'> & {
+  region: RegionValue
 }
 export function SchoolImage({
   school,
@@ -84,7 +94,7 @@ export function SchoolForm({
   onSaved: (school?: School) => Promise<unknown>
   onDirtyChange?: (dirty: boolean) => void
 }) {
-  const [form] = Form.useForm<SchoolInput>(),
+  const [form] = Form.useForm<SchoolFormValues>(),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [conflict, setConflict] = useState(false),
@@ -94,12 +104,20 @@ export function SchoolForm({
     text = Form.useWatch('theme_text_color', form) || defaults.theme_text_color
   const logo = Form.useWatch('logo_asset_id', form),
     header = Form.useWatch('header_bg_asset_id', form)
-  async function save(v: SchoolInput) {
+  async function save(v: SchoolFormValues) {
     setBusy(true)
     setError('')
     setDone(false)
     try {
-      const body = { ...defaults, ...v, revision: school?.revision ?? 0 }
+      const { region, ...rest } = v
+      const body = {
+        ...defaults,
+        ...rest,
+        province: region?.province ?? '',
+        city: region?.city ?? '',
+        area: region?.area ?? '',
+        revision: school?.revision ?? 0,
+      }
       if (!platform) delete body.status
       const result = school
         ? await workspace.schoolProfiles.update(school.id, body)
@@ -121,7 +139,10 @@ export function SchoolForm({
       const latest = await workspace.schoolProfiles.detail(school.id)
       onDirtyChange?.(false)
       await onSaved(latest)
-      form.setFieldsValue({ ...latest })
+      form.setFieldsValue({
+        ...latest,
+        region: { province: latest.province, city: latest.city, area: latest.area },
+      })
       setConflict(false)
       setError('')
     } catch (e) {
@@ -137,6 +158,11 @@ export function SchoolForm({
       initialValues={{
         ...defaults,
         ...school,
+        region: {
+          province: school?.province ?? '',
+          city: school?.city ?? '',
+          area: school?.area ?? '',
+        },
         status: school?.status ?? 'normal',
         config: school?.config ?? { post_audit_mode: 'manual', comment_audit_mode: 'manual' },
       }}
@@ -174,15 +200,15 @@ export function SchoolForm({
       {(
         [
           ['short_name', '简称', 50],
-          ['province', '省份', 100],
-          ['city', '城市', 100],
-          ['area', '区域', 100],
         ] as const
       ).map(([name, label, max]) => (
         <Form.Item key={name} name={name} label={label} rules={[{ max }]}>
           <Input maxLength={max} />
         </Form.Item>
       ))}
+      <Form.Item label="省份 / 城市 / 区域" name="region">
+        <RegionField />
+      </Form.Item>
       {(
         [
           ['latitude', '纬度', 90],
@@ -395,15 +421,25 @@ export function Schools({
           value={filters.search ?? ''}
           onChange={(e) => change({ search: e.target.value })}
         />
-        {(['province', 'city', 'area'] as const).map((k, i) => (
-          <Input
-            key={k}
-            aria-label={['筛选省份', '筛选城市', '筛选区域'][i]}
-            placeholder={['省份', '城市', '区域'][i]}
-            value={filters[k] ?? ''}
-            onChange={(e) => change({ [k]: e.target.value })}
-          />
-        ))}
+        <RegionCascader
+          ariaLabel="筛选省份、城市或区域"
+          placeholder="省 / 市 / 区"
+          value={
+            codesFromNames({
+              province: filters.province ?? '',
+              city: filters.city ?? '',
+              area: filters.area ?? '',
+            }) ?? []
+          }
+          onChange={(codes) => {
+            const region = namesFromCodes(codes)
+            change({
+              province: region?.province ?? '',
+              city: region?.city ?? '',
+              area: region?.area ?? '',
+            })
+          }}
+        />
         <Select
           aria-label="状态筛选"
           allowClear
