@@ -54,7 +54,7 @@ it('requires a reason and submits the user revision when banning within the scho
   fireEvent.click(await screen.findByRole('button', { name: '封禁用户' }, { timeout: 5000 }))
   const confirm = (await screen.findByRole(
     'button',
-    { name: 'OK' },
+    { name: /^保\s*存$/ },
     { timeout: 5000 },
   )) as HTMLButtonElement
   expect(confirm.disabled).toBe(true)

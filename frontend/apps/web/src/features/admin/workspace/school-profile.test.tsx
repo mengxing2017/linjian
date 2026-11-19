@@ -41,7 +41,7 @@ it('shows a saved notice after an edit succeeds',async()=>{
  fireEvent.click(screen.getByRole('button',{name:'保存资料'}))
  expect(await screen.findByText('已保存',{}, {timeout:5000})).toBeTruthy()
 })
-it('closes the create modal and shows the created school name',async()=>{
+it('closes the create drawer and shows the created school name',async()=>{
  vi.mocked(workspace.schoolProfiles.platform).mockResolvedValue({items:[],page:{number:1,size:30,has_more:false}})
  vi.mocked(workspace.schoolProfiles.create).mockResolvedValue({...school,id:'new-school',name:'新学校',revision:1})
  render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><Schools schools={[]} loading={false} refresh={async()=>{}} enter={()=>{}}/></QueryClientProvider>)
