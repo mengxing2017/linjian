@@ -7,6 +7,7 @@ import { Alert, Button, Descriptions, Drawer, Input, Modal, Select, Space, Table
 import { miniappUsers, type MiniappUser, type UserFilters } from './api'
 import { formatDate } from '../../../shared/format-date'
 import { PaginationControls } from '../../../shared/pagination-controls'
+import { actionColumn, RowActions } from '../../../shared/row-actions'
 export function MiniappUsers({
   school,
   platformAdmin,
@@ -163,7 +164,7 @@ export function MiniappUsers({
           dataSource={q.data?.items ?? []}
           loading={q.isFetching}
           pagination={false}
-          scroll={{ x: 1110 }}
+          scroll={{ x: 1090 }}
           onChange={(_, __, sorter) => {
             if (!Array.isArray(sorter) && sorter.field)
               change({ sort: (sorter.order === 'ascend' ? '' : '-') + String(sorter.field) })
@@ -191,20 +192,24 @@ export function MiniappUsers({
                 </Tag>
               ),
             },
-            {
-              title: '操作',
-              width: 120,
-              render: (_, r) => (
-                <Button
-                  onClick={() => {
-                    setSelected(r.id)
-                    setError('')
-                  }}
-                >
-                  详情
-                </Button>
+            actionColumn<MiniappUser>({
+              width: 100,
+              render: (r) => (
+                <RowActions
+                  label={r.nickname || r.id}
+                  actions={[
+                    {
+                      key: 'detail',
+                      label: '详情',
+                      onClick: () => {
+                        setSelected(r.id)
+                        setError('')
+                      },
+                    },
+                  ]}
+                />
               ),
-            },
+            }),
           ]}
         />
       )}

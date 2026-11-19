@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Alert, Button, Card, Input, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Upload } from 'antd'
 import { browserClient, createBlockedWordsClient, requestMultipart, type BlockedWord, type BlockedWordImport } from './api'
+import { actionColumn } from '../../../shared/row-actions'
 
 export function BlockedWords({ school, schoolName, canEdit, platformAdmin = false }: { school?: string; schoolName?: string; canEdit: boolean; platformAdmin?: boolean }) {
   const [params] = useSearchParams()
@@ -44,15 +45,15 @@ export function BlockedWords({ school, schoolName, canEdit, platformAdmin = fals
         <Select aria-label="状态筛选" disabled={ordering} value={status} onChange={v=>{setStatus(v);setPage(1)}} options={[{value:'all',label:'全部状态'},{value:'active',label:'启用'},{value:'inactive',label:'停用'}]} />
         {editable && <Button onClick={()=>{setSearch('');setStatus('all');setPage(1);setOrdering(!ordering)}}>{ordering?'退出排序':'排序模式'}</Button>}
       </Space>
-      <Table<BlockedWord> className="linjian-data-table" tableLayout="fixed" rowKey="id" loading={q.isFetching || busy} dataSource={items} pagination={false} scroll={{ x: ordering ? 940 : 780 }} onRow={record => ({
+      <Table<BlockedWord> className="linjian-data-table" tableLayout="fixed" rowKey="id" loading={q.isFetching || busy} dataSource={items} pagination={false} scroll={{ x: ordering ? 880 : 760 }} onRow={record => ({
         draggable: editable && ordering,
         onDragStart: () => setDragged(record.id), onDragOver: e => e.preventDefault(),
         onDrop: e => { e.preventDefault(); if (dragged) move(dragged,record.id); setDragged(undefined) },
       })} columns={[
         {title:'屏蔽词', width: 200,dataIndex:'word'}, {title:'备注', width: 320,dataIndex:'remark'},
         {title:'状态', width: 100,render:(_,r)=><Tag color={r.active?'success':'default'}>{r.active?'启用':'停用'}</Tag>},
-        {title:'操作',width: ordering ? 320 : 160,render:(_,r)=>editable && <Space><Button type="link" onClick={()=>edit(r)}>编辑</Button><Popconfirm title="确定删除？" onConfirm={()=>run(()=>api.remove(school,r.id,r.revision))}><Button type="link" danger>删除</Button></Popconfirm>
-          {ordering && <><Button size="small" disabled={items[0]?.id===r.id} onClick={()=>move(r.id,items[items.indexOf(r)-1].id)}>上移</Button><Button size="small" disabled={items.at(-1)?.id===r.id} onClick={()=>move(r.id,items[items.indexOf(r)+1].id)}>下移</Button></>}</Space>},
+        actionColumn<BlockedWord>({ width: ordering ? 260 : 140, render: (r) => editable && <Space size={4}><Button type="link" aria-label={`编辑 ${r.word}`} onClick={() => edit(r)}>编辑</Button><Popconfirm title="确定删除？" onConfirm={() => run(() => api.remove(school, r.id, r.revision))}><Button type="link" danger aria-label={`删除 ${r.word}`}>删除</Button></Popconfirm>
+          {ordering && <><Button size="small" aria-label={`上移 ${r.word}`} disabled={items[0]?.id === r.id} onClick={() => move(r.id, items[items.indexOf(r) - 1].id)}>上移</Button><Button size="small" aria-label={`下移 ${r.word}`} disabled={items.at(-1)?.id === r.id} onClick={() => move(r.id, items[items.indexOf(r) + 1].id)}>下移</Button></>}</Space> }),
       ]} />
       {ordering ? <p>拖动行调整顺序，也可使用上移、下移按钮。</p> : <PaginationControls page={page} more={q.data?.has_more} busy={q.isFetching || busy} subject="屏蔽词" change={setPage}/>}
     </Card>

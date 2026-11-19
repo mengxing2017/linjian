@@ -6,6 +6,7 @@ import { Alert, Button, Descriptions, Drawer, Input, Modal, Select, Space, Table
 import { identity, workspace, type Row, type School, type User } from './api'
 import { Editor } from './editor'
 import { schoolRoleLabel } from '../../../app/shell'
+import { actionColumn, RowActions } from '../../../shared/row-actions'
 
 const statusOptions = [
   { value: '', label: '全部状态' },
@@ -149,7 +150,7 @@ export function Accounts({
         rowKey="id"
         loading={q.isPending}
         dataSource={rows}
-        scroll={{ x: 1200 }}
+        scroll={{ x: 800 }}
         pagination={{ ...navigationPagination,
           current: page,
           pageSize: 10,
@@ -168,28 +169,22 @@ export function Accounts({
               <Tag color={a.active ? 'success' : 'default'}>{a.active ? '启用' : '停用'}</Tag>
             ),
           },
-          {
-            title: '操作',
-            width: 320,
-            render: (_, a) => (
-              <Space wrap>
-                <Button type="link" onClick={() => open(a, 'details')}>
-                  详情
-                </Button>
-                {!administrators && a.id !== user.id && (
-                  <>
-                    <Button type="link" onClick={() => open(a, 'edit')}>
-                      编辑
-                    </Button>
-
-                  </>
-                )}
-                <Button type="link" onClick={() => open(a, 'password')}>
-                  重置密码
-                </Button>
-              </Space>
+          actionColumn<Row>({
+            width: 240,
+            render: (a) => (
+              <RowActions
+                label={value(a, 'display_name') || value(a, 'username')}
+                primaryCount={1}
+                actions={[
+                  { key: 'details', label: '详情', onClick: () => open(a, 'details') },
+                  ...(!administrators && a.id !== user.id
+                    ? [{ key: 'edit', label: '编辑', onClick: () => open(a, 'edit') }]
+                    : []),
+                  { key: 'password', label: '重置密码', onClick: () => open(a, 'password') },
+                ]}
+              />
             ),
-          },
+          }),
         ]}
       />
       {creating && (

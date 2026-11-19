@@ -5,6 +5,7 @@ import { workspace, type RecommendPostInput, type RecommendationView } from './a
 import { formatDate } from '../../../shared/format-date'
 import { Outbox } from './outbox'
 import { PaginationControls } from '../../../shared/pagination-controls'
+import { actionColumn } from '../../../shared/row-actions'
 
 export const recommendationStates: Record<RecommendationView['state'], string> = {
   preparing: '准备中',
@@ -132,32 +133,42 @@ export function PostRecommendation({
       <p>质量由学校管理员、运营人员人工判断。已受理不代表实际发送成功。</p>
       <Table<RecommendationView>
         rowKey="id"
+        tableLayout="fixed"
         size="small"
         pagination={false}
+        scroll={{ x: platformAdmin ? 1150 : 1030 }}
         dataSource={history.data?.items ?? []}
         columns={[
-          { title: '发起时间', render: (_, r) => formatDate(r.created_at) },
+          { title: '发起时间', width: 170, render: (_, r) => formatDate(r.created_at) },
           {
             title: '发起类型',
+            width: 100,
             render: (_, r) =>
               r.trigger_type === 'manual_recommendation' ? '人工推荐' : '审核自动推送',
           },
-          { title: '状态', render: (_, r) => recommendationStates[r.state] },
+          { title: '状态', width: 110, render: (_, r) => recommendationStates[r.state] },
           {
             title: '受理时间',
+            width: 170,
             render: (_, r) => (r.accepted_at ? formatDate(r.accepted_at) : '—'),
           },
-          { title: '操作者', render: (_, r) => r.actor_name ?? '审核发布流程' },
-          { title: '推荐原因', render: (_, r) => r.reason ?? '—' },
-          { title: '终止说明', render: (_, r) => r.terminated_reason ?? '—' },
+          { title: '操作者', width: 120, render: (_, r) => r.actor_name ?? '审核发布流程' },
+          { title: '推荐原因', width: 200, render: (_, r) => r.reason ?? '—' },
+          { title: '终止说明', width: 160, render: (_, r) => r.terminated_reason ?? '—' },
           ...(platformAdmin
             ? [
-                {
-                  title: '来源诊断',
-                  render: (_: unknown, r: RecommendationView) => (
-                    <Button onClick={() => setDiagnostic(r.id)}>查看来源诊断</Button>
+                actionColumn<RecommendationView>({
+                  width: 120,
+                  render: (r) => (
+                    <Button
+                      type="link"
+                      aria-label={`查看来源诊断 ${formatDate(r.created_at)}`}
+                      onClick={() => setDiagnostic(r.id)}
+                    >
+                      查看来源诊断
+                    </Button>
                   ),
-                },
+                }),
               ]
             : []),
         ]}

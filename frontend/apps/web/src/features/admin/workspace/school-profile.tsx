@@ -17,6 +17,7 @@ import {
 } from 'antd'
 import { workspace, type School, type SchoolInput, type SchoolFilters } from './api'
 import { PaginationControls } from '../../../shared/pagination-controls'
+import { actionColumn, RowActions } from '../../../shared/row-actions'
 const defaults = {
   name: '',
   short_name: '',
@@ -325,7 +326,7 @@ export function Schools({
         pagination={false}
         dataSource={q.data?.items ?? []}
         loading={q.isFetching}
-        scroll={{ x: 1400 }}
+        scroll={{ x: 1340 }}
         columns={[
           {
             title: '图标',
@@ -340,20 +341,25 @@ export function Schools({
           { title: '纬度', width: 120, dataIndex: 'latitude' },
           { title: '经度', width: 120, dataIndex: 'longitude' },
           { title: '状态', width: 100, render: (_, s) => (s.status === 'normal' ? '正常' : '隐藏') },
-          {
-            title: '操作',
-            width: 280,
-            render: (_, s) => (
-              <Space>
-                <Button onClick={() => setDetail(s)}>详情</Button>
-                <Button onClick={() => setEditing(s)}>编辑</Button>
-                <Button onClick={() => enter(s.id, 'settings')}>设置</Button>
-                <Button disabled={s.status === 'hidden'} onClick={() => enter(s.id, 'members')}>
-                  成员
-                </Button>
-              </Space>
+          actionColumn<School>({
+            width: 220,
+            render: (s) => (
+              <RowActions
+                label={s.name}
+                actions={[
+                  { key: 'detail', label: '详情', onClick: () => setDetail(s) },
+                  { key: 'edit', label: '编辑', onClick: () => setEditing(s) },
+                  { key: 'settings', label: '设置', onClick: () => enter(s.id, 'settings') },
+                  {
+                    key: 'members',
+                    label: '成员',
+                    disabled: s.status === 'hidden',
+                    onClick: () => enter(s.id, 'members'),
+                  },
+                ]}
+              />
             ),
-          },
+          }),
         ]}
       />
       <PaginationControls

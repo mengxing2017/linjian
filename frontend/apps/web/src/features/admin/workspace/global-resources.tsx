@@ -5,6 +5,7 @@ import { Alert, Button, Card, Drawer, Table, Tag } from 'antd'
 import { workspace, type Row } from './api'
 import { label } from '../../../shared/label'
 import { ResourceEditor } from './resource-editor'
+import { actionColumn, RowActions } from '../../../shared/row-actions'
 
 export function GlobalResources() {
   const q = useQuery({ queryKey: ['global-resources'], queryFn: workspace.globalResources })
@@ -39,7 +40,7 @@ export function GlobalResources() {
           loading={q.isFetching}
           dataSource={q.data ?? []}
           pagination={{ ...navigationPagination, pageSize: 10 }}
-          scroll={{ x: 740 }}
+          scroll={{ x: 690 }}
           columns={[
             { title: '标题', width: 240, dataIndex: 'title', render: (v) => label(v) },
             { title: '类型', width: 140, dataIndex: 'kind', render: (v) => label(v) },
@@ -51,21 +52,24 @@ export function GlobalResources() {
               ),
             },
             { title: '排序', width: 80, dataIndex: 'sort_order' },
-            {
-              title: '操作',
-              width: 160,
-              render: (_, r) => (
-                <Button
-                  type="link"
-                  onClick={() => {
-                    setItem(r)
-                    setOpen(true)
-                  }}
-                >
-                  编辑
-                </Button>
+            actionColumn<Row>({
+              width: 110,
+              render: (r) => (
+                <RowActions
+                  label={label(r.title) || r.id}
+                  actions={[
+                    {
+                      key: 'edit',
+                      label: '编辑',
+                      onClick: () => {
+                        setItem(r)
+                        setOpen(true)
+                      },
+                    },
+                  ]}
+                />
               ),
-            },
+            }),
           ]}
         />
       </Card>
