@@ -295,7 +295,7 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
             {shanghai(r.window.start_at)} 至 {shanghai(r.window.actual_end_at)} · 上海时间
             {r.window.state === 'in_progress' && <Tag>进行中</Tag>}
           </p>
-          <Row gutter={[12, 12]}>
+          <Row gutter={[12, 12]} align="stretch">
             {metricKeys.map((key) => (
               <Col
                 xs={24}
@@ -303,8 +303,9 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
                 lg={view === 'registration' ? 6 : undefined}
                 xl={view === 'overview' || view === 'registration' ? 6 : 8}
                 key={key}
+                style={{ display: 'flex' }}
               >
-                <Card size="small">
+                <Card size="small" style={{ width: '100%', height: '100%' }}>
                   <Statistic title={metricNames[key]} value={r.summary[key] ?? '—'} />
                   {r.summary[key] == null ? (
                     <span>暂未具备完整数据</span>
