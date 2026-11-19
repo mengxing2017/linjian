@@ -1,0 +1,24 @@
+{
+  "data": {
+    "type": "site-settings",
+    "id": "current",
+    "attributes": {
+      "revision": 3,
+      "site_name": "示例校园",
+      "title_subtitle": "校园内容运营",
+      "login_intro": "连接学校、内容与社区",
+      "icp_number": "京ICP备00000000号-1",
+      "police_number": "京公网安备 11000000000000号",
+      "police_url": "https://beian.mps.gov.cn/#/query/webSearch?code=11000000000000",
+      "copyright_owner": "示例运营主体",
+      "copyright_start_year": 2024,
+      "copyright_end_mode": "auto",
+      "copyright_end_year": null,
+      "copyright_years": "2024–2026",
+      "copyright_notice": null,
+      "updated_at": "2026-11-19T08:00:00Z",
+      "updated_by_name": "平台管理员",
+      "history": []
+    }
+  }
+}

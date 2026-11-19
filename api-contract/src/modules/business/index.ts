@@ -3,6 +3,7 @@ import { requestResource, requestCollection, requestBinary, setCsrf } from '../.
 export { ApiError } from '../../http';
 export * from './types'
 export * from './post-management'
+export * from './site-settings'
 import {createSchoolsClient} from '../schools'
 import type {SourceOutboxView} from '../source-access'
 import type { Comment, SetCommentVisibility, Row, Session, School, Post, PostReview, Resource, CaseManagementView, ResolveCaseInput } from './types'
@@ -24,8 +25,10 @@ export const identity = {
     reset: (id: string, password: string) => requestResource(`/api/v1/accounts/${part(id)}/password`, 'POST', { username: '', password }),
 };
 import { postManagement } from './post-management'
+import { siteSettings } from './site-settings'
 export const workspace = {
     postManagement,
+    siteSettings,
     setRecommendationCapability: (school: string, account: string, enabled: boolean) => requestResource<null>(scope(school, `members/${part(account)}/recommendation-capability`), 'PUT', {enabled}),
     terminateSource: (school: string, event: string, reason: string) => requestResource<null>(scope(school, `source-outbox/${part(event)}/terminations`), 'POST', {reason}),
     globalResources: () => requestResource<Row[]>('/api/v1/platform/resources'),

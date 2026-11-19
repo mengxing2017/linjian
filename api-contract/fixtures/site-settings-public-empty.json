@@ -1,0 +1,18 @@
+{
+  "data": {
+    "type": "site-settings",
+    "id": "current",
+    "attributes": {
+      "revision": 0,
+      "site_name": null,
+      "title_subtitle": null,
+      "login_intro": null,
+      "icp_number": null,
+      "police_number": null,
+      "police_url": null,
+      "copyright_owner": null,
+      "copyright_years": null,
+      "copyright_notice": null
+    }
+  }
+}

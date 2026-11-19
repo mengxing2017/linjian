@@ -1,0 +1,19 @@
+{
+  "data": {
+    "type": "site-settings",
+    "attributes": {
+      "revision": 3,
+      "site_name": "示例校园",
+      "title_subtitle": null,
+      "login_intro": null,
+      "icp_number": null,
+      "police_number": null,
+      "police_url": null,
+      "copyright_owner": "示例运营主体",
+      "copyright_start_year": 2024,
+      "copyright_end_mode": "auto",
+      "copyright_end_year": null,
+      "copyright_notice": null
+    }
+  }
+}
