@@ -14,6 +14,7 @@ pub mod observability;
 pub mod outbox;
 pub mod runtime;
 pub mod schools;
+pub mod site;
 pub mod system;
 
 pub mod source_access;
