@@ -19,7 +19,7 @@ it('preserves zero, unknown, future and partially covered observed values separa
   const model = trendModel(report, '内容趋势', ['posts'], 'none', false)
   expect(model.series[0].data).toEqual([0, null, null, 2])
   expect(model.categoryIds[2]).toBe('')
-  expect(model.series[0].notes[3]).toContain('已记录，历史覆盖未确认')
+  expect(model.series[0].notes[3]).toContain('数据存在缺口，仅展示现有记录')
   const option = chartOption(model)
   expect(option.series).toEqual([
     expect.objectContaining({ connectNulls: false, smooth: false, data: [0, null, null, 2] }),

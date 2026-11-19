@@ -52,7 +52,7 @@ it('opens platform statistics without choosing the first school', async () => {
   expect(statisticsApi.schools).not.toHaveBeenCalled()
 })
 it('fixes a school administrator to their authorized school', async () => {
-  vi.mocked(statisticsApi.report).mockRejectedValue(new Error('历史覆盖未确认'))
+  vi.mocked(statisticsApi.report).mockRejectedValue(new Error('统计服务暂时不可用'))
   show(false)
   await waitFor(() =>
     expect(statisticsApi.report).toHaveBeenCalledWith(
@@ -63,7 +63,7 @@ it('fixes a school administrator to their authorized school', async () => {
   )
   expect(screen.queryByLabelText('统计学校范围')).toBeNull()
   expect(screen.getByText('统计学校：甲校')).toBeTruthy()
-  expect(await screen.findByText('历史覆盖未确认')).toBeTruthy()
+  expect(await screen.findByText('统计服务暂时不可用')).toBeTruthy()
 })
 it('allows a platform administrator to open a school before selector options load', async () => {
   vi.mocked(statisticsApi.report).mockImplementation(() => new Promise<StatisticsReport>(() => {}))
@@ -111,7 +111,7 @@ it('renders a known-zero content trend and still reports expired exports', async
   vi.mocked(statisticsApi.export).mockRejectedValue(new Error('快照不可用，请刷新后重新导出'))
   show(true, '', 'content')
   expect(await screen.findByRole('figure', { name: '内容统计 · 内容量趋势' })).toBeTruthy()
-  expect(screen.getByText('所选期间已记录值均为 0；历史覆盖以数据说明为准。')).toBeTruthy()
+  expect(screen.getByText('所选期间可用指标均为 0。')).toBeTruthy()
   const { fireEvent } = await import('@testing-library/react')
   fireEvent.click(screen.getByRole('button', { name: '导出当前周期 CSV' }))
   expect(await screen.findByText('快照不可用，请刷新后重新导出')).toBeTruthy()
