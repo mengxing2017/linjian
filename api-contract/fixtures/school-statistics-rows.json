@@ -30,7 +30,7 @@
           "registration_base": false,
           "activity": true,
           "reasons": [
-            "历史注册学校归属未知"
+            "注册学校归属数据缺失，学校注册统计不可用"
           ],
           "content_from": "2026-01-01T00:00:00Z",
           "registration_from": "2026-01-01T00:00:00Z",

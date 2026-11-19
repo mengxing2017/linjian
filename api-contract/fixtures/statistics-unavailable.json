@@ -48,7 +48,7 @@
         "registration_base": false,
         "activity": false,
         "reasons": [
-          "历史注册学校归属未知",
+          "注册学校归属数据缺失，学校注册统计不可用",
           "活跃采集未覆盖、延迟或存在缺口"
         ],
         "content_from": "2026-01-01T00:00:00Z",
@@ -87,7 +87,7 @@
             "registration_base": false,
             "activity": false,
             "reasons": [
-              "历史注册学校归属未知",
+              "注册学校归属数据缺失，学校注册统计不可用",
               "活跃采集未覆盖、延迟或存在缺口"
             ],
             "content_from": "2026-01-01T00:00:00Z",

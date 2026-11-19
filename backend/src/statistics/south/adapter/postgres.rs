@@ -68,13 +68,13 @@ impl CoverageData {
                 .any(|(a, b)| *a < w.actual_end_at && *b > w.start_at);
         let mut reasons = Vec::new();
         if !content {
-            reasons.push("内容历史覆盖未确认".into());
+            reasons.push("内容数据存在缺口".into());
         }
         if !registration {
-            reasons.push("注册时间覆盖未确认".into());
+            reasons.push("注册数据存在缺口或时间异常".into());
         }
         if !assignment || !base_assignment {
-            reasons.push("历史注册学校归属未知".into());
+            reasons.push("注册学校归属数据缺失，学校注册统计不可用".into());
         }
         if !activity {
             reasons.push("活跃采集未覆盖、延迟或存在缺口".into());
@@ -209,8 +209,8 @@ async fn aggregate(
                 unknown,
                 unknown_base,
             );
-            // Existing local records remain useful before historical completeness is verified.
-            // Coverage flags distinguish these observed counts from complete totals.
+            // Preserve recorded counts during explicit data gaps, but mask derived
+            // metrics and comparisons whose dependencies are incomplete.
             if !coverage.registration_assignment {
                 m.registrations = None;
             }
