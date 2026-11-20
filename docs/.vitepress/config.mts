@@ -23,6 +23,7 @@ export default defineConfig({
         text: '功能说明',
         items: [
           { text: '学校信息与主题', link: '/guide/school-profiles' },
+          { text: '学校成员与业务权限', link: '/guide/member-permissions' },
           { text: '小程序用户与登录', link: '/guide/miniapp-users' },
           { text: '内容全文审核', link: '/guide/content-review' },
           { text: '小程序内容来源推送', link: '/guide/miniapp-publication' },
