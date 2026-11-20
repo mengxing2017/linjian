@@ -11,3 +11,6 @@ export type {
   SchoolRow,
   Period,
 } from '@linjian/api-contract/statistics'
+
+import { createSchoolPermissionsClient } from '@linjian/api-contract/schools'
+export const statisticsPermissions = createSchoolPermissionsClient(client)

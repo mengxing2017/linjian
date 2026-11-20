@@ -1,3 +1,4 @@
+import { rolePermissions } from '../../test/permissions'
 import { afterEach, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -35,7 +36,7 @@ function show(platformAdmin = false) {
         onNavigate={onNavigate}
         username="测试运营"
         platformAdmin={platformAdmin}
-        allowedKeys={visibleNavigationKeys(platformAdmin, 'operator')}
+        allowedKeys={visibleNavigationKeys(platformAdmin, 'operator', rolePermissions('operator'))}
         onLogout={onLogout}
       >
         <p>学校内容</p>

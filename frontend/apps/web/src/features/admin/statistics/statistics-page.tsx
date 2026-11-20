@@ -1,3 +1,4 @@
+import { statisticsPermissions } from './api'
 import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
@@ -63,7 +64,10 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
       : (params.get('statistics_school') ?? (user.platform_admin ? '' : (authorized[0]?.id ?? '')))
   // The school list supplies selector options, not platform administrators' permissions.
   // It may still be loading or may omit a school opened through a direct link.
-  const allowed = user.platform_admin || (!!scope && authorized.some((s) => s.id === scope))
+  const permission = useQuery({queryKey:['linjian','school-permissions',user.id,scope],queryFn:({signal})=>statisticsPermissions.mine(scope,signal),enabled:!!scope&&!user.platform_admin,retry:false,staleTime:0})
+  const permissions = permission.isError ? [] : permission.data?.effective_permissions ?? []
+  const allowed = user.platform_admin || (!!scope && authorized.some((s) => s.id === scope) && permissions.includes('statistics.school.read'))
+  const canExport = user.platform_admin || permissions.includes('statistics.school.export')
   const selectedPeriod = params.get('statistics_period') ?? 'month'
   const period: Period = ['day', 'week', 'month', 'year', 'custom'].includes(selectedPeriod)
     ? (selectedPeriod as Period)
@@ -112,7 +116,7 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
   const snapshotRef = useRef<string | undefined>(undefined)
   snapshotRef.current = r?.id
   const download = async (kind: 'periods' | 'schools') => {
-    if (!r) return
+    if (!r || !canExport) return
     setExportError('')
     setExporting(true)
     try {
@@ -362,6 +366,7 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
             comparison={comparison}
             onSelect={drill}
             exporting={exporting}
+            canExport={canExport}
             onExport={() => void download('periods')}
           />
           {view === 'schools' && (

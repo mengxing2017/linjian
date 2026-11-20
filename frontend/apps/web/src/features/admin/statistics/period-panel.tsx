@@ -15,12 +15,14 @@ export function PeriodPanel({
   comparison,
   onSelect: drill,
   exporting,
+  canExport = true,
   onExport,
 }: {
   report: StatisticsReport
   view: StatisticsView
   comparison: string
   onSelect: (date: string) => void
+  canExport?: boolean
   exporting: boolean
   onExport: () => void
 }) {
@@ -46,7 +48,7 @@ export function PeriodPanel({
               <Button onClick={() => setDetailOpen(!detailOpen)}>
                 {detailOpen ? '收起周期明细' : '查看周期明细'}
               </Button>
-              <Button loading={exporting} onClick={onExport}>
+              <Button disabled={!canExport} loading={exporting} onClick={onExport}>
                 导出当前周期 CSV
               </Button>
             </Space>

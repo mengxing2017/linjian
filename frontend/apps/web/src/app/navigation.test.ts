@@ -1,3 +1,4 @@
+import { rolePermissions } from '../test/permissions'
 import { expect, it } from 'vitest'
 import { isValidElement } from 'react'
 import { navigation, navigationDomains, visibleNavigationKeys } from './navigation'
@@ -44,13 +45,13 @@ it('exposes complete forum management without sending capabilities', () => {
   )
 })
 it('keeps platform account and school management separate from school operators', () => {
-  expect(visibleNavigationKeys(false, 'operator')).toContain('posts')
-  expect(visibleNavigationKeys(false, 'operator')).toContain('group-qrcodes')
-  expect(visibleNavigationKeys(false, 'operator')).not.toContain('customer-config')
+  expect(visibleNavigationKeys(false, 'operator', rolePermissions('operator'))).toContain('posts')
+  expect(visibleNavigationKeys(false, 'operator', rolePermissions('operator'))).toContain('group-qrcodes')
+  expect(visibleNavigationKeys(false, 'operator', rolePermissions('operator'))).not.toContain('customer-config')
   expect(visibleNavigationKeys(true)).toContain('customer-config')
-  expect(visibleNavigationKeys(false, 'operator')).not.toContain('accounts')
-  expect(visibleNavigationKeys(false, 'admin')).toContain('members')
-  expect(visibleNavigationKeys(false, 'admin')).not.toContain('schools')
+  expect(visibleNavigationKeys(false, 'operator', rolePermissions('operator'))).not.toContain('accounts')
+  expect(visibleNavigationKeys(false, 'admin', rolePermissions('admin'))).toContain('members')
+  expect(visibleNavigationKeys(false, 'admin', rolePermissions('admin'))).not.toContain('schools')
   expect(visibleNavigationKeys(false, 'member')).toEqual([])
   expect(visibleNavigationKeys(true)).toContain('accounts')
   expect(navigation.find((item) => item.key === 'accounts')?.label).toBe('后台账号')
@@ -59,6 +60,16 @@ it('keeps platform account and school management separate from school operators'
 it('places separate statistics navigation before forum and limits school comparison to platform admins', () => {
   expect(navigationDomains[0].key).toBe('statistics')
   expect(navigation.find((n) => n.key === 'statistics')?.label).toBe('统计概览')
-  expect(visibleNavigationKeys(false, 'operator')).toContain('statistics-activity')
-  expect(visibleNavigationKeys(false, 'admin')).not.toContain('statistics-schools')
+  expect(visibleNavigationKeys(false, 'operator', rolePermissions('operator'))).toContain('statistics-activity')
+  expect(visibleNavigationKeys(false, 'admin', rolePermissions('admin'))).not.toContain('statistics-schools')
+})
+
+it('keeps school routing and audits platform-only even with arbitrary school permission keys', () => {
+  const permissions = [...rolePermissions('admin'), 'source.binding.read', 'audit.school.read']
+  for (const role of ['admin', 'operator']) {
+    const visible = visibleNavigationKeys(false, role, permissions)
+    expect(visible).not.toContain('source-bindings')
+    expect(visible).not.toContain('audit')
+  }
+  expect(visibleNavigationKeys(true)).toEqual(expect.arrayContaining(['source-bindings', 'audit']))
 })

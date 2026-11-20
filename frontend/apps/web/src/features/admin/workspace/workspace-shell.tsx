@@ -15,7 +15,9 @@ import { GlobalResources } from './global-resources'
 import { BlockedWords } from './blocked-words'
 import { SiteSettings } from '../site-settings'
 import { SchoolWorkspacePage } from './school-workspace-page'
-import type { User } from './api'
+import { browserClient, createSchoolPermissionsClient, type User } from './api'
+import { useQuery } from '@tanstack/react-query'
+import { SchoolPermissionsContext } from './permissions-context'
 
 export function WorkspaceShell({ user, logout }: { user: User; logout: () => Promise<void> }) {
   const cache = useQueryClient()
@@ -45,13 +47,10 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
   const visibleSchools = q.data?.filter((s) => user.platform_admin || s.status === 'normal')
   const school = visibleSchools?.find((s) => s.id === (selected || visibleSchools[0]?.id))
   const role = school?.status === 'normal' ? user.grants.find((g) => g.school_id === school.id)?.role : undefined
-  const allowedKeys = Array.from(new Set([
-    ...visibleNavigationKeys(user.platform_admin, role),
-    ...navigation.filter((item) => item.domain === 'statistics' &&
-      (user.platform_admin || (item.capability !== 'global.manage' && user.grants.some((g) =>
-        ['admin', 'operator'].includes(g.role) && visibleSchools?.some((s) => s.id === g.school_id),
-      )))).map((item) => item.key),
-  ]))
+  const authorization = useQuery({ queryKey: ['linjian', 'school-permissions', user.id, school?.id], queryFn: ({ signal }) => createSchoolPermissionsClient(browserClient).mine(school!.id, signal), enabled: Boolean(school), retry: false, staleTime: 0 })
+  const effective = authorization.isError ? [] : authorization.data?.effective_permissions ?? []
+  const can = (key: string) => user.platform_admin || effective.includes(key)
+  const allowedKeys = visibleNavigationKeys(user.platform_admin, role, effective)
   const requestedTab = params.get('view') ?? allowedKeys[0] ?? ''
   const knownPage = navigation.find(n => n.key === requestedTab)
   const statisticsView = requestedTab === 'statistics' ? 'overview' : requestedTab.replace('statistics-', '')
@@ -97,6 +96,7 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
     return <Navigate to={{ search: `?${next}` }} replace />
   }
   function renderPage() {
+    if (school && !user.platform_admin && authorization.isPending) return <Alert type="info" title="正在加载本校有效权限…" />
     const fallback = () => navigate(allowedKeys[0] ?? 'posts')
     if (!tab) {
       return q.isPending
@@ -113,11 +113,11 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
     }
     if (isStatistics) return <StatisticsPage key={tab} view={statisticsView as 'overview' | 'content' | 'registration' | 'activity' | 'schools'} user={user} schools={q.data ?? []} />
     if (tab === 'customer-config' && user.platform_admin) return <CustomerConfiguration />
-    if (tab === 'group-qrcodes' || tab === 'home-banners') return <OperationResources key={`${school?.id}:${tab}`} module={tab} school={school?.id} platformAdmin={user.platform_admin} schoolAdmin={user.platform_admin || role === 'admin'} />
-    if (tab === 'feedback' && school) return <OperationFeedback key={school.id} school={school.id} canDelete={user.platform_admin || role === 'admin'} />
+    if (tab === 'group-qrcodes' || tab === 'home-banners') return <OperationResources key={`${school?.id}:${tab}`} module={tab} school={school?.id} platformAdmin={user.platform_admin} schoolAdmin={can('school.profile.update')} />
+    if (tab === 'feedback' && school) return <OperationFeedback key={school.id} school={school.id} canDelete={can('operation.feedback.delete')} />
     if (tab === 'miniapp-users') {
       return <MiniappUsers key={school?.id ?? 'no-school'} school={school?.id}
-        platformAdmin={user.platform_admin} schoolAdmin={role === 'admin'} schools={q.data ?? []} />
+        platformAdmin={user.platform_admin} schoolAdmin={can('school.user.status.update')} schools={q.data ?? []} />
     }
     if (tab === 'source-connections' && user.platform_admin) return <SourceConnections />
     if (tab === 'source-bindings' && school) {
@@ -151,11 +151,11 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
     }
     return <div className="business-panel" key={`${school.id}-${tab}`}>
       <SchoolWorkspacePage publisherId={user.id} publisher={user.display_name} view={tab} school={school} platformAdmin={user.platform_admin}
-        schoolAdmin={user.platform_admin || role === 'admin'} refresh={refresh} />
+        schoolAdmin={can('school.profile.update')} refresh={refresh} />
     </div>
   }
   return (
-    <UnsavedChangesContext.Provider value={setDirty}>
+    <SchoolPermissionsContext.Provider value={{ platform: user.platform_admin, effective }}><UnsavedChangesContext.Provider value={setDirty}>
       <AppShell
         active={tab}
         onNavigate={navigate}
@@ -200,6 +200,6 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
         {q.error && <Alert type="error" title={q.error.message} showIcon />}
         {renderPage()}
       </AppShell>
-    </UnsavedChangesContext.Provider>
+    </UnsavedChangesContext.Provider></SchoolPermissionsContext.Provider>
   )
 }

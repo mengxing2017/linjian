@@ -146,7 +146,7 @@ export const navigation: NavigationItem[] = [
     description: '维护本校唯一消息路由，统一使用全局 WeKeeper 配置。',
     domain: 'source',
     scope: 'school',
-    capability: 'school.admin',
+    capability: 'global.manage',
     icon: <BranchesOutlined />,
   },
   {
@@ -192,30 +192,25 @@ export const navigation: NavigationItem[] = [
     description: '追踪学校内的关键操作与变更记录。',
     domain: 'administration',
     scope: 'school',
-    capability: 'school.read',
+    capability: 'global.manage',
   },
 ]
 
-export function canNavigate(
-  item: NavigationItem,
-  platformAdmin: boolean,
-  schoolRole?: string,
-): boolean {
-  switch (item.capability) {
-    case 'school.operate':
-      return schoolRole === 'admin' || schoolRole === 'operator'
-    case 'global.manage':
-      return platformAdmin
-    case 'resources.read':
-      return platformAdmin || schoolRole === 'admin' || schoolRole === 'operator'
-    case 'school.admin':
-      return platformAdmin || schoolRole === 'admin'
-    case 'school.read':
-      return platformAdmin || schoolRole === 'admin' || schoolRole === 'operator'
-  }
+const navigationPermissions: Record<string, readonly string[]> = {
+  posts: ['content.post.read', 'content.comment.read'],
+  'home-menu': ['school.home_menu.read'], cases: ['content.case.read'], resources: ['resource.school.read'],
+  'blocked-words': ['school.blocked_word.read'], 'group-qrcodes': ['operation.qrcode.read'],
+  'home-banners': ['operation.banner.read'], feedback: ['operation.feedback.read'],
+  'miniapp-users': ['school.user.read'], members: ['school.member.read'],
+  settings: ['school.profile.read'],
+  statistics: ['statistics.school.read'], 'statistics-content': ['statistics.school.read'],
+  'statistics-registration': ['statistics.school.read'], 'statistics-activity': ['statistics.school.read'],
 }
-export function visibleNavigationKeys(platformAdmin: boolean, schoolRole?: string) {
-  return navigation
-    .filter((item) => canNavigate(item, platformAdmin, schoolRole))
-    .map((item) => item.key)
+export function canNavigate(item: NavigationItem, platformAdmin: boolean, schoolRole?: string, permissions: readonly string[] = []): boolean {
+  if (platformAdmin) return true
+  if (!schoolRole || item.scope === 'global' || item.capability === 'global.manage') return false
+  return (navigationPermissions[item.key] ?? []).some(key => permissions.includes(key))
+}
+export function visibleNavigationKeys(platformAdmin: boolean, schoolRole?: string, permissions: readonly string[] = []) {
+  return navigation.filter(item => canNavigate(item, platformAdmin, schoolRole, permissions)).map(item => item.key)
 }

@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { StatisticsPage } from './statistics-page'
 import { emptyReport } from './charts/test-fixtures'
 import { statisticsApi, type StatisticsReport, type StatisticsView } from './api'
-vi.mock('./api', () => ({ statisticsApi: { report: vi.fn(), export: vi.fn(), schools: vi.fn() } }))
+vi.mock('./api', () => ({ statisticsPermissions: { mine: vi.fn().mockResolvedValue({effective_permissions:['statistics.school.read','statistics.school.export']}) }, statisticsApi: { report: vi.fn(), export: vi.fn(), schools: vi.fn() } }))
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()

@@ -1,4 +1,6 @@
 export * from '@linjian/api-contract/business'
+export { createSchoolPermissionsClient } from '@linjian/api-contract/schools'
+export type { PermissionDefinition, PermissionOverride, PermissionEffect, MemberPermissions, ManagementMember } from '@linjian/api-contract/schools'
 
 export type {ResourceInput,ResourceAction,ImageRef,PublishedResource,BusinessPreview} from '@linjian/api-contract/business'
 export type {SchoolInput,SchoolFilters} from '@linjian/api-contract/schools'
