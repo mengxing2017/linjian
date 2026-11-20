@@ -18,6 +18,8 @@ impl Repository {
         let batch = self.1.config.lifecycle.cleanup_batch_size;
         let mut tx = lock.connection.begin().await?;
         lifecycle::configure(&mut tx, self.1.config.lifecycle.orphan_grace_hours).await?;
+        sqlx::query("DELETE FROM post_seed_batches WHERE id IN (SELECT id FROM post_seed_batches WHERE state='preview' AND expires_at<=now() ORDER BY expires_at,id LIMIT $1 FOR UPDATE SKIP LOCKED)")
+            .bind(batch).execute(&mut *tx).await?;
         // Lock assets before expired lease/token rows: renewal uses that same order.
         let expired: Vec<Uuid> = sqlx::query_scalar("SELECT id FROM file_assets f WHERE store_id=$1 AND (EXISTS(SELECT 1 FROM file_asset_leases l WHERE l.asset_id=f.id AND l.expires_at<=now()) OR EXISTS(SELECT 1 FROM media_access_tokens t WHERE t.asset_id=f.id AND t.expires_at<=now())) ORDER BY id LIMIT $2 FOR UPDATE SKIP LOCKED")
             .bind(self.1.store_id).bind(batch).fetch_all(&mut *tx).await?;

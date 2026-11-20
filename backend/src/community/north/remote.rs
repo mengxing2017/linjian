@@ -1,4 +1,5 @@
 mod post_management;
+pub mod post_seed;
 use crate::{
     bootstrap::Application,
     business::{Actor, Decision, Page, Result, Revision},
@@ -83,7 +84,10 @@ async fn create(
         None,
         result["id"].as_str().and_then(|id| id.parse().ok()),
     );
-    Ok(resource("posts", result))
+    Ok(resource(
+        "posts",
+        crate::community::domain::public_post::project(result)?,
+    ))
 }
 async fn update(
     State(a): State<Application>,
@@ -94,7 +98,9 @@ async fn update(
     let v = input_document.decode::<PostInput>("posts")?;
     Ok(resource(
         "posts",
-        a.community.post(&actor, s, Some(id), v).await?,
+        crate::community::domain::public_post::project(
+            a.community.post(&actor, s, Some(id), v).await?,
+        )?,
     ))
 }
 async fn visibility(
@@ -106,7 +112,9 @@ async fn visibility(
     let v = input_document.decode::<Value>("posts")?;
     Ok(resource(
         "posts",
-        a.community.visibility(&actor, s, id, v).await?,
+        crate::community::domain::public_post::project(
+            a.community.visibility(&actor, s, id, v).await?,
+        )?,
     ))
 }
 async fn moderate(
@@ -118,7 +126,9 @@ async fn moderate(
     let v = input_document.decode::<Decision>("posts")?;
     Ok(resource(
         "posts",
-        a.community.moderate(&actor, s, id, v, false).await?,
+        crate::community::domain::public_post::project(
+            a.community.moderate(&actor, s, id, v, false).await?,
+        )?,
     ))
 }
 async fn comment_visibility(

@@ -46,6 +46,9 @@ async fn unavailable(
     id: Uuid,
     row: &Value,
 ) -> Result<Option<&'static str>> {
+    if row["created_via"] == "seed" {
+        return Ok(Some("seed_content_not_recommendable"));
+    }
     if row["audit_status"] != "approved"
         || row["visibility"] != "visible"
         || row["evidence_valid"] != true

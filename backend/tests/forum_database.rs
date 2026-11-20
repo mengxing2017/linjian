@@ -10,6 +10,8 @@ use uuid::Uuid;
 mod member_permissions_fixture;
 #[path = "member_permissions/mod.rs"]
 mod member_permissions_tests;
+#[path = "post_seed/mod.rs"]
+mod post_seed_tests;
 use member_permissions_fixture::SchoolFixtures;
 async fn isolated(admin: &PgPool, name: &str) -> PgPool {
     sqlx::query(&format!("CREATE SCHEMA {name}"))

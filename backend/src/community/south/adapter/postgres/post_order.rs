@@ -1,7 +1,4 @@
-use super::{
-    Repository,
-    post_management::{guard, locked},
-};
+use super::{Repository, post_management::guard};
 use crate::{
     business::{Actor, Error, Page, Result},
     community::domain::post_management::ReorderPostsInput,
@@ -45,7 +42,7 @@ impl Repository {
             ..Default::default()
         }
         .bounds()?;
-        let current=sqlx::query("SELECT id,revision,sort_order FROM posts WHERE school_id=$1 AND visibility<>'deleted' AND is_top=$2 ORDER BY sort_order DESC,created_at DESC,id LIMIT $3 OFFSET $4 FOR UPDATE")
+        let current=sqlx::query("SELECT id,revision,sort_order FROM posts WHERE school_id=$1 AND visibility<>'deleted' AND is_top=$2 ORDER BY sort_order DESC,display_published_at DESC,id LIMIT $3 OFFSET $4 FOR UPDATE")
   .bind(s).bind(v.is_top).bind(limit).bind(offset).fetch_all(&mut *tx).await?;
         if current.len() != v.original.len()
             || current.iter().zip(&v.original).any(|(r, o)| {
@@ -59,18 +56,8 @@ impl Repository {
             tx.commit().await?;
             return Ok(version);
         }
-        for (i, id) in v.ordered_ids.iter().enumerate() {
-            let old = current
-                .iter()
-                .find(|r| r.get::<Uuid, _>("id") == *id)
-                .ok_or(Error::Conflict)?;
-            let weight: i64 = current[i].get("sort_order");
-            if old.get::<i64, _>("sort_order") == weight {
-                continue;
-            }
-            locked(&mut tx, s, *id, old.get("revision")).await?;
-            sqlx::query("UPDATE posts SET sort_order=$3,revision=revision+1,updated_at=now() WHERE school_id=$1 AND id=$2").bind(s).bind(id).bind(weight).execute(&mut *tx).await?;
-        }
+        sqlx::query("WITH ranked AS (SELECT id,row_number() OVER(ORDER BY sort_order DESC,display_published_at DESC,id) AS position,count(*) OVER() AS total FROM posts WHERE school_id=$1 AND visibility<>'deleted' AND is_top=$2), desired AS (SELECT id,CASE WHEN id=ANY($3::uuid[]) THEN total-$4-array_position($3::uuid[],id)+1 ELSE total-position+1 END AS weight FROM ranked) UPDATE posts p SET sort_order=d.weight,revision=p.revision+1,updated_at=now() FROM desired d WHERE p.id=d.id AND p.sort_order IS DISTINCT FROM d.weight")
+            .bind(s).bind(v.is_top).bind(&v.ordered_ids).bind(offset).execute(&mut *tx).await?;
         let revision: i64 =
             sqlx::query_scalar("SELECT revision FROM post_order_versions WHERE school_id=$1")
                 .bind(s)

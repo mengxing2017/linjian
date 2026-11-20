@@ -28,7 +28,7 @@ pub(super) async fn guard(
     }
     crate::schools::south::adapter::postgres::profiles::lock_active_school(tx, s).await
 }
-const VIEW: &str = "jsonb_build_object('id',p.id,'school_id',p.school_id,'school_name',s.name,'author_id',p.author_id,'author_nickname',coalesce(nullif(btrim(u.nickname),''),nullif(btrim(a.display_name),''),'未知用户'),'title',p.title,'content',p.content,'images',p.images,'tags',p.tags,'created_at',p.created_at,'audit_status',p.audit_status,'visibility',p.visibility,'top_sort',p.top_sort,'revision',p.revision,'content_revision',p.content_revision,'is_top',p.is_top,'cover_image',p.images->>0,'source_summary',(SELECT jsonb_build_object('id',o.id,'state',CASE WHEN o.delivery_state='accepted' THEN 'accepted' WHEN o.delivery_state='cancelled' THEN 'cancelled' WHEN o.delivery_state IN ('blocked','waiting_binding','waiting_configuration','paused') OR prep.state='blocked' THEN 'blocked' WHEN o.request_body IS NULL THEN 'preparing' ELSE 'processing' END,'created_at',o.created_at) FROM forum_outbox o LEFT JOIN forum_publication_preparations prep ON prep.event_id=o.id WHERE o.school_id=p.school_id AND o.post_id=p.id ORDER BY o.created_at DESC,o.id DESC LIMIT 1))||forum_decision_details(p.school_id,p.id,'post',p.content_revision,p.audit_status)";
+const VIEW: &str = "jsonb_build_object('id',p.id,'school_id',p.school_id,'school_name',s.name,'author_id',p.author_id,'author_nickname',coalesce(nullif(btrim(u.nickname),''),nullif(btrim(a.display_name),''),'未知用户'),'title',p.title,'content',p.content,'images',p.images,'tags',p.tags,'created_at',p.created_at,'audit_status',p.audit_status,'visibility',p.visibility,'top_sort',p.top_sort,'revision',p.revision,'content_revision',p.content_revision,'is_top',p.is_top,'cover_image',p.images->>0,'created_via',p.created_via,'author_kind',a.account_kind,'seed_batch_id',p.seed_batch_id,'created_by',(SELECT created_by FROM post_seed_batches WHERE id=p.seed_batch_id),'display_published_at',p.display_published_at,'source_summary',(SELECT jsonb_build_object('id',o.id,'state',CASE WHEN o.delivery_state='accepted' THEN 'accepted' WHEN o.delivery_state='cancelled' THEN 'cancelled' WHEN o.delivery_state IN ('blocked','waiting_binding','waiting_configuration','paused') OR prep.state='blocked' THEN 'blocked' WHEN o.request_body IS NULL THEN 'preparing' ELSE 'processing' END,'created_at',o.created_at) FROM forum_outbox o LEFT JOIN forum_publication_preparations prep ON prep.event_id=o.id WHERE o.school_id=p.school_id AND o.post_id=p.id ORDER BY o.created_at DESC,o.id DESC LIMIT 1))||forum_decision_details(p.school_id,p.id,'post',p.content_revision,p.audit_status)";
 const JOIN: &str = " FROM posts p JOIN schools s ON s.id=p.school_id LEFT JOIN accounts a ON a.id=p.author_id LEFT JOIN miniapp_users u ON u.account_id=p.author_id ";
 fn decode(mut row: Value) -> Result<PostManagementView> {
     row["review_digest"] = review::digest(&row)?.into();
@@ -42,7 +42,26 @@ fn decode(mut row: Value) -> Result<PostManagementView> {
         .ok_or(Error::Unavailable)?
         .remove("is_top");
     row.as_object_mut().unwrap().remove("cover_image");
+    let created_via = row.as_object_mut().unwrap().remove("created_via").unwrap();
+    let author_kind = row.as_object_mut().unwrap().remove("author_kind").unwrap();
+    let seed_batch_id = row
+        .as_object_mut()
+        .unwrap()
+        .remove("seed_batch_id")
+        .unwrap();
+    let created_by = row.as_object_mut().unwrap().remove("created_by").unwrap();
+    let display_time = row
+        .as_object_mut()
+        .unwrap()
+        .remove("display_published_at")
+        .unwrap();
     Ok(PostManagementView {
+        created_via: serde_json::from_value(created_via).map_err(|_| Error::Unavailable)?,
+        author_kind: serde_json::from_value(author_kind).map_err(|_| Error::Unavailable)?,
+        seed_batch_id: serde_json::from_value(seed_batch_id).map_err(|_| Error::Unavailable)?,
+        created_by: serde_json::from_value(created_by).map_err(|_| Error::Unavailable)?,
+        display_published_at: serde_json::from_value(display_time)
+            .map_err(|_| Error::Unavailable)?,
         post: serde_json::from_value(row).map_err(|_| Error::Unavailable)?,
         is_top,
         cover_image,
@@ -147,8 +166,8 @@ impl Repository {
         .fetch_one(&mut *tx)
         .await?;
         let (limit, offset) = f.pagination().fetch_bounds()?;
-        let rows:Vec<Value>=sqlx::query_scalar(&format!("SELECT {VIEW}{JOIN} WHERE p.school_id=$1 AND p.visibility<>'deleted' AND ($2::text IS NULL OR $2='' OR p.audit_status=$2) AND ($3::text IS NULL OR $3='' OR p.visibility=$3) AND ($4::boolean IS NULL OR p.is_top=$4) AND (p.title ILIKE '%'||$5||'%' OR p.content ILIKE '%'||$5||'%' OR coalesce(nullif(btrim(u.nickname),''),a.display_name,'未知用户') ILIKE '%'||$5||'%') AND ($6::text IS NULL OR $6='' OR p.tags ? $6) AND ($7::timestamptz IS NULL OR p.created_at>=$7) AND ($8::timestamptz IS NULL OR p.created_at<=$8) ORDER BY p.is_top DESC,p.sort_order DESC,p.created_at DESC,p.id LIMIT $9 OFFSET $10"))
-  .bind(s).bind(f.audit_status).bind(f.visibility).bind(f.is_top).bind(f.search.unwrap_or_default()).bind(f.tag).bind(f.created_from).bind(f.created_to).bind(limit).bind(offset).fetch_all(&mut *tx).await?;
+        let rows:Vec<Value>=sqlx::query_scalar(&format!("SELECT {VIEW}{JOIN} WHERE p.school_id=$1 AND p.visibility<>'deleted' AND ($2::text IS NULL OR $2='' OR p.audit_status=$2) AND ($3::text IS NULL OR $3='' OR p.visibility=$3) AND ($4::boolean IS NULL OR p.is_top=$4) AND (p.title ILIKE '%'||$5||'%' OR p.content ILIKE '%'||$5||'%' OR coalesce(nullif(btrim(u.nickname),''),a.display_name,'未知用户') ILIKE '%'||$5||'%') AND ($6::text IS NULL OR $6='' OR p.tags ? $6) AND ($7::timestamptz IS NULL OR p.created_at>=$7) AND ($8::timestamptz IS NULL OR p.created_at<=$8) AND ($11::text IS NULL OR $11='' OR p.created_via=$11) AND ($12::text IS NULL OR $12='' OR a.account_kind=$12) AND ($13::uuid IS NULL OR p.seed_batch_id=$13) AND ($14::timestamptz IS NULL OR p.display_published_at>=$14) AND ($15::timestamptz IS NULL OR p.display_published_at<=$15) ORDER BY p.is_top DESC,p.sort_order DESC,p.display_published_at DESC,p.id LIMIT $9 OFFSET $10"))
+  .bind(s).bind(f.audit_status).bind(f.visibility).bind(f.is_top).bind(f.search.unwrap_or_default()).bind(f.tag).bind(f.created_from).bind(f.created_to).bind(limit).bind(offset).bind(f.created_via).bind(f.author_kind).bind(f.seed_batch_id).bind(f.display_from).bind(f.display_to).fetch_all(&mut *tx).await?;
         let can_recommend = super::post_recommendation::can_recommend(&mut tx, a, s).await?;
         let items = rows.into_iter().map(decode).collect::<Result<_>>()?;
         tx.commit().await?;

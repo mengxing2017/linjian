@@ -10,7 +10,7 @@ use sqlx::{PgPool, Postgres, Row, Transaction};
 use uuid::Uuid;
 #[derive(Clone)]
 pub struct Repository(pub PgPool);
-const VIEW: &str = "SELECT u.account_id AS id,CASE WHEN u.avatar_asset_id IS NULL THEN NULL ELSE '/api/v1/miniapp/avatar-assets/'||u.avatar_asset_id END AS avatar_url,u.avatar_asset_id,u.nickname,u.mobile,a.bound_school_id AS school_id,s.name AS school_name,(SELECT count(*) FROM posts p WHERE p.author_id=u.account_id AND p.school_id=a.bound_school_id AND p.visibility<>'deleted') AS post_count,u.created_at,u.status,u.revision FROM miniapp_users u JOIN accounts a ON a.id=u.account_id LEFT JOIN schools s ON s.id=a.bound_school_id";
+const VIEW: &str = "SELECT u.account_id AS id,CASE WHEN u.avatar_asset_id IS NULL THEN NULL ELSE '/api/v1/miniapp/avatar-assets/'||u.avatar_asset_id END AS avatar_url,u.avatar_asset_id,u.nickname,a.account_kind,u.mobile,a.bound_school_id AS school_id,s.name AS school_name,(SELECT count(*) FROM posts p WHERE p.author_id=u.account_id AND p.school_id=a.bound_school_id AND p.visibility<>'deleted') AS post_count,u.created_at,u.status,u.revision FROM miniapp_users u JOIN accounts a ON a.id=u.account_id LEFT JOIN schools s ON s.id=a.bound_school_id";
 fn decode(v: Value) -> Result<UserView> {
     serde_json::from_value(v).map_err(|_| Error::Unavailable)
 }
@@ -115,7 +115,7 @@ impl Repository {
         }
         let scope = school.or(q.school_id);
         let sql = format!(
-            "SELECT to_jsonb(v) FROM ({VIEW} WHERE ($1::uuid IS NULL OR a.bound_school_id=$1) AND (NOT $2 OR a.bound_school_id IS NULL) AND ($3::text IS NULL OR u.status=$3) AND ($4::text IS NULL OR u.nickname ILIKE '%'||$4||'%') AND ($5::text IS NULL OR u.mobile LIKE '%'||$5||'%') AND ($6::timestamptz IS NULL OR u.created_at>=$6) AND ($7::timestamptz IS NULL OR u.created_at<=$7) ORDER BY {order} LIMIT $8 OFFSET $9) v"
+            "SELECT to_jsonb(v) FROM ({VIEW} WHERE ($1::uuid IS NULL OR a.bound_school_id=$1) AND (NOT $2 OR a.bound_school_id IS NULL) AND ($3::text IS NULL OR u.status=$3) AND ($4::text IS NULL OR u.nickname ILIKE '%'||$4||'%') AND ($5::text IS NULL OR u.mobile LIKE '%'||$5||'%') AND ($6::timestamptz IS NULL OR u.created_at>=$6) AND ($7::timestamptz IS NULL OR u.created_at<=$7) AND a.account_kind=coalesce($10,'ordinary') ORDER BY {order} LIMIT $8 OFFSET $9) v"
         );
         let rows: Vec<Value> = sqlx::query_scalar(&sql)
             .bind(scope)
@@ -127,6 +127,7 @@ impl Repository {
             .bind(q.created_to)
             .bind(size + 1)
             .bind(offset)
+            .bind(&q.account_kind)
             .fetch_all(&self.0)
             .await?;
         rows.into_iter().map(decode).collect()

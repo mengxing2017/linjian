@@ -6,7 +6,7 @@ use uuid::Uuid;
 pub struct Repository(pub PgPool);
 impl Repository {
     pub async fn account(&self, username: &str) -> Result<Option<(Uuid, String)>> {
-        let row=sqlx::query("SELECT id,password_hash FROM accounts WHERE username=$1 AND active AND password_hash IS NOT NULL").bind(username).fetch_optional(&self.0).await?;
+        let row=sqlx::query("SELECT id,password_hash FROM accounts WHERE username=$1 AND active AND account_kind='ordinary' AND password_hash IS NOT NULL").bind(username).fetch_optional(&self.0).await?;
         Ok(row.map(|r| (r.get("id"), r.get("password_hash"))))
     }
     pub async fn throttle(&self, username: &str) -> Result<()> {
@@ -28,11 +28,13 @@ impl Repository {
         origin: Option<&str>,
     ) -> Result<(String, Actor)> {
         let mut tx = self.0.begin().await?;
-        sqlx::query("SELECT id FROM accounts WHERE id=$1 AND active FOR UPDATE")
-            .bind(id)
-            .fetch_optional(&mut *tx)
-            .await?
-            .ok_or(Error::Unauthorized)?;
+        sqlx::query(
+            "SELECT id FROM accounts WHERE id=$1 AND active AND account_kind='ordinary' FOR UPDATE",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(Error::Unauthorized)?;
         if kind == SessionKind::Miniapp {
             let (_, status, _) =
                 crate::miniapp_users::south::adapter::postgres::lock_user(&mut tx, id).await?;
@@ -49,7 +51,7 @@ impl Repository {
     }
     pub async fn authenticate(&self, token: &str, kind: SessionKind) -> Result<Actor> {
         let h = hash(token);
-        let row=sqlx::query("UPDATE sessions s SET last_seen_at=now() FROM accounts a WHERE s.account_id=a.id AND s.token_hash=$1 AND s.kind=$2 AND s.expires_at>now() AND s.last_seen_at>now()-interval '30 minutes' AND a.active AND ($3 OR EXISTS(SELECT 1 FROM miniapp_users u WHERE u.account_id=a.id AND u.status='normal')) RETURNING a.id,a.username,CASE WHEN $3 THEN a.display_name ELSE coalesce((SELECT nickname FROM miniapp_users WHERE account_id=a.id),a.display_name) END AS display_name,a.platform_admin,a.bound_school_id,s.csrf,s.login_origin").bind(&h).bind(kind.as_str()).bind(kind == SessionKind::AdminBrowser).fetch_optional(&self.0).await?.ok_or(Error::Unauthorized)?;
+        let row=sqlx::query("UPDATE sessions s SET last_seen_at=now() FROM accounts a WHERE s.account_id=a.id AND s.token_hash=$1 AND s.kind=$2 AND s.expires_at>now() AND s.last_seen_at>now()-interval '30 minutes' AND a.active AND a.account_kind='ordinary' AND ($3 OR EXISTS(SELECT 1 FROM miniapp_users u WHERE u.account_id=a.id AND u.status='normal')) RETURNING a.id,a.username,CASE WHEN $3 THEN a.display_name ELSE coalesce((SELECT nickname FROM miniapp_users WHERE account_id=a.id),a.display_name) END AS display_name,a.platform_admin,a.bound_school_id,s.csrf,s.login_origin").bind(&h).bind(kind.as_str()).bind(kind == SessionKind::AdminBrowser).fetch_optional(&self.0).await?.ok_or(Error::Unauthorized)?;
         let id: Uuid = row.get("id");
         let permissions = if kind == SessionKind::AdminBrowser {
             let value: Value = sqlx::query_scalar("SELECT coalesce(jsonb_object_agg(s.id::text,(SELECT coalesce(jsonb_agg(p->>'key'),'[]'::jsonb) FROM jsonb_array_elements(forum_permission_catalog()) p WHERE forum_has_permission($1,s.id,p->>'key'))),'{}'::jsonb) FROM schools s WHERE s.active AND EXISTS(SELECT 1 FROM school_memberships m WHERE m.school_id=s.id AND m.account_id=$1 AND m.role IN ('admin','operator'))").bind(id).fetch_one(&self.0).await?;

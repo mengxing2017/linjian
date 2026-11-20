@@ -1,3 +1,4 @@
+pub mod post_seed;
 use crate::business::{Actor, Decision, Page, Result};
 use crate::community::domain::case::{CaseManagementView, ResolveCaseInput};
 use crate::community::domain::{CommentInput, PostInput};

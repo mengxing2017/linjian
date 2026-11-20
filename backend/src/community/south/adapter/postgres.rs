@@ -7,6 +7,7 @@ mod post_import;
 mod post_management;
 mod post_order;
 mod post_recommendation;
+pub mod post_seed;
 mod reviews;
 use crate::business::{Actor, Decision, Error, Page, Result, require};
 use crate::community::domain::{CommentInput, PostInput};
@@ -54,14 +55,17 @@ impl Repository {
             .await?;
         let (l, o) = p.fetch_bounds()?;
         let search = format!("%{}%", p.search.unwrap_or_default());
-        Ok(sqlx::query_scalar("SELECT (to_jsonb(p)-'is_top'-'sort_order')||jsonb_build_object('author_name',coalesce((SELECT nickname FROM miniapp_users WHERE account_id=a.id),a.display_name),'like_count',(SELECT count(*) FROM post_reactions WHERE post_id=p.id AND kind='like'),'collect_count',(SELECT count(*) FROM post_reactions WHERE post_id=p.id AND kind='collect'),'comment_count',(SELECT count(*) FROM comments WHERE post_id=p.id AND audit_status='approved' AND visibility='visible' AND NOT deleted)) FROM posts p JOIN accounts a ON a.id=p.author_id WHERE p.school_id=$1 AND p.visibility<>'deleted' AND ($2 OR (p.audit_status='approved' AND p.visibility='visible') OR p.author_id=$3) AND ($4::text IS NULL OR p.audit_status=$4) AND (NOT $5 OR p.author_id=$3) AND (p.title ILIKE $6 OR p.content ILIKE $6) AND ($10::text IS NULL OR $10='' OR p.tags ? $10) AND ($9::text IS NULL OR ($9='collect' AND EXISTS(SELECT 1 FROM post_reactions r WHERE r.post_id=p.id AND r.account_id=$3 AND r.kind='collect')) OR ($9='following' AND EXISTS(SELECT 1 FROM follows f WHERE f.school_id=p.school_id AND f.follower_id=$3 AND f.target_id=p.author_id))) ORDER BY p.is_top DESC,p.sort_order DESC,p.created_at DESC,p.id LIMIT $7 OFFSET $8").bind(s).bind(a.has_permission(s,"content.post.read")).bind(a.id).bind(p.status).bind(p.mine.unwrap_or(false)).bind(search).bind(l).bind(o).bind(p.kind).bind(p.tag).fetch_all(&self.0).await?)
+        let rows: Vec<Value> = sqlx::query_scalar("SELECT linjian_public_post(p)||jsonb_build_object('author_name',coalesce((SELECT nickname FROM miniapp_users WHERE account_id=a.id),a.display_name),'like_count',(SELECT count(*) FROM post_reactions WHERE post_id=p.id AND kind='like'),'collect_count',(SELECT count(*) FROM post_reactions WHERE post_id=p.id AND kind='collect'),'comment_count',(SELECT count(*) FROM comments WHERE post_id=p.id AND audit_status='approved' AND visibility='visible' AND NOT deleted)) FROM posts p JOIN accounts a ON a.id=p.author_id WHERE p.school_id=$1 AND p.visibility<>'deleted' AND ($2 OR (p.audit_status='approved' AND p.visibility='visible') OR p.author_id=$3) AND ($4::text IS NULL OR p.audit_status=$4) AND (NOT $5 OR p.author_id=$3) AND (p.title ILIKE $6 OR p.content ILIKE $6) AND ($10::text IS NULL OR $10='' OR p.tags ? $10) AND ($9::text IS NULL OR ($9='collect' AND EXISTS(SELECT 1 FROM post_reactions r WHERE r.post_id=p.id AND r.account_id=$3 AND r.kind='collect')) OR ($9='following' AND EXISTS(SELECT 1 FROM follows f WHERE f.school_id=p.school_id AND f.follower_id=$3 AND f.target_id=p.author_id))) ORDER BY p.is_top DESC,p.sort_order DESC,p.display_published_at DESC,p.id LIMIT $7 OFFSET $8").bind(s).bind(a.has_permission(s,"content.post.read")).bind(a.id).bind(p.status).bind(p.mine.unwrap_or(false)).bind(search).bind(l).bind(o).bind(p.kind).bind(p.tag).fetch_all(&self.0).await?;
+        rows.into_iter()
+            .map(crate::community::domain::public_post::project)
+            .collect()
     }
     pub async fn detail(&self, a: &Actor, s: Uuid, id: Uuid) -> Result<Value> {
         crate::schools::south::adapter::postgres::Repository(self.0.clone())
             .require_active(s)
             .await?;
-        let v:Value=sqlx::query_scalar("UPDATE posts SET browse=browse+1 WHERE school_id=$1 AND id=$2 AND visibility<>'deleted' AND ($3 OR author_id=$4 OR (audit_status='approved' AND visibility='visible')) RETURNING (to_jsonb(posts)-'is_top'-'sort_order')||jsonb_build_object('author_name',(SELECT coalesce((SELECT nickname FROM miniapp_users WHERE account_id=accounts.id),display_name) FROM accounts WHERE id=posts.author_id),'like_count',(SELECT count(*) FROM post_reactions WHERE post_id=posts.id AND kind='like'),'comment_count',(SELECT count(*) FROM comments WHERE post_id=posts.id AND audit_status='approved' AND visibility='visible' AND NOT deleted))").bind(s).bind(id).bind(a.has_permission(s,"content.post.read")).bind(a.id).fetch_optional(&self.0).await?.ok_or(Error::NotFound)?;
-        Ok(v)
+        let v:Value=sqlx::query_scalar("UPDATE posts SET browse=browse+1 WHERE school_id=$1 AND id=$2 AND visibility<>'deleted' AND ($3 OR author_id=$4 OR (audit_status='approved' AND visibility='visible')) RETURNING linjian_public_post(posts)||jsonb_build_object('author_name',(SELECT coalesce((SELECT nickname FROM miniapp_users WHERE account_id=accounts.id),display_name) FROM accounts WHERE id=posts.author_id),'like_count',(SELECT count(*) FROM post_reactions WHERE post_id=posts.id AND kind='like'),'comment_count',(SELECT count(*) FROM comments WHERE post_id=posts.id AND audit_status='approved' AND visibility='visible' AND NOT deleted))").bind(s).bind(id).bind(a.has_permission(s,"content.post.read")).bind(a.id).fetch_optional(&self.0).await?.ok_or(Error::NotFound)?;
+        crate::community::domain::public_post::project(v)
     }
     pub async fn create(&self, a: &Actor, s: Uuid, v: PostInput) -> Result<Value> {
         if a.is_admin_browser() {

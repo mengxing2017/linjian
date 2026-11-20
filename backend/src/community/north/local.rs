@@ -1,5 +1,6 @@
 mod post_import;
 mod post_management;
+pub mod post_seed;
 use super::super::{
     domain::{CommentInput, PostInput},
     south::adapter::postgres::Repository,

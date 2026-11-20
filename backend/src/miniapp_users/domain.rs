@@ -9,6 +9,7 @@ pub struct UserView {
     pub avatar_url: Option<String>,
     pub avatar_asset_id: Option<Uuid>,
     pub nickname: String,
+    pub account_kind: String,
     pub mobile: Option<String>,
     pub school_id: Option<Uuid>,
     pub school_name: Option<String>,
@@ -34,9 +35,16 @@ pub struct Query {
     pub sort: Option<String>,
     pub school_id: Option<Uuid>,
     pub unbound: Option<bool>,
+    pub account_kind: Option<String>,
 }
 impl Query {
     pub fn bounds(&self) -> Result<(i64, i64)> {
+        require(
+            self.account_kind
+                .as_deref()
+                .is_none_or(|kind| matches!(kind, "ordinary" | "simulated")),
+            "账号类型无效",
+        )?;
         let page = self.page.unwrap_or(1);
         let size = self.size.unwrap_or(30);
         require(

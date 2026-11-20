@@ -9,6 +9,11 @@ pub struct PostManagementView {
     pub is_top: bool,
     pub cover_image: Option<String>,
     pub source_summary: Option<serde_json::Value>,
+    pub created_via: String,
+    pub author_kind: String,
+    pub seed_batch_id: Option<Uuid>,
+    pub created_by: Option<Uuid>,
+    pub display_published_at: chrono::DateTime<chrono::Utc>,
 }
 #[derive(Default, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -22,6 +27,11 @@ pub struct PostManagementFilters {
     pub visibility: Option<String>,
     pub is_top: Option<bool>,
     pub tag: Option<String>,
+    pub created_via: Option<String>,
+    pub author_kind: Option<String>,
+    pub seed_batch_id: Option<Uuid>,
+    pub display_from: Option<chrono::DateTime<chrono::Utc>>,
+    pub display_to: Option<chrono::DateTime<chrono::Utc>>,
     pub created_from: Option<chrono::DateTime<chrono::Utc>>,
     pub created_to: Option<chrono::DateTime<chrono::Utc>>,
 }
@@ -35,6 +45,22 @@ impl PostManagementFilters {
     }
     pub fn validate(&self) -> Result<()> {
         self.pagination().bounds()?;
+        require(
+            self.created_via
+                .as_deref()
+                .is_none_or(|value| matches!(value, "" | "web" | "miniapp" | "seed" | "legacy")),
+            "投稿来源无效",
+        )?;
+        require(
+            self.author_kind
+                .as_deref()
+                .is_none_or(|value| matches!(value, "" | "ordinary" | "simulated")),
+            "作者类型无效",
+        )?;
+        require(
+            !matches!((self.display_from,self.display_to),(Some(start),Some(end)) if start>end),
+            "展示时间范围无效",
+        )?;
         text(self.search.as_deref().unwrap_or(""), 0, 200)?;
         text(self.tag.as_deref().unwrap_or(""), 0, 50)?;
         require(

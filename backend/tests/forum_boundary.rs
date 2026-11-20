@@ -355,11 +355,51 @@ async fn post_management_and_import_shared_fixtures() {
             .unwrap();
         let cover_image = cover.as_str().map(str::to_owned);
         attrs["id"] = fixture["data"]["id"].clone();
+        let created_via = serde_json::from_value(
+            attrs
+                .as_object_mut()
+                .unwrap()
+                .remove("created_via")
+                .unwrap(),
+        )
+        .unwrap();
+        let author_kind = serde_json::from_value(
+            attrs
+                .as_object_mut()
+                .unwrap()
+                .remove("author_kind")
+                .unwrap(),
+        )
+        .unwrap();
+        let seed_batch_id = serde_json::from_value(
+            attrs
+                .as_object_mut()
+                .unwrap()
+                .remove("seed_batch_id")
+                .unwrap(),
+        )
+        .unwrap();
+        let created_by =
+            serde_json::from_value(attrs.as_object_mut().unwrap().remove("created_by").unwrap())
+                .unwrap();
+        let display_published_at = serde_json::from_value(
+            attrs
+                .as_object_mut()
+                .unwrap()
+                .remove("display_published_at")
+                .unwrap(),
+        )
+        .unwrap();
         attrs.as_object_mut().unwrap().remove("source_summary");
         let post: PostReview = serde_json::from_value(attrs).unwrap();
         let response = linjian_api::http::jsonapi::resource(
             "post-management",
             PostManagementView {
+                created_via,
+                author_kind,
+                seed_batch_id,
+                created_by,
+                display_published_at,
                 post,
                 is_top,
                 cover_image,
