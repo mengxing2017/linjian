@@ -39,6 +39,10 @@ Web 默认 `http://localhost:5173`，通过 Vite 代理请求 `LINJIAN_DEV_API_U
 
 ## 接口与边界
 
+帖子详情互动使用只读 `GET /api/v1/schools/{school}/posts/{id}/interaction-state` 同步计数和本人状态，点赞、收藏、关注与评论刷新不重新请求带浏览计数的详情。社区读取的点赞数、评论数为必填字段，缺失按协议错误处理，不兼容旧响应。评论包含回复，公开计数仅包含已通过、可见、未删除记录，待审提交不直接加数。
+
+小程序仅开放用户主动好友/群分享，使用中性标题和本地静态封面，不外发私有图片或帖子标题；分享不授予学校权限。默认封面生成源为 `apps/miniapp/tools/build-share-cover.mjs`，修改后运行 `node frontend/apps/miniapp/tools/build-share-cover.mjs`（仓库根目录）更新 PNG。朋友圈、码/海报和复制链接不在本期开放，真机验证与发布验收仍须独立完成。
+
 只有 feature 的 `api/index.ts` 导入 `@linjian/api-contract/*`。Web 与小程序禁止互相引用，社区不得依赖管理工作区，shared 不定义 DTO/client。`tools/check-boundaries.mjs` 检查静态导入、类型导入、re-export、动态导入和 Vue script。
 
 平台中立 client 通过 transport 传输，统一编码 JSON:API、验证资源/分页并保留服务器错误。Web 保留 Cookie + CSRF 兼容 facade；小程序使用独立 Bearer 和可信 HTTPS origin。写入不自动重试，响应丢失时先核对“我的发布”。
