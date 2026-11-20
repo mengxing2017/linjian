@@ -1,0 +1,11 @@
+{
+  "data": {
+    "type": "post-seed-avatars",
+    "id": "2",
+    "attributes": {
+      "slot": 2,
+      "version": "linjian-student-avatars-v1",
+      "url": "/api/v1/schools/00000000-0000-4000-8000-000000000001/post-seed-avatars/2"
+    }
+  }
+}

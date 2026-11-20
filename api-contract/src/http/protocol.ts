@@ -116,6 +116,9 @@ export function resourceType(path: string): string {
   if(parts[2]==='schools' && parts[4]==='source-outbox' && parts[6]==='replays')return 'source-outbox-replays';
   if(parts[2]==='schools' && (parts[4]==='post-reviews' || (parts[4]==='posts' && parts[6]==='review')))return 'post-reviews';
   if(parts[2]==='schools' && parts[4]==='post-management')return parts[5]==='order-changes'?'post-order-changes':'post-management';
+  if(parts[2]==='schools' && parts[4]==='post-seed-batches')return parts[6]==='items'?'post-seed-items':'post-seed-batches';
+  if(parts[2]==='schools' && parts[4]==='post-seed-authors')return 'post-seed-authors';
+  if(parts[2]==='schools' && parts[4]==='post-seed-avatars')return 'post-seed-avatars';
   if(parts[2]==='schools' && parts[4]==='post-imports')return 'post-imports';
   if (parts[2] === 'schools' && parts[4] === 'home-menu-tags' && parts[5] === 'order') return 'home-menu-order';
   const kind=parts[2]==='platform'?parts[3]:parts[2]==='schools'?parts[4]:undefined;

@@ -3,6 +3,7 @@ import { requestResource, requestCollection, requestBinary, setCsrf } from '../.
 export { ApiError } from '../../http';
 export * from './types'
 export * from './post-management'
+export * from './post-seed'
 export * from './site-settings'
 import {createSchoolsClient} from '../schools'
 import type {SourceOutboxView} from '../source-access'

@@ -1,0 +1,11 @@
+{
+  "data": {
+    "type": "post-seed-authors",
+    "id": "00000000-0000-4000-8000-000000000002",
+    "attributes": {
+      "nickname": "校园微风",
+      "revision": 1,
+      "avatar_url": "/api/v1/miniapp/avatar-assets/00000000-0000-4000-8000-000000000002"
+    }
+  }
+}

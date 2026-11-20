@@ -1,0 +1,9 @@
+{
+  "data": {
+    "type": "post-seed-batches",
+    "attributes": {
+      "revision": 2,
+      "reason": "仿真发帖整理"
+    }
+  }
+}

@@ -4,6 +4,7 @@ export interface MiniappUser {
   avatar_url: string | null
   avatar_asset_id: string | null
   nickname: string
+  account_kind: "ordinary" | "simulated"
   mobile: string | null
   school_id: string | null
   school_name: string | null
@@ -21,6 +22,7 @@ export interface MiniappUser {
   }>
 }
 export interface UserFilters {
+  account_kind?: "ordinary" | "simulated"
   page?: number
   search?: string
   mobile?: string
@@ -53,6 +55,7 @@ export function createMiniappUsersClient(
         ['page[size]', '30'],
       ]
       for (const key of [
+        'account_kind',
         'search',
         'mobile',
         'status',

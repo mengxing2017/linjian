@@ -1,0 +1,10 @@
+{
+  "data": {
+    "type": "post-seed-batches",
+    "attributes": {
+      "revision": 1,
+      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "idempotency_key": "00000000-0000-4000-8000-000000000005"
+    }
+  }
+}

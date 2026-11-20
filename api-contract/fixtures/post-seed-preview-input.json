@@ -1,0 +1,24 @@
+{
+  "data": {
+    "type": "post-seed-batches",
+    "attributes": {
+      "name": "校园仿真发帖",
+      "authors": [
+        {
+          "key": "a",
+          "nickname": "校园微风",
+          "avatar_id": 2
+        }
+      ],
+      "rows": [
+        {
+          "author_key": "a",
+          "title": "校园生活",
+          "content": "欢迎分享校园生活",
+          "tags": [],
+          "display_published_at": "2026-01-01T01:00:00Z"
+        }
+      ]
+    }
+  }
+}
