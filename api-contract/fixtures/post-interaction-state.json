@@ -1,0 +1,18 @@
+{
+  "data": {
+    "type": "post-interaction-states",
+    "id": "40000000-0000-0000-0000-000000000002",
+    "attributes": {
+      "school_id": "40000000-0000-0000-0000-000000000001",
+      "audit_status": "approved",
+      "visibility": "visible",
+      "like_count": 12,
+      "comment_count": 5,
+      "liked": true,
+      "collected": false,
+      "author_followed": false,
+      "can_interact": true,
+      "can_share": true
+    }
+  }
+}

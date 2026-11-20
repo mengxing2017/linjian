@@ -1,0 +1,22 @@
+{
+  "data": {
+    "type": "posts",
+    "id": "40000000-0000-0000-0000-000000000002",
+    "attributes": {
+      "school_id": "40000000-0000-0000-0000-000000000001",
+      "author_id": "40000000-0000-0000-0000-000000000003",
+      "author_name": "校园成员",
+      "title": "校园讨论",
+      "content": "讨论正文",
+      "images": [],
+      "tags": [],
+      "audit_status": "approved",
+      "visibility": "visible",
+      "revision": 1,
+      "display_published_at": "2026-11-21T00:00:00Z",
+      "published_at_text": "2026-11-21 08:00",
+      "like_count": 0,
+      "comment_count": 0
+    }
+  }
+}

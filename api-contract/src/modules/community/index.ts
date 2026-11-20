@@ -1,7 +1,35 @@
 import type { Client, Cancellation } from '../../http/client'
+import { decodeResource, invalidDocument, type ResourceObject } from '../../http/protocol'
 import { schoolPath } from '../schools'
 import type { Post, Row } from '../business/types'
 export type { Post, Row } from '../business/types'
+export interface CommunityPost extends Post {
+  like_count: number
+  comment_count: number
+  author_name: string
+}
+export interface PostInteractionState {
+  id: string
+  school_id: string
+  audit_status: Post['audit_status']
+  visibility: Post['visibility']
+  like_count: number
+  comment_count: number
+  liked: boolean
+  collected: boolean
+  author_followed: boolean
+  can_interact: boolean
+  can_share: boolean
+}
+function count(value: unknown) {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+}
+function readPost(resource: ResourceObject, school: string, id?: string): CommunityPost {
+  const value = decodeResource(resource)
+  if (resource.type !== 'posts' || value.school_id !== school || (id !== undefined && value.id !== id) || !count(value.like_count) || !count(value.comment_count))
+    return invalidDocument()
+  return value as unknown as CommunityPost
+}
 export interface PostInput {
   title: string
   content: string
@@ -11,6 +39,11 @@ export interface PostInput {
   revision?: number
 }
 export interface Comment extends Row {
+  school_id: string
+  post_id: string
+  visibility: 'visible' | 'hidden'
+  deleted: boolean
+  created_at: string
   audit_status: 'pending' | 'approved' | 'rejected'
   author_id: string
   author_name: string
@@ -47,12 +80,28 @@ export function createCommunityClient(client: Client) {
   const scope = (s: string, p: string) => `${schoolPath(s)}/${p}`
   const part = encodeURIComponent
   return {
-    posts(s: string, filter: FeedFilter = {}, signal?: Cancellation) {
+    async posts(s: string, filter: FeedFilter = {}, signal?: Cancellation) {
       const query = `${pageQuery(filter.page)}&search=${part(filter.search ?? '')}&mine=${!!filter.mine}${filter.kind ? `&kind=${filter.kind}` : ''}&tag=${part(filter.tag ?? '')}`
-      return client.requestCollection<Post>(scope(s, 'posts') + '?' + query, signal)
+      const doc = await client.requestDocument(scope(s, 'posts') + '?' + query, 'GET', undefined, signal)
+      if (!Array.isArray(doc.data)) return invalidDocument()
+      return { items: doc.data.map(resource => readPost(resource, s)), page: doc.meta?.page }
     },
-    post: (s: string, id: string, signal?: Cancellation) =>
-      client.requestResource<Post>(scope(s, `posts/${part(id)}`), 'GET', undefined, signal),
+    async post(s: string, id: string, signal?: Cancellation) {
+      const doc = await client.requestDocument(scope(s, `posts/${part(id)}`), 'GET', undefined, signal)
+      if (!doc.data || Array.isArray(doc.data)) return invalidDocument()
+      return readPost(doc.data, s, id)
+    },
+    async interactionState(s: string, id: string, signal?: Cancellation): Promise<PostInteractionState> {
+      const doc = await client.requestDocument(scope(s, `posts/${part(id)}/interaction-state`), 'GET', undefined, signal)
+      if (!doc.data || Array.isArray(doc.data) || doc.data.type !== 'post-interaction-states') return invalidDocument()
+      const value = decodeResource(doc.data)
+      if (value.id !== id || value.school_id !== s || !count(value.like_count) || !count(value.comment_count)
+        || !['pending', 'approved', 'rejected'].includes(String(value.audit_status))
+        || !['visible', 'hidden', 'offline', 'deleted'].includes(String(value.visibility))
+        || ['liked', 'collected', 'author_followed', 'can_interact', 'can_share'].some(key => typeof value[key] !== 'boolean'))
+        return invalidDocument()
+      return value as unknown as PostInteractionState
+    },
     save: (s: string, input: PostInput, id?: string) =>
       client.requestResource<Post>(
         scope(s, id ? `posts/${part(id)}` : 'posts'),
