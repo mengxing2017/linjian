@@ -1,3 +1,4 @@
+import { useSchoolPermission } from './permissions-context'
 import { useState } from 'react'
 import { Alert, Button, Descriptions, Form, Input, Select, Space } from 'antd'
 import { workspace, ApiError, type CaseManagementView, type ResolveCaseInput } from './api'
@@ -8,6 +9,7 @@ import { formatDate } from '../../../shared/format-date'
 import { notifySuccess } from '../../../shared/notify'
 
 export function CaseDetail({ school, record, reload, refresh }: RecordDetailProps<CaseManagementView> & { school: string; refresh: () => Promise<void> }) {
+  const can = useSchoolPermission()
   const [form] = Form.useForm<Omit<ResolveCaseInput, 'revision'>>()
   const [busy, setBusy] = useState(false)
   const [conflict, setConflict] = useState(false)
@@ -47,7 +49,7 @@ export function CaseDetail({ school, record, reload, refresh }: RecordDetailProp
         setBusy(true)
         try { if (await reload()) { setConflict(false); setError('') } } finally { setBusy(false) }
       }}>重新加载案件</Button>} />}
-      {record.state === 'open' && <Form form={form} layout="vertical" onFinish={save} disabled={busy || conflict}>
+      {can('content.case.resolve') && record.state === 'open' && <Form form={form} layout="vertical" onFinish={save} disabled={busy || conflict}>
         <Form.Item name="resolution" label="处理说明" rules={[{ required: true, whitespace: true, message: '请填写处理说明' }, { max: 2000 }]}><Input.TextArea rows={4} maxLength={2000} /></Form.Item>
         <Form.Item name="state" label="处理结果" rules={[{ required: true, message: '请选择处理结果' }]}><Select style={{ width: '100%' }} options={[{ value: 'resolved', label: '已处理' }, { value: 'dismissed', label: '已驳回' }]} /></Form.Item>
         <Button type="primary" htmlType="submit" loading={busy} disabled={busy || conflict}>保存</Button>

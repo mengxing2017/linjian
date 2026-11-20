@@ -1,5 +1,6 @@
+import { PermissionFixture } from '../../../test/permissions'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render as renderView, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { PostManagement } from './post-management'
 import { workspace, type PostManagementView } from './api'
@@ -190,3 +191,5 @@ it('keeps advanced filters collapsed and preserves search when resetting them', 
   ))
   expect((screen.getByLabelText('创建起始时间') as HTMLInputElement).value).toBe('')
 })
+
+function render(ui: Parameters<typeof renderView>[0]) { return renderView(<PermissionFixture>{ui}</PermissionFixture>) }

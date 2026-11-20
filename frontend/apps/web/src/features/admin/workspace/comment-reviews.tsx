@@ -1,3 +1,4 @@
+import { useSchoolPermission } from './permissions-context'
 import { useState } from 'react'
 import { Alert, Button, Select, Space, Tag } from 'antd'
 import { workspace, type School } from './api'
@@ -30,6 +31,7 @@ export function CommentReviews({ school, refresh }: { school: School; refresh: (
 }
 
 function CommentReviewDetail({ record, close, reload, school, refresh }: RecordDetailProps & { school: School; refresh: () => Promise<void> }) {
+  const can = useSchoolPermission()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [conflict, setConflict] = useState(false)
@@ -80,11 +82,11 @@ function CommentReviewDetail({ record, close, reload, school, refresh }: RecordD
       </>}
       <RecordBody record={{ ...record, visibility: null }} />
       <p>审核来源：{record.decision_source === 'automatic' ? '自动审核' : record.decision_source === 'human' ? '人工审核' : record.decision_source === 'legacy' ? '历史记录' : '待审核'} · {formatDate(record.decided_at)}</p>
-      <Button disabled={busy || conflict || school.status !== 'normal' || record.deleted === true} loading={busy} onClick={() => void setVisibility()}>
+      <Button disabled={!can('content.comment.visibility') || busy || conflict || school.status !== 'normal' || record.deleted === true} loading={busy} onClick={() => void setVisibility()}>
         {record.visibility === 'hidden' ? '设为正常' : '隐藏评论'}
       </Button>
       <Space wrap>{['approved', 'rejected', 'pending'].map(decision => <Button type="link" danger={decision === 'rejected'} key={decision}
-        disabled={busy || conflict || school.status !== 'normal'} onClick={() => void decide(decision)}>{states[decision]}</Button>)}</Space>
+        disabled={!can('content.comment.review') || busy || conflict || school.status !== 'normal'} onClick={() => void decide(decision)}>{states[decision]}</Button>)}</Space>
     </section>
   </>
 }

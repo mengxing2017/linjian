@@ -1,4 +1,5 @@
 import { Button, Popconfirm, Select, Space } from 'antd'
+import { useSchoolPermission } from './permissions-context'
 import { workspace, type PostManagementView, type PostVisibility } from './api'
 import { postStatusLabels } from './post-columns'
 export function PostRowActions({
@@ -20,9 +21,10 @@ export function PostRowActions({
   offline: (row: PostManagementView) => void
   act: (action: () => Promise<unknown>) => Promise<void>
 }) {
+  const can = useSchoolPermission()
   return (
     <Space wrap>
-      {recommend && (
+      {recommend && can('post.recommend') && (
         <Button disabled={disabled} onClick={() => recommend(row.id)}>
           {row.source_summary ? '重推' : '推送'}
         </Button>
@@ -30,11 +32,11 @@ export function PostRowActions({
       <Button disabled={disabled} onClick={() => review(row.id)}>
         {row.audit_status === 'pending' ? '审核详情' : '详情'}
       </Button>
-      <Button disabled={disabled} onClick={() => edit(row.id)}>
+      <Button disabled={disabled || !can('content.post.edit')} onClick={() => edit(row.id)}>
         编辑
       </Button>
       <Button
-        disabled={disabled}
+        disabled={disabled || !can('content.post.pin')}
         onClick={() =>
           void act(() => workspace.postManagement.pin(school, row.id, row.revision, !row.is_top))
         }
@@ -44,7 +46,7 @@ export function PostRowActions({
       <Select
         aria-label={`设置状态 ${row.title}`}
         value={row.visibility}
-        disabled={disabled}
+        disabled={disabled || !can('content.post.visibility')}
         style={{ width: 120 }}
         options={Object.entries(postStatusLabels)
           .filter(([value]) => value !== 'deleted')
@@ -58,7 +60,7 @@ export function PostRowActions({
         title="确认删除？删除后无法恢复。"
         onConfirm={() => act(() => workspace.postManagement.delete(school, row.id, row.revision))}
       >
-        <Button danger disabled={disabled}>
+        <Button danger disabled={disabled || !can('content.post.delete')}>
           删除
         </Button>
       </Popconfirm>

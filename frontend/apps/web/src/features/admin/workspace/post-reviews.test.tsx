@@ -1,5 +1,6 @@
+import { PermissionFixture } from '../../../test/permissions'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render as renderView, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { PostReviews } from './post-reviews'
 import { workspace, type PostReview } from './api'
@@ -220,3 +221,5 @@ it('cannot approve a cached review when reopening fails to read the latest full 
   expect(second.getByRole('button', { name: '通过审核' })).toHaveProperty('disabled', true)
   expect(workspace.mutate).not.toHaveBeenCalled()
 })
+
+function render(ui: Parameters<typeof renderView>[0]) { return renderView(<PermissionFixture>{ui}</PermissionFixture>) }

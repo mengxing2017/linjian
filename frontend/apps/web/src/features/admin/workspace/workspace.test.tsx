@@ -1,3 +1,4 @@
+import { permissionCatalog, rolePermissions } from '../../../test/permissions'
 import {schoolDefaults} from '../../../test/school'
 import { selectOption } from '../../../test/select-option'
 import { afterEach, expect, it, vi } from 'vitest'
@@ -8,13 +9,14 @@ import { Workspace } from './index'
 import { identity, workspace, product } from './api'
 vi.mock('../../school-context/api', async () => ({ schoolsApi: (await import('./api')).workspace }))
 vi.mock('../../identity/api', async () => ({ identity: (await import('./api')).identity, subscribeUnauthorized: () => () => {} }))
-vi.mock('./api', () => ({ product:{resources:{artwork:vi.fn().mockResolvedValue([])}}, identity: { session: vi.fn(), accounts: vi.fn(), create: vi.fn(), update: vi.fn(), reset: vi.fn(), logout: vi.fn() }, workspace: { postManagement: {list: vi.fn()}, schools: vi.fn(), cases: vi.fn(), resolveCase: vi.fn(), reviews: vi.fn(), review: vi.fn(), list: vi.fn(), schoolProfiles:{platform:vi.fn(),detail:vi.fn(),create:vi.fn(),update:vi.fn(),artwork:vi.fn(),branding:vi.fn()}, createSchool: vi.fn(), updateSchool: vi.fn(), setCommentVisibility: vi.fn(), setRecommendationCapability: vi.fn(), mutate: vi.fn() } }))
+const permissions = vi.hoisted(() => ({ mine: vi.fn(), catalog: vi.fn(), members: vi.fn(), candidates: vi.fn(), detail: vi.fn(), save: vi.fn(), action: vi.fn(), recommendation: vi.fn() }))
+vi.mock('./api', () => ({ browserClient: {}, createSchoolPermissionsClient: () => permissions, product:{resources:{artwork:vi.fn().mockResolvedValue([])}}, identity: { session: vi.fn(), accounts: vi.fn(), create: vi.fn(), update: vi.fn(), reset: vi.fn(), logout: vi.fn() }, workspace: { postManagement: {list: vi.fn()}, schools: vi.fn(), cases: vi.fn(), resolveCase: vi.fn(), reviews: vi.fn(), review: vi.fn(), list: vi.fn(), schoolProfiles:{platform:vi.fn(),detail:vi.fn(),create:vi.fn(),update:vi.fn(),artwork:vi.fn(),branding:vi.fn()}, createSchool: vi.fn(), updateSchool: vi.fn(), setCommentVisibility: vi.fn(), mutate: vi.fn() } }))
 class TestResizeObserver { observe() {} unobserve() {} disconnect() {} }
 vi.stubGlobal('ResizeObserver', TestResizeObserver)
 configure({ asyncUtilTimeout: 5000 })
 afterEach(() => { cleanup(); vi.resetAllMocks() })
 import {beforeEach} from 'vitest'
-beforeEach(()=>{vi.mocked(workspace.postManagement.list).mockImplementation(async (s,f={},signal)=>{const result=await workspace.list(s,'posts','?'+new URLSearchParams({'page[number]':String(f.page??1)}),signal); return {...result,items:[],order_revision:1}});vi.mocked(workspace.cases).mockImplementation((s,q,signal)=>workspace.list(s,'cases',q,signal) as ReturnType<typeof workspace.cases>);vi.mocked(workspace.schoolProfiles.detail).mockImplementation(async id => (await workspace.schools()).find(s => s.id === id)!);vi.mocked(workspace.reviews).mockImplementation((s,q,signal)=>workspace.list(s,'posts',q,signal) as ReturnType<typeof workspace.reviews>);vi.mocked(product.resources.artwork).mockResolvedValue({items:[]});vi.mocked(workspace.schoolProfiles.platform).mockImplementation(async(filters={})=>{const all=await workspace.schools();const filtered=all.filter(s=>!filters.search||s.name.includes(filters.search));const n=filters.page??1;return {items:filtered.slice((n-1)*10,n*10),page:{number:n,size:10,has_more:n*10<filtered.length}}})})
+beforeEach(()=>{permissions.mine.mockImplementation(async (school:string)=>{const {user}=await identity.session();const role=user.grants.find(g=>g.school_id===school)?.role??'';return {effective_permissions:rolePermissions(role)}});permissions.catalog.mockResolvedValue({...permissionCatalog,editable:true,uneditable_reason:''});permissions.members.mockResolvedValue({items:[]});permissions.candidates.mockResolvedValue({items:[]});vi.mocked(workspace.postManagement.list).mockImplementation(async (s,f={},signal)=>{const result=await workspace.list(s,'posts','?'+new URLSearchParams({'page[number]':String(f.page??1)}),signal); return {...result,items:[],order_revision:1}});vi.mocked(workspace.cases).mockImplementation((s,q,signal)=>workspace.list(s,'cases',q,signal) as ReturnType<typeof workspace.cases>);vi.mocked(workspace.schoolProfiles.detail).mockImplementation(async id => (await workspace.schools()).find(s => s.id === id)!);vi.mocked(workspace.reviews).mockImplementation((s,q,signal)=>workspace.list(s,'posts',q,signal) as ReturnType<typeof workspace.reviews>);vi.mocked(product.resources.artwork).mockResolvedValue({items:[]});vi.mocked(workspace.schoolProfiles.platform).mockImplementation(async(filters={})=>{const all=await workspace.schools();const filtered=all.filter(s=>!filters.search||s.name.includes(filters.search));const n=filters.page??1;return {items:filtered.slice((n-1)*10,n*10),page:{number:n,size:10,has_more:n*10<filtered.length}}})})
 Object.defineProperty(window, 'matchMedia', { writable: true, value: (query: string) => ({ matches: false, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }) })
 it('restores the selected school and business page from its URL', async () => {
   vi.mocked(identity.session).mockResolvedValue({csrf:'csrf',user:{id:'u',username:'admin',display_name:'管理员',platform_admin:true,bound_school_id:null,grants:[]}})
@@ -168,122 +170,11 @@ it.each(['member','operator'] as const)('blocks school profile and member admini
   expect(screen.queryByRole('menuitem', {name:'后台账号'})).toBeNull()
 })
 
-it('allows a school administrator to read members without offering grant changes', async () => {
-  showManagement('members',false)
-  expect(await screen.findByText('学校角色由平台管理员维护。本校学校管理员可为运营成员设置「允许推荐帖子」。')).toBeTruthy()
-  expect(screen.queryByRole('button',{name:/^授\s*权/})).toBeNull()
-  expect(identity.accounts).not.toHaveBeenCalled()
-  await waitFor(() => expect(workspace.list).toHaveBeenCalledWith('school','members',expect.any(String),expect.any(AbortSignal)))
-})
-
-it('shows newly created unassigned accounts directly in school members and grants the selected school role', async () => {
+it('loads members through the server-paginated permission protocol', async () => {
   showManagement('members')
-  let granted = false
-  vi.mocked(workspace.list).mockImplementation(async () => ({items:granted ? [{id:'ordinary',username:'ordinary',display_name:'本地管理员',role:'operator',can_recommend:false}] : []}))
-  vi.mocked(workspace.mutate).mockImplementation(async () => { granted = true; return {id:'ordinary'} })
-  const row = within((await screen.findByText('ordinary')).closest('tr')!)
-  expect(row.getByText('未加入')).toBeTruthy()
-  expect(screen.getByText('平台维护者')).toBeTruthy()
-  fireEvent.click(row.getByRole('button',{name:'授权 本地管理员'}))
-  const dialog = within(await screen.findByRole('dialog'))
-  expect(dialog.getByText('该账号尚未加入本校，保存后将加入并设为所选角色。')).toBeTruthy()
-  expect(dialog.queryByRole('button',{name:'撤销学校授权'})).toBeNull()
-  fireEvent.click(dialog.getByRole('radio',{name:/^运营/}))
-  fireEvent.click(dialog.getByRole('button',{name:'保存授权'}))
-  await waitFor(() => expect(workspace.mutate).toHaveBeenCalledWith('school','members/ordinary',{role:'operator'},'PUT'))
-  await waitFor(() => expect(within(screen.getByText('ordinary').closest('tr')!).getByText('运营')).toBeTruthy())
+  await waitFor(() => expect(permissions.members).toHaveBeenCalledWith('school', expect.objectContaining({page:1}), expect.any(AbortSignal)))
+  expect(screen.getAllByRole('columnheader').map(header => header.textContent)).toEqual(['姓名 / 账号','角色','状态','单独配置','最近变更','操作'])
 })
-
-it('allows explicit school administrator grants for platform accounts and refreshes session permissions', async () => {
-  showManagement('members')
-  vi.mocked(workspace.mutate).mockResolvedValue({id:'u'})
-  const row=within((await screen.findByText('平台维护者')).closest('tr')!)
-  fireEvent.click(row.getByRole('button',{name:'授权 平台维护者'}))
-  const dialog=within(await screen.findByRole('dialog'))
-  const calls=vi.mocked(identity.session).mock.calls.length
-  fireEvent.click(dialog.getByRole('radio',{name:/^学校管理员/}))
-  expect(dialog.getByRole('button',{name:'保存授权'})).toHaveProperty('disabled',true)
-  fireEvent.click(dialog.getByRole('checkbox',{name:'我确认授予该账号本校学校管理员权限'}))
-  fireEvent.click(dialog.getByRole('button',{name:'保存授权'}))
-  await waitFor(()=>expect(workspace.mutate).toHaveBeenCalledWith('school','members/u',{role:'admin'},'PUT'))
-  await waitFor(()=>expect(vi.mocked(identity.session).mock.calls.length).toBeGreaterThan(calls))
-})
-
-it('requires confirmation before revoking an effective school role', async () => {
-  showManagement('members')
-  vi.mocked(workspace.list).mockResolvedValue({items:[{id:'ordinary',username:'ordinary',display_name:'本地管理员',role:'operator',can_recommend:true}]})
-  vi.mocked(workspace.mutate).mockResolvedValue({id:'ordinary'})
-  const row=within((await screen.findByText('ordinary')).closest('tr')!)
-  fireEvent.click(row.getByRole('button',{name:'授权 本地管理员'}))
-  const dialog=within(await screen.findByRole('dialog'))
-  fireEvent.click(dialog.getByRole('button',{name:'撤销学校授权'}))
-  fireEvent.click(await screen.findByRole('button',{name:'确认撤销'}))
-  await waitFor(()=>expect(workspace.mutate).toHaveBeenCalledWith('school','members/ordinary',{role:'revoked'},'PUT'))
-})
-
-it('requires confirmation when demoting a school administrator', async () => {
-  showManagement('members')
-  vi.mocked(workspace.list).mockResolvedValue({items:[
-    {id:'ordinary',username:'ordinary',display_name:'本地管理员',role:'admin',can_recommend:true},
-    {id:'other',username:'other',display_name:'另一管理员',role:'admin',can_recommend:true},
-  ]})
-  vi.mocked(workspace.mutate).mockResolvedValue({id:'ordinary'})
-  const row=within((await screen.findByText('ordinary')).closest('tr')!)
-  fireEvent.click(row.getByRole('button',{name:'授权 本地管理员'}))
-  const dialog=within(await screen.findByRole('dialog'))
-  fireEvent.click(dialog.getByRole('radio',{name:/^运营/}))
-  fireEvent.click(dialog.getByRole('button',{name:'保存授权'}))
-  fireEvent.click(await screen.findByRole('button',{name:'确认保存'}))
-  await waitFor(()=>expect(workspace.mutate).toHaveBeenCalledWith('school','members/ordinary',{role:'operator'},'PUT'))
-})
-
-it('lets a school administrator toggle recommendation for operators', async () => {
-  showManagement('members', false)
-  vi.mocked(workspace.list).mockResolvedValue({items:[
-    {id:'op',username:'op',display_name:'运营甲',role:'operator',can_recommend:false},
-    {id:'member',username:'member',display_name:'成员乙',role:'member',can_recommend:false},
-  ]})
-  vi.mocked(workspace.setRecommendationCapability).mockResolvedValue(null)
-  const operatorRow=within((await screen.findByText('运营甲')).closest('tr')!)
-  expect(operatorRow.getByRole('switch',{name:'允许 运营甲 推荐帖子'})).toBeTruthy()
-  expect(within(screen.getByText('成员乙').closest('tr')!).queryByRole('switch')).toBeNull()
-  expect(screen.queryByRole('button',{name:/^授\s*权/})).toBeNull()
-  fireEvent.click(operatorRow.getByRole('switch'))
-  await waitFor(()=>expect(workspace.setRecommendationCapability).toHaveBeenCalledWith('school','op',true))
-})
-
-it('keeps the grant dialog open when saving fails', async () => {
-  showManagement('members')
-  vi.mocked(workspace.mutate).mockRejectedValue(new Error('forbidden'))
-  const row=within((await screen.findByText('ordinary')).closest('tr')!)
-  fireEvent.click(row.getByRole('button',{name:'授权 本地管理员'}))
-  const dialog=within(await screen.findByRole('dialog'))
-  fireEvent.click(dialog.getByRole('radio',{name:/^运营/}))
-  fireEvent.click(dialog.getByRole('button',{name:'保存授权'}))
-  expect(await screen.findByText('forbidden')).toBeTruthy()
-  expect(screen.getByRole('dialog')).toBeTruthy()
-  expect(dialog.getByRole('radio',{name:/^运营/})).toHaveProperty('checked',true)
-})
-
-it('reports a recommendation failure without changing the switch', async () => {
-  showManagement('members', false)
-  vi.mocked(workspace.list).mockResolvedValue({items:[{id:'op',username:'op',display_name:'运营甲',role:'operator',can_recommend:false}]})
-  vi.mocked(workspace.setRecommendationCapability).mockRejectedValue(new Error('network'))
-  const row=within((await screen.findByText('运营甲')).closest('tr')!)
-  fireEvent.click(row.getByRole('switch'))
-  expect(await screen.findByText('更新 运营甲 的推荐权限失败：network')).toBeTruthy()
-  expect(within(screen.getByText('运营甲').closest('tr')!).getByRole('switch').getAttribute('aria-checked')).toBe('false')
-})
-
-it('keeps member identity first and only offers row authorization to platform administrators', async () => {
-  showManagement('members')
-  await screen.findByText('平台维护者')
-  expect(screen.getAllByRole('columnheader').map((header)=>header.textContent)).toEqual(['账号','昵称','平台身份','本校角色','推荐权限','账号状态','操作'])
-  expect(screen.queryAllByRole('checkbox')).toHaveLength(0)
-})
-
-
-
 
 it('keeps school profile scoped after moving it into platform functions', async () => {
   showManagement('settings', false, 'admin')
@@ -341,7 +232,7 @@ it('keeps platform default resources read-only while allowing edits to school-ow
 })
 
 it('shows audit details without mutation actions', async () => {
-  showManagement('audit', false, 'operator')
+  showManagement('audit', true)
   vi.mocked(workspace.list).mockResolvedValue({ items: [{ id: 'audit-1', action: 'school.updated', detail: { revision: 3 } }] })
   const row = within((await screen.findByText('school.updated')).closest('tr')!)
   fireEvent.click(row.getByRole('button', { name: /详\s*情/ }))
@@ -349,4 +240,10 @@ it('shows audit details without mutation actions', async () => {
   expect(detail.getByText(/"revision":3/)).toBeTruthy()
   expect(detail.queryByRole('button', { name: /^保\s*存$/ })).toBeNull()
   expect(workspace.mutate).not.toHaveBeenCalled()
+})
+
+it.each(['audit', 'source-bindings'])('rejects a school administrator opening %s directly', async (view) => {
+  showManagement(view, false, 'admin')
+  expect(await screen.findByText('当前账号没有此功能的访问权限')).toBeTruthy()
+  expect(workspace.list).not.toHaveBeenCalled()
 })

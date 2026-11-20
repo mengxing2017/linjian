@@ -1,3 +1,4 @@
+import { useSchoolPermission } from './permissions-context'
 import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Input, Modal, Space, Table, Drawer } from 'antd'
@@ -24,6 +25,7 @@ export function PostManagement({
   context?: string
   publisherId?: string
 }) {
+  const can = useSchoolPermission()
   const [filter, setFilter] = useState<PostManagementFilter>({ page: 1 }),
     [selected, setSelected] = useState(''),
     [editor, setEditor] = useState<string>(),
@@ -136,7 +138,7 @@ export function PostManagement({
               当前仅排序{filter.is_top ? '置顶' : '普通'}
               帖子。可拖动行，或使用上移、下移；仅影响当前页。
             </p>
-            <Button disabled={disabled || !draft || orderConflict} onClick={() => void saveOrder()}>
+            <Button disabled={disabled || !draft || orderConflict || !can('content.post.pin')} onClick={() => void saveOrder()}>
               保存排序
             </Button>
             <Button
@@ -162,10 +164,10 @@ export function PostManagement({
                   <Button onClick={() => setImporting(true)}>导入</Button>
                 </>
               )}
-              <Button disabled={disabled} onClick={() => beginSort(false)}>
+              <Button disabled={disabled || !can('content.post.pin')} onClick={() => beginSort(false)}>
                 普通排序
               </Button>
-              <Button disabled={disabled} onClick={() => beginSort(true)}>
+              <Button disabled={disabled || !can('content.post.pin')} onClick={() => beginSort(true)}>
                 置顶排序
               </Button>
             </Space>

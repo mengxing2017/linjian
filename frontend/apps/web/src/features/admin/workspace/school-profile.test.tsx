@@ -1,5 +1,6 @@
+import { PermissionFixture } from '../../../test/permissions'
 import {afterEach,expect,it,vi} from 'vitest'
-import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react'
+import {cleanup,fireEvent,render as renderView,screen,waitFor} from '@testing-library/react'
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query'
 import {SchoolForm,Schools} from './school-profile'
 import {workspace,type School} from './api'
@@ -107,3 +108,5 @@ it('filters schools by the selected region',async()=>{
  fireEvent.click(await screen.findByText('广东省'))
  await waitFor(()=>expect(workspace.schoolProfiles.platform).toHaveBeenLastCalledWith(expect.objectContaining({province:'广东省',city:'',area:''}),expect.anything()),{timeout:5000})
 })
+
+function render(ui: Parameters<typeof renderView>[0]) { return renderView(<PermissionFixture>{ui}</PermissionFixture>) }

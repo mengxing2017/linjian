@@ -1,3 +1,4 @@
+import { PermissionFixture } from '../../../test/permissions'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -12,9 +13,9 @@ Object.defineProperty(window, 'matchMedia', { writable: true, value: () => ({ ma
 const record: OperationResource = { id: 'ad', school_id: 'school', school_name: '本校', kind: 'banner', revision: 2, title: '校内广告', content: '', image_ref: { kind: 'asset', id: 'image' }, action: { kind: 'none' }, active: true, sort_order: 0, starts_at: null, ends_at: null, popup_strategy: 'daily', popup_interval_days: 1, image_url: null, views: 9, clicks: 3 }
 beforeEach(() => { vi.clearAllMocks(); vi.mocked(api.list).mockResolvedValue({ items: [record] }) })
 afterEach(cleanup)
-function show(node: React.ReactNode) { render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{node}</QueryClientProvider>) }
+function show(node: React.ReactNode, role = 'admin') { render(<PermissionFixture role={role}><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{node}</QueryClientProvider></PermissionFixture>) }
 it('shows all banner business columns and keeps operators read only', async () => {
-  show(<OperationResources school="school" platformAdmin={false} schoolAdmin={false} module="home-banners" />)
+  show(<OperationResources school="school" platformAdmin={false} schoolAdmin={false} module="home-banners" />, 'operator')
   await screen.findByText('校内广告')
   expect(screen.getAllByRole('columnheader').map(v => v.textContent)).toEqual(['标题', '所属学校', '图片', '点击后去哪里', '目标内容', '状态', '开始展示时间', '结束展示时间', '曝光量', '点击量', '操作'])
   expect(screen.queryByRole('button', { name: /^添\s*加$/ })).toBeNull()

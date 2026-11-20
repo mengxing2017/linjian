@@ -1,3 +1,4 @@
+import { useSchoolPermission } from './permissions-context'
 import { PostRecommendation } from './post-recommendation'
 import { ReviewImage } from './review-image'
 import { useCallback, useState } from 'react'
@@ -43,6 +44,7 @@ export function ReviewDetail({
   management?: boolean
   platformAdmin?: boolean
 }) {
+  const can = useSchoolPermission()
   const [reason, setReason] = useState(''),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
@@ -94,17 +96,14 @@ export function ReviewDetail({
       setError('')
     }
   }
-  async function visibility(value: string, topSort = post?.top_sort ?? 0) {
+  async function visibility(value: 'visible' | 'hidden' | 'deleted', topSort?: number) {
     if (!post || disabled) return
     setBusy(true)
     setError('')
     try {
-      await workspace.mutate(
-        school,
-        `posts/${id}/visibility`,
-        { revision: post.revision, visibility: value, top_sort: topSort },
-        'PUT',
-      )
+      if (value === 'deleted') await workspace.postManagement.delete(school,id,post.revision)
+      else if (topSort !== undefined) await workspace.postManagement.pin(school,id,post.revision,topSort > 0)
+      else await workspace.postManagement.status(school,id,post.revision,value)
       notifySuccess('展示状态已更新')
       await saved()
       close()
@@ -127,7 +126,7 @@ export function ReviewDetail({
         </Button>
       )}
       {q.isFetching && <p>正在读取最新全文…</p>}
-      {management && <PostRecommendation key={`${school}:${id}`} school={school} id={id} saved={saved} platformAdmin={platformAdmin} />}
+      {management && can('post.recommend') && <PostRecommendation key={`${school}:${id}`} school={school} id={id} saved={saved} platformAdmin={platformAdmin} />}
       {post && (
         <>
           <Descriptions
@@ -168,33 +167,33 @@ export function ReviewDetail({
           />
           <Space wrap>
             <Button
-              disabled={disabled || !imagesReady}
+              disabled={disabled || !imagesReady || !can('content.post.review')}
               loading={busy}
               type="primary"
               onClick={() => void act('approved')}
             >
               通过审核
             </Button>
-            <Button disabled={disabled} danger onClick={() => void act('rejected')}>
+            <Button disabled={disabled || !can('content.post.review')} danger onClick={() => void act('rejected')}>
               拒绝
             </Button>
-            <Button disabled={disabled} onClick={() => void act('pending')}>
+            <Button disabled={disabled || !can('content.post.review')} onClick={() => void act('pending')}>
               撤销审核
             </Button>
           </Space>
           {!management && <Space wrap>
-            <Button disabled={disabled} onClick={() => void visibility('visible')}>
+            <Button disabled={disabled || !can('content.post.visibility')} onClick={() => void visibility('visible')}>
               展示
             </Button>
-            <Button disabled={disabled} onClick={() => void visibility('hidden')}>
+            <Button disabled={disabled || !can('content.post.visibility')} onClick={() => void visibility('hidden')}>
               隐藏
             </Button>
-            <Button disabled={disabled} danger onClick={() => void visibility('deleted')}>
+            <Button disabled={disabled || !can('content.post.delete')} danger onClick={() => void visibility('deleted')}>
               删除
             </Button>
             <Button
-              disabled={disabled}
-              onClick={() => void visibility(post.visibility, post.top_sort ? 0 : 100)}
+              disabled={disabled || !can('content.post.pin')}
+              onClick={() => void visibility('visible', post.top_sort ? 0 : 100)}
             >
               {post.top_sort ? '取消置顶' : '置顶'}
             </Button>

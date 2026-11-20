@@ -1,3 +1,4 @@
+import { useSchoolPermission } from './permissions-context'
 import { MediaPicker } from '../operations/media-picker'
 import { AuditModeFields } from './audit-modes'
 import { useState, useEffect } from 'react'
@@ -144,6 +145,9 @@ export function SchoolForm({
   onSaved: (school?: School) => Promise<unknown>
   onDirtyChange?: (dirty: boolean) => void
 }) {
+  const can = useSchoolPermission()
+  const canProfile = platform || can('school.profile.update')
+  const canPolicy = platform || can('school.review_settings.update')
   const [form] = Form.useForm<SchoolFormValues>(),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
@@ -218,6 +222,7 @@ export function SchoolForm({
   return (
     <Form
       form={form}
+      disabled={!canProfile || busy}
       layout="vertical"
       className="business-form form-grid"
       initialValues={{
@@ -295,7 +300,7 @@ export function SchoolForm({
           ).map(([key, label]) => (
             <section key={key}>
               <Form.Item name={key} label={label}>
-                <MediaPicker school={school.id} value={form.getFieldValue(key) ?? null} label={label} onChange={id => form.setFieldValue(key, id)} onBusyChange={setBusy} />
+                <MediaPicker context="school.profile.update" school={school.id} value={form.getFieldValue(key) ?? null} label={label} onChange={id => form.setFieldValue(key, id)} onBusyChange={setBusy} />
               </Form.Item>
             </section>
           ))}
@@ -354,7 +359,7 @@ export function SchoolForm({
             </div>
           </div>
           <h3 className="school-form-section">审核规则</h3>
-          <AuditModeFields disabled={school.status !== 'normal'} />
+          <AuditModeFields disabled={!canPolicy || school.status !== 'normal'} />
         </>
       ) : (
         <p>图标、背景图与主题色可在创建后完善。</p>
@@ -364,7 +369,7 @@ export function SchoolForm({
           feedback={feedback}
           action={conflict ? <Button onClick={() => void reload()}>重新加载资料</Button> : undefined}
         />
-        <Button type="primary" htmlType="submit" loading={busy} disabled={conflict || busy}>
+        <Button type="primary" htmlType="submit" loading={busy} disabled={conflict || busy || (!canProfile && !canPolicy)}>
           {school ? (busy ? '正在保存…' : '保存资料') : busy ? '正在创建…' : '创建学校'}
         </Button>
       </div>

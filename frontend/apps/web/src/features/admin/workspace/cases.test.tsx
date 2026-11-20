@@ -1,5 +1,6 @@
+import { PermissionFixture } from '../../../test/permissions'
 import { afterEach, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render as renderView, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Cases } from './cases'
 import { workspace, ApiError, type CaseManagementView } from './api'
@@ -52,3 +53,5 @@ it('keeps a conflict draft and requires successful explicit reload before using 
   fireEvent.click(detail.getByRole('button', { name: /^保\s*存$/ }))
   await waitFor(() => expect(workspace.resolveCase).toHaveBeenLastCalledWith('school', 'case', { revision: 2, state: 'resolved', resolution: '保留我的处理草稿' }))
 })
+
+function render(ui: Parameters<typeof renderView>[0]) { return renderView(<PermissionFixture>{ui}</PermissionFixture>) }

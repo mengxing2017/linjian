@@ -1,9 +1,10 @@
+import { useSchoolPermission } from '../workspace/permissions-context'
 import { LocalDateTimePicker } from '../../../shared/date-picker'
 import { PaginationControls } from '../../../shared/pagination-controls'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Button, Drawer, Input, InputNumber, Modal, Select, Space, Switch, Table, Tag } from 'antd'
-import { operationsApi as api, workspace, type Module, type Filters, type OperationResource, type OperationInput, type ResourceAction } from './api'
+import { operationsApi as api, type Module, type Filters, type OperationResource, type OperationInput, type ResourceAction } from './api'
 import { MediaPicker } from './media-picker'
 import { actionColumn, RowActions } from '../../../shared/row-actions'
 import { notifySuccess } from '../../../shared/notify'
@@ -12,13 +13,17 @@ const actionLabels = { none: '不跳转', internal_page: '打开站内页面', e
 const localDate = (v: string | null) => v ? new Date(new Date(v).getTime() - new Date(v).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''
 const time = (v: string | null) => v ? new Date(v).toLocaleString() : '不限制'
 function target(v: ResourceAction): string { switch (v.kind) { case 'none': return '—'; case 'internal_page': return v.page === 'post' ? `帖子：${v.object_id}` : ({ feed: '首页', resources: '校园服务', legal: '学校说明' }[v.page]); case 'external_link': return v.url; case 'phone': return v.number; case 'copy_text': return v.text } }
-export function OperationResources({ school, platformAdmin, schoolAdmin, module }: { school?: string; platformAdmin: boolean; schoolAdmin: boolean; module: Module }) {
+export function OperationResources({ school, platformAdmin, module }: { school?: string; platformAdmin: boolean; schoolAdmin: boolean; module: Module }) {
   const [scope, setScope] = useState(new URLSearchParams(window.location.search).get('scope') === 'platform' || !school ? 'platform' : 'school')
   const [filters, setFilters] = useState<Filters>({ page: 1, size: 20 })
   const [editing, setEditing] = useState<OperationResource>(), [open, setOpen] = useState(false)
   const [error, setError] = useState('')
   const defaults = scope === 'platform', selected = defaults && platformAdmin ? undefined : school
-  const canEdit = defaults ? platformAdmin : schoolAdmin
+  const can = useSchoolPermission()
+  const prefix = module === 'group-qrcodes' ? 'operation.qrcode' : 'operation.banner'
+  const canEdit = defaults ? platformAdmin : can(`${prefix}.update`)
+  const canCreate = defaults ? platformAdmin : can(`${prefix}.create`)
+  const canDelete = defaults ? platformAdmin : can(`${prefix}.delete`)
   const q = useQuery({ queryKey: ['linjian', 'operations', module, selected, scope, filters], queryFn: ({ signal }) => api.list(selected, module, { ...filters, defaults: defaults && !platformAdmin }, signal), enabled: platformAdmin || !!school })
   const title = module === 'group-qrcodes' ? '群二维码' : '首页广告位'
   function change(v: Partial<Filters>) { setFilters({ ...filters, ...v, page: 1 }) }
@@ -31,7 +36,7 @@ export function OperationResources({ school, platformAdmin, schoolAdmin, module 
       <label>开始时间自<LocalDateTimePicker value={localDate(filters.starts_at ?? null)} onChange={value => change({ starts_at: value ? new Date(value).toISOString() : undefined })} /></label>
       <label>结束时间至<LocalDateTimePicker value={localDate(filters.ends_at ?? null)} onChange={value => change({ ends_at: value ? new Date(value).toISOString() : undefined })} /></label>
       <Button onClick={() => setFilters({ page: 1, size: 20 })}>重置筛选</Button><Button onClick={() => void q.refetch()}>刷新</Button>
-      {canEdit && <Button type="primary" onClick={() => { setEditing(undefined); setOpen(true) }}>添加</Button>}
+      {canCreate && <Button type="primary" onClick={() => { setEditing(undefined); setOpen(true) }}>添加</Button>}
     </Space>
     {defaults && <p>平台默认{!platformAdmin ? '配置只读；统计为平台累计。' : '配置作用于所有学校；统计为平台累计。'}</p>}
     {(error || q.error) && <Alert type="error" title={error || q.error?.message} />}
@@ -47,12 +52,12 @@ export function OperationResources({ school, platformAdmin, schoolAdmin, module 
       ...(module === 'home-banners' ? [{ title: '曝光量', width: 100, dataIndex: 'views' }, { title: '点击量', width: 100, dataIndex: 'clicks' }] : []),
       actionColumn<OperationResource>({ width: 140, render: (r) => <RowActions label={r.title} actions={[
         { key: 'edit', label: canEdit ? '编辑' : '查看', onClick: () => { setEditing(r); setOpen(true) } },
-        ...(canEdit ? [{ key: 'delete', label: '删除', danger: true, onClick: () => Modal.confirm({ title: `确认删除“${r.title}”？`, content: '删除后立即停止展示，历史统计保留。', onOk: async () => { try { await api.remove(selected, module, r.id, r.revision); await q.refetch() } catch (e) { setError(e instanceof Error ? e.message : '删除失败'); throw e } } }) }] : []),
+        ...(canDelete ? [{ key: 'delete', label: '删除', danger: true, onClick: () => Modal.confirm({ title: `确认删除“${r.title}”？`, content: '删除后立即停止展示，历史统计保留。', onOk: async () => { try { await api.remove(selected, module, r.id, r.revision); await q.refetch() } catch (e) { setError(e instanceof Error ? e.message : '删除失败'); throw e } } }) }] : []),
       ]} /> }),
     ]} />
     <PaginationControls page={filters.page ?? 1} more={q.data?.page?.has_more} busy={q.isFetching} subject="运营资源" change={page => setFilters({ ...filters, page })} />
     {open && <Drawer open size="large" title={canEdit ? editing ? '编辑' : '添加' : '查看'} onClose={() => setOpen(false)}>
-      <OperationEditor key={`${selected}:${editing?.id ?? 'new'}`} school={selected} module={module} item={editing} readOnly={!canEdit} onSaved={async () => { await q.refetch(); setOpen(false) }} />
+      <OperationEditor key={`${selected}:${editing?.id ?? 'new'}`} school={selected} module={module} item={editing} readOnly={editing ? !canEdit : !canCreate} onSaved={async () => { await q.refetch(); setOpen(false) }} />
     </Drawer>}
   </section>
 }
@@ -60,7 +65,7 @@ function OperationEditor({ school, module, item, readOnly, onSaved }: { school?:
   const [uploading, setUploading] = useState(false)
   const [form, setForm] = useState<OperationInput>({ revision: item?.revision ?? 0, title: item?.title ?? '', content: item?.content ?? '', image_ref: item?.image_ref ?? { kind: 'asset', id: '' }, action: module === 'group-qrcodes' ? {kind:'none'} : item?.action ?? { kind: 'none' }, active: item?.active ?? true, sort_order: item?.sort_order ?? 0, starts_at: item?.starts_at ?? null, ends_at: item?.ends_at ?? null, popup_strategy: item?.popup_strategy ?? 'daily', popup_interval_days: item?.popup_interval_days ?? 1 })
   const [preview, setPreview] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(''), [postSearch, setPostSearch] = useState('')
-  const posts = useQuery({ queryKey: ['linjian', 'operations-posts', school, postSearch], queryFn: () => workspace.list(school!, 'posts', `?status=approved&search=${encodeURIComponent(postSearch)}`), enabled: !!school && form.action.kind === 'internal_page' && form.action.page === 'post' })
+  const posts = useQuery({ queryKey: ['linjian', 'operations-posts', school, postSearch], queryFn: () => api.postOptions(school!, item ? 'operation.banner.update' : 'operation.banner.create', postSearch), enabled: !!school && form.action.kind === 'internal_page' && form.action.page === 'post' })
   function change(v: Partial<OperationInput>) { setForm({ ...form, ...v }); setPreview(false) }
   const qr = module === 'group-qrcodes', action = form.action
   function validate() {
@@ -92,7 +97,7 @@ function OperationEditor({ school, module, item, readOnly, onSaved }: { school?:
       <label className="form-wide">{qr ? '名称' : '标题'}<Input aria-label={qr ? '名称' : '标题'} value={form.title} maxLength={100} onChange={e => change({ title: e.target.value })} /></label>
       <label className="form-wide">展示说明<Input.TextArea value={form.content} maxLength={qr ? 255 : 20000} onChange={e => change({ content: e.target.value })} /></label>
       <div className="form-wide">
-        {!readOnly && <MediaPicker onBusyChange={setUploading} school={school} value={form.image_ref.id || null} onChange={id => change({ image_ref: { kind: 'asset', id: id ?? '' } })} label="图片" />}
+        {!readOnly && <MediaPicker context={`${qr ? 'operation.qrcode' : 'operation.banner'}.${item ? 'update' : 'create'}`} onBusyChange={setUploading} school={school} value={form.image_ref.id || null} onChange={id => change({ image_ref: { kind: 'asset', id: id ?? '' } })} label="图片" />}
         {readOnly && item?.image_url && <img src={item.image_url} alt={item.title} style={{ maxWidth: 250 }} />}
       </div>
       {qr ? (
@@ -104,7 +109,7 @@ function OperationEditor({ school, module, item, readOnly, onSaved }: { school?:
         <>
           <label className="form-wide">点击后去哪里<Select style={{width:'100%'}} popupMatchSelectWidth={false} value={action.kind === 'internal_page' && action.page === 'post' ? 'post' : action.kind} options={[{ value: 'none', label: '不跳转' }, { value: 'internal_page', label: '打开站内页面' }, ...(school ? [{ value: 'post', label: '打开帖子详情' }] : []), ...(!['none', 'internal_page'].includes(action.kind) ? [{ value: action.kind, label: `${actionLabels[action.kind]}（历史配置）` }] : [])]} onChange={v => change({ action: v === 'none' ? { kind: 'none' } : v === 'post' ? { kind: 'internal_page', page: 'post', object_id: null } : { kind: 'internal_page', page: 'feed' } })} /></label>
           {action.kind === 'internal_page' && action.page !== 'post' && <label className="form-wide">目标页面<Select aria-label="目标页面" style={{width:'100%'}} value={action.page} options={[{ value: 'feed', label: '首页' }, { value: 'resources', label: '校园服务' }, { value: 'legal', label: '学校说明' }]} onChange={page => change({ action: { kind: 'internal_page', page } })} /></label>}
-          {action.kind === 'internal_page' && action.page === 'post' && <label className="form-wide">目标帖子<Select showSearch filterOption={false} aria-label="目标帖子" style={{width:'100%'}} popupMatchSelectWidth={false} placeholder="搜索本校已审核帖子" value={action.object_id ?? undefined} onSearch={setPostSearch} loading={posts.isFetching} options={posts.data?.items.filter(v => v.visibility === 'visible').map(v => ({ value: v.id, label: String(v.title) }))} onChange={object_id => change({ action: { ...action, object_id } })} /></label>}
+          {action.kind === 'internal_page' && action.page === 'post' && <label className="form-wide">目标帖子<Select showSearch filterOption={false} aria-label="目标帖子" style={{width:'100%'}} popupMatchSelectWidth={false} placeholder="搜索本校已审核帖子" value={action.object_id ?? undefined} onSearch={setPostSearch} loading={posts.isFetching} options={posts.data?.items.map(v => ({ value: v.id, label: String(v.title) }))} onChange={object_id => change({ action: { ...action, object_id } })} /></label>}
           {!['none', 'internal_page'].includes(action.kind) && <p>目标内容：{target(action)}；可保留此历史配置或明确更换。</p>}
         </>
       )}
