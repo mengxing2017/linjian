@@ -2,6 +2,8 @@ import { createCommunityClient } from '@linjian/api-contract/community'
 import { client } from '../../identity/api'
 export type {
   Post,
+  CommunityPost,
+  PostInteractionState,
   PostInput,
   Comment,
   Reaction,

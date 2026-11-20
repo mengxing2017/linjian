@@ -4,8 +4,9 @@ import HomeOperations from '../operations/HomeOperations.vue'
 const operations = shallowRef<InstanceType<typeof HomeOperations>>()
 import { postVisibilityLabel } from './post-status'
 import { shallowRef, ref, computed, watch } from 'vue'
-import { communityApi, homeMenuApi, type HomeMenu, type Post, type FeedFilter } from './api'
-import { requireSchool, schoolContext } from '../school-context/context'
+import { communityApi, homeMenuApi, type HomeMenu, type CommunityPost, type FeedFilter } from './api'
+import { requireSchool, schoolContext, scopeKey } from '../school-context/context'
+import { invalidatedPosts, acknowledgePost, clearPostInvalidations } from './post-invalidations'
 import { session } from '../identity/session'
 import { usePage, navigate } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
@@ -17,7 +18,7 @@ const props = defineProps<{
 }>()
 const mode = ref(props.initial ?? 'feed'),
   search = ref(''),
-  posts = shallowRef<Post[]>([]),
+  posts = shallowRef<CommunityPost[]>([]),
   page = ref(1),
   more = ref(false),
   menu = shallowRef<HomeMenu>(),
@@ -30,6 +31,7 @@ watch(
 )
 const school = computed(() => schoolContext.schools.find((s) => s.id === schoolContext.id))
 const { busy, error, run } = usePage(() => {
+  clearPostInvalidations()
   posts.value = []
   page.value = 1
   more.value = false
@@ -46,6 +48,8 @@ function load(reset = true, retryAfterScopeRefresh = true): Promise<void> {
     const id = schoolContext.id,
       generation = schoolContext.generation,
       user = session.user?.id
+    const scope = `${scopeKey()}:${user ?? ''}`
+    const dirty = invalidatedPosts(scope, id)
     if (reset) {
       const loaded = await homeMenuApi.public(id)
       if (!current() || generation !== schoolContext.generation || id !== schoolContext.id || user !== session.user?.id) return
@@ -71,6 +75,7 @@ function load(reset = true, retryAfterScopeRefresh = true): Promise<void> {
       posts.value = reset ? response.items : [...posts.value, ...response.items]
       page.value = next
       more.value = !!response.page?.has_more
+      if (reset) dirty.forEach(item => acknowledgePost(scope, id, item.id, item.version))
     }
   })
 }
@@ -84,7 +89,28 @@ function selectTag(tag: string) {
   selectedTag.value = tag
   void load()
 }
-function detail(post: Post) {
+async function syncInvalidated(current: () => boolean) {
+  const school = schoolContext.id
+  const scope = `${scopeKey()}:${session.user?.id ?? ''}`
+  for (const dirty of invalidatedPosts(scope, school)) {
+    if (!posts.value.some(item => item.id === dirty.id)) continue
+    try {
+      const state = await communityApi.interactionState(school, dirty.id)
+      if (!current() || scope !== `${scopeKey()}:${session.user?.id ?? ''}`) return
+      const readable = mode.value === 'mine' || (state.audit_status === 'approved' && state.visibility === 'visible')
+      const matches = readable && (mode.value !== 'collect' || state.collected) && (mode.value !== 'following' || state.author_followed)
+      posts.value = posts.value.flatMap(item => item.id !== dirty.id ? [item] : matches ? [{ ...item, audit_status: state.audit_status, visibility: state.visibility, like_count: state.like_count, comment_count: state.comment_count }] : [])
+      acknowledgePost(scope, school, dirty.id, dirty.version)
+    } catch (cause) {
+      if (!current() || scope !== `${scopeKey()}:${session.user?.id ?? ''}`) return
+      if (cause && typeof cause === 'object' && 'status' in cause && cause.status === 404) {
+        posts.value = posts.value.filter(item => item.id !== dirty.id)
+        acknowledgePost(scope, school, dirty.id, dirty.version)
+      } else throw cause
+    }
+  }
+}
+function detail(post: CommunityPost) {
   navigate(`/pages/index/detail?school=${schoolContext.id}&id=${post.id}`)
 }
 defineExpose({
@@ -93,11 +119,11 @@ defineExpose({
     if (!(await requireSchool())) return
     void operations.value?.show()
     const activeSchool = schoolContext.id
-    await (posts.value.length
-      ? run(async () => {
-          await requireSchool()
-          if (!posts.value.length) void load()
-        })
+    const scope = `${scopeKey()}:${session.user?.id ?? ''}`
+    const dirty = invalidatedPosts(scope, activeSchool)
+    const queryChanged = dirty.some(item => item.content || (mode.value === 'following' && item.authorId) || (mode.value === 'collect' && !posts.value.some(post => post.id === item.id)))
+    await (posts.value.length && !queryChanged
+      ? run(syncInvalidated)
       : load())
     if (!error.value && activeSchool === schoolContext.id) recordPage('feed_open', activeSchool)
   },
@@ -178,7 +204,7 @@ defineExpose({
         <text class="muted">发布时间：{{ post.published_at_text }}</text>
         <view class="row spread muted">
           <text>{{ post.author_name || '校园成员' }}</text>
-          <text>♡ {{ post.like_count || 0 }}</text>
+          <text>♡ {{ post.like_count }} · 评论 {{ post.comment_count }}</text>
         </view>
         <text v-if="mode === 'mine'" class="muted">状态：{{ postVisibilityLabel(post.visibility) }}</text>
         <text v-if="mode === 'mine'" class="muted">

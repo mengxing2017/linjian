@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { invalidatePost } from './post-invalidations'
 import { communityApi, homeMenuApi, type HomeMenuTag, type Post } from './api'
 import { schoolContext, requireSchool, scopeKey, onScopeChange } from '../school-context/context'
 import { session } from '../identity/session'
@@ -136,8 +137,9 @@ function submit() {
       },
       props.id,
     )
-    uni.removeStorageSync(draft)
     if (key !== scopeKey()) return
+    uni.removeStorageSync(draft)
+    invalidatePost(`${scopeKey()}:${session.user?.id ?? ''}`, s, result.id, true)
     message.value = result.audit_status === 'approved' ? '发布成功' : '已提交，等待审核'
     title.value = ''
     content.value = ''
@@ -148,7 +150,7 @@ function submit() {
       title: '提交成功',
       content: message.value,
       showCancel: false,
-      success: () => uni.redirectTo({ url: `/pages/index/detail?school=${s}&id=${result.id}` }),
+      success: () => { if (key === scopeKey()) uni.redirectTo({ url: `/pages/index/detail?school=${s}&id=${result.id}` }) },
     })
   })
 }
