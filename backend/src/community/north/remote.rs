@@ -69,6 +69,25 @@ async fn detail(
 ) -> Result<ApiResponse> {
     Ok(resource("posts", a.community.detail(&actor, s, id).await?))
 }
+async fn interaction_state(
+    State(app): State<Application>,
+    actor: Actor,
+    Path((school, post)): Path<(Uuid, Uuid)>,
+) -> Result<axum::response::Response> {
+    use axum::response::IntoResponse;
+    let mut response = resource(
+        "post-interaction-states",
+        app.community
+            .interaction_state(&actor, school, post)
+            .await?,
+    )
+    .into_response();
+    response.headers_mut().insert(
+        axum::http::header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("private, no-store"),
+    );
+    Ok(response)
+}
 async fn create(
     State(a): State<Application>,
     actor: Actor,
@@ -297,6 +316,10 @@ async fn resolve(
 }
 pub fn router() -> Router<Application> {
     Router::new()
+        .route(
+            "/api/v1/schools/{school}/posts/{id}/interaction-state",
+            get(interaction_state),
+        )
         .merge(post_management::router())
         .route("/api/v1/schools/{school}/post-reviews", get(reviews))
         .route("/api/v1/schools/{school}/posts/{id}/review", get(review))

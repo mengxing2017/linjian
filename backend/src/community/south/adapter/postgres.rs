@@ -2,6 +2,7 @@ use crate::community::domain::case::{CaseManagementView, ResolveCaseInput};
 use crate::community::domain::{post_import::*, post_management::*};
 mod cases;
 mod decisions;
+mod interaction;
 mod post_content;
 mod post_import;
 mod post_management;
@@ -200,8 +201,8 @@ impl Repository {
     pub async fn react(&self, a: &Actor, s: Uuid, id: Uuid, kind: &str, add: bool) -> Result<()> {
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
-        let exists:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM posts WHERE school_id=$1 AND id=$2 AND audit_status='approved' AND visibility='visible')").bind(s).bind(id).fetch_one(&mut *tx).await?;
-        if !exists {
+        let exists:Option<bool>=sqlx::query_scalar("SELECT true FROM posts WHERE school_id=$1 AND id=$2 AND audit_status='approved' AND visibility='visible' FOR SHARE").bind(s).bind(id).fetch_optional(&mut *tx).await?;
+        if exists.is_none() {
             return Err(Error::NotFound);
         }
         if add {
@@ -243,8 +244,8 @@ impl Repository {
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
         let post=sqlx::query("SELECT p.author_id FROM posts p WHERE p.id=$1 AND p.school_id=$2 AND p.audit_status='approved' AND p.visibility='visible' FOR SHARE OF p").bind(id).bind(s).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
         if let Some(parent) = v.parent_id {
-            let valid:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM comments WHERE id=$1 AND post_id=$2 AND school_id=$3 AND audit_status='approved' AND visibility='visible' AND NOT deleted)").bind(parent).bind(id).bind(s).fetch_one(&mut *tx).await?;
-            if !valid {
+            let valid:Option<bool>=sqlx::query_scalar("SELECT true FROM comments WHERE id=$1 AND post_id=$2 AND school_id=$3 AND audit_status='approved' AND visibility='visible' AND NOT deleted FOR SHARE").bind(parent).bind(id).bind(s).fetch_optional(&mut *tx).await?;
+            if valid.is_none() {
                 return Err(Error::NotFound);
             }
         }
@@ -404,6 +405,14 @@ impl Repository {
 }
 
 impl crate::community::south::port::Store for Repository {
+    async fn interaction_state(
+        &self,
+        actor: &Actor,
+        school: Uuid,
+        post: Uuid,
+    ) -> Result<crate::community::domain::interaction::PostInteractionState> {
+        Repository::interaction_state(self, actor, school, post).await
+    }
     async fn recommendation_preview(&self, a: &Actor, s: Uuid, id: Uuid) -> Result<Value> {
         Repository::recommendation_preview(self, a, s, id).await
     }

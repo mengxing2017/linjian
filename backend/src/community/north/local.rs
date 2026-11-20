@@ -118,6 +118,15 @@ impl<R: Store> Service<R> {
         a.authorize(s, "member")?;
         self.0.posts(a, s, p).await
     }
+    pub async fn interaction_state(
+        &self,
+        actor: &Actor,
+        school: Uuid,
+        post: Uuid,
+    ) -> Result<crate::community::domain::interaction::PostInteractionState> {
+        actor.authorize(school, "member")?;
+        self.0.interaction_state(actor, school, post).await
+    }
     pub async fn detail(&self, a: &Actor, s: Uuid, id: Uuid) -> Result<Value> {
         a.authorize(s, "member")?;
         self.0.detail(a, s, id).await

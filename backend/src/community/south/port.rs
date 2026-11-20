@@ -6,6 +6,14 @@ use crate::community::domain::{post_import::*, post_management::*};
 use serde_json::Value;
 use uuid::Uuid;
 pub trait Store: Clone + Send + Sync + 'static {
+    fn interaction_state(
+        &self,
+        actor: &Actor,
+        school: Uuid,
+        post: Uuid,
+    ) -> impl std::future::Future<
+        Output = Result<crate::community::domain::interaction::PostInteractionState>,
+    > + Send;
     fn recommendation_preview(
         &self,
         a: &Actor,

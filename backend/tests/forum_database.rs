@@ -10,6 +10,8 @@ use uuid::Uuid;
 mod member_permissions_fixture;
 #[path = "member_permissions/mod.rs"]
 mod member_permissions_tests;
+#[path = "post_interactions/mod.rs"]
+mod post_interactions_tests;
 #[path = "post_seed/mod.rs"]
 mod post_seed_tests;
 use member_permissions_fixture::SchoolFixtures;

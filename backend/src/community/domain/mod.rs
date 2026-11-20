@@ -1,3 +1,4 @@
+pub mod interaction;
 pub mod post_seed;
 pub mod public_post;
 use crate::business::{Result, require, text};
