@@ -16,6 +16,7 @@ export const recommendationStates: Record<RecommendationView['state'], string> =
   cancelled: '已取消',
 }
 const reasons: Record<string, string> = {
+  seed_content_not_recommendable: '仿真发帖仅站内展示，不允许来源推送。',
   forbidden: '没有本校推荐权限',
   recommendation_not_eligible: '帖子需审核通过、可见，并具有与当前内容匹配的审核证据。',
   recommendation_configuration_required: '来源配置尚不可用或路由已暂停，请联系管理员。',

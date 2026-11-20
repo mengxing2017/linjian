@@ -9,6 +9,7 @@ import { postColumns } from './post-columns'
 import { ReviewDetail } from './post-reviews'
 import { PostEditor } from './post-editor'
 import { PostImport } from './post-import'
+import { PostSeed } from './post-seed'
 import { PostFilters } from './post-filters'
 import { PostRowActions } from './post-actions'
 import { PostRecommendation, recommendationStates } from './post-recommendation'
@@ -26,6 +27,8 @@ export function PostManagement({
   publisherId?: string
 }) {
   const can = useSchoolPermission()
+  const [seeding, setSeeding] = useState(false)
+  const [seedBlocking, setSeedBlocking] = useState(false)
   const [filter, setFilter] = useState<PostManagementFilter>({ page: 1 }),
     [selected, setSelected] = useState(''),
     [editor, setEditor] = useState<string>(),
@@ -138,7 +141,10 @@ export function PostManagement({
               当前仅排序{filter.is_top ? '置顶' : '普通'}
               帖子。可拖动行，或使用上移、下移；仅影响当前页。
             </p>
-            <Button disabled={disabled || !draft || orderConflict || !can('content.post.pin')} onClick={() => void saveOrder()}>
+            <Button
+              disabled={disabled || !draft || orderConflict || !can('content.post.pin')}
+              onClick={() => void saveOrder()}
+            >
               保存排序
             </Button>
             <Button
@@ -156,6 +162,9 @@ export function PostManagement({
           <>
             <PostFilters filter={filter} change={change} />
             <Space wrap>
+              {can('content.simulation.manage') && (
+                <Button onClick={() => setSeeding(true)}>仿真发帖与批次</Button>
+              )}
               {platformAdmin && (
                 <>
                   <Button type="primary" onClick={() => setEditor('')}>
@@ -164,10 +173,16 @@ export function PostManagement({
                   <Button onClick={() => setImporting(true)}>导入</Button>
                 </>
               )}
-              <Button disabled={disabled || !can('content.post.pin')} onClick={() => beginSort(false)}>
+              <Button
+                disabled={disabled || !can('content.post.pin')}
+                onClick={() => beginSort(false)}
+              >
                 普通排序
               </Button>
-              <Button disabled={disabled || !can('content.post.pin')} onClick={() => beginSort(true)}>
+              <Button
+                disabled={disabled || !can('content.post.pin')}
+                onClick={() => beginSort(true)}
+              >
                 置顶排序
               </Button>
             </Space>
@@ -214,7 +229,26 @@ export function PostManagement({
             : {}
         }
         columns={[
-          ...postColumns(school, setSelected),
+          ...postColumns(
+            school,
+            setSelected,
+            {
+              disabled: disabled || sorting || !can('content.post.pin'),
+              toggle: (row) =>
+                void act(() => workspace.postManagement.pin(school, row.id, row.revision, !row.is_top)),
+            },
+            {
+              disabled: disabled || sorting || !can('content.post.visibility'),
+              change: (row, visibility) => {
+                if (visibility === 'offline') {
+                  setOffline(row)
+                  setReason('')
+                } else {
+                  void act(() => workspace.postManagement.status(school, row.id, row.revision, visibility))
+                }
+              },
+            },
+          ),
           {
             title: '最近推送',
             width: 180,
@@ -232,7 +266,7 @@ export function PostManagement({
           {
             title: '操作',
             fixed: 'right',
-            width: sorting ? 150 : 270,
+            width: sorting ? 150 : 220,
             render: (_, row, index) =>
               sorting ? (
                 <Space>
@@ -260,10 +294,6 @@ export function PostManagement({
                   recommend={q.data?.can_recommend ? setRecommendation : undefined}
                   edit={setEditor}
                   act={act}
-                  offline={(row) => {
-                    setOffline(row)
-                    setReason('')
-                  }}
                 />
               ),
           },
@@ -304,7 +334,6 @@ export function PostManagement({
       {selected && (
         <ReviewDetail
           management
-          platformAdmin={platformAdmin}
           key={selected}
           school={school}
           id={selected}
@@ -322,6 +351,30 @@ export function PostManagement({
           saved={saved}
         />
       )}
+      <Drawer
+        title="仿真发帖管理"
+        size="large"
+        open={seeding}
+        closable={!seedBlocking}
+        mask={{ closable: !seedBlocking }}
+        onClose={() => {
+          if (!seedBlocking) setSeeding(false)
+        }}
+        destroyOnHidden
+      >
+        {seeding && (
+          <PostSeed
+            key={school}
+            school={school}
+            saved={saved}
+            onBlockingChange={setSeedBlocking}
+            onOpenPost={(id) => {
+              setSeeding(false)
+              setSelected(id)
+            }}
+          />
+        )}
+      </Drawer>
       {importing && (
         <PostImport
           owner={publisherId}
