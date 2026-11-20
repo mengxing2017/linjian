@@ -8,6 +8,7 @@ vi.mock('./api', () => ({
 }))
 const user: MiniappUser = {
   id: 'user-1',
+  account_kind: 'ordinary',
   nickname: '校园注册用户',
   avatar_url: null,
   avatar_asset_id: null,

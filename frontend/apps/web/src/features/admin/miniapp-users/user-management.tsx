@@ -135,6 +135,7 @@ export function MiniappUsers({
           maxLength={11}
           onChange={(e) => change({ mobile: e.target.value })}
         />
+        <Select aria-label="账号类型" value={filters.account_kind ?? "ordinary"} onChange={(account_kind) => change({account_kind})} options={[{value:"ordinary",label:"普通账号"},{value:"simulated",label:"模拟作者"}]} />
         <Select
           aria-label="状态"
           allowClear
@@ -185,6 +186,7 @@ export function MiniappUsers({
           columns={[
             { title: '头像', width: 80, dataIndex: 'avatar_url', render: (v) => <UserAvatar url={v} /> },
             { title: '昵称', width: 160, dataIndex: 'nickname' },
+            { title: '账号类型', width: 110, render: (_, row) => row.account_kind === 'simulated' ? <Tag>模拟作者</Tag> : '普通账号' },
             { title: '手机号', width: 160, dataIndex: 'mobile', render: (v) => v || '未填写' },
             { title: '所属学校', width: 200, dataIndex: 'school_name', render: (v) => v || '未绑定学校' },
             { title: '发帖数', width: 110, dataIndex: 'post_count', sorter: true },
