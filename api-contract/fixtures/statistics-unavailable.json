@@ -23,7 +23,7 @@
       },
       "as_of": "2026-11-18T00:00:00Z",
       "expires_at": "2026-11-18T00:10:00Z",
-      "definition_version": 2,
+      "definition_version": 3,
       "summary": {
         "posts": 2,
         "comments": 3,
@@ -39,7 +39,11 @@
         "new_participation_rate": null,
         "participation_rate": null,
         "daily_posts": 2.0,
-        "daily_comments": 3.0
+        "daily_comments": 3.0,
+        "miniapp_posts": 0,
+        "web_posts": 0,
+        "seed_posts": 0,
+        "unknown_posts": 2
       },
       "coverage": {
         "content": true,
@@ -78,7 +82,11 @@
             "new_participation_rate": null,
             "participation_rate": null,
             "daily_posts": 2.0,
-            "daily_comments": 3.0
+            "daily_comments": 3.0,
+            "miniapp_posts": 0,
+            "web_posts": 0,
+            "seed_posts": 0,
+            "unknown_posts": 2
           },
           "coverage": {
             "content": true,

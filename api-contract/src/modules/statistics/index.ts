@@ -7,6 +7,7 @@ export interface StatisticsQuery {
   school_ids?: string; school_status?: 'normal' | 'hidden'
 }
 export interface Metrics {
+  miniapp_posts: number | null; web_posts: number | null; seed_posts: number | null; unknown_posts: number | null;
   posts: number | null; comments: number | null; post_authors: number | null; comment_authors: number | null
   participants: number | null; registrations: number | null; cumulative_registrations: number | null
   new_participants: number | null; active_users: number | null; registered_participants: number | null

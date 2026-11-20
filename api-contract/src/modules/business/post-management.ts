@@ -9,6 +9,11 @@ import {
 import type { PostReview, Row } from "./types";
 export type PostVisibility = "visible" | "hidden" | "offline";
 export interface PostManagementView extends PostReview {
+  created_via: "miniapp" | "web" | "seed" | "legacy";
+  author_kind: "ordinary" | "simulated";
+  seed_batch_id: string | null;
+  created_by: string | null;
+  display_published_at: string;
   source_summary: Pick<
     RecommendationView,
     "id" | "state" | "created_at"
@@ -46,6 +51,7 @@ export interface PostManagementFilter {
   visibility?: "" | PostVisibility;
   is_top?: boolean;
   tag?: string;
+  created_via?: string; author_kind?: string; seed_batch_id?: string; display_from?: string; display_to?: string;
   created_from?: string;
   created_to?: string;
 }
@@ -182,6 +188,7 @@ export const postManagement = {
       "visibility",
       "is_top",
       "tag",
+      "created_via", "author_kind", "seed_batch_id", "display_from", "display_to",
       "created_from",
       "created_to",
     ] as const) {

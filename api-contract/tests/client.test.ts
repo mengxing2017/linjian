@@ -43,6 +43,9 @@ import { setCsrf } from '../src/http'
 it('shares a real Rust create-post response and sends CSRF for writes', async () => {
   const typed: Post = {id:postFixture.data.id,...postFixture.data.attributes, audit_status:'pending', visibility:'visible'}
   expect(typed.id).toEqual(postFixture.data.id)
+  expect(typed.published_at_text).toBe('2026-10-21 08:00')
+  expect(typed).not.toHaveProperty('created_at')
+  expect(typed).not.toHaveProperty('updated_at')
   const fetchMock=vi.fn().mockResolvedValue(json(postFixture))
   vi.stubGlobal('fetch',fetchMock);setCsrf('test-csrf')
   expect(await workspace.mutate('school','posts',{title:'Campus',content:'Hello',images:[],tags:[]})).toEqual(typed)

@@ -35,6 +35,8 @@ export interface School extends Row {
     config: { [key: string]: Json } & { post_audit_mode?: AuditMode; comment_audit_mode?: AuditMode };
 }
 export interface Post extends Row {
+    display_published_at: string;
+    published_at_text: string;
     school_id: string;
     author_id: string;
     title: string;

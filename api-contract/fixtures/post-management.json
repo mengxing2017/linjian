@@ -25,7 +25,12 @@
       "moderator_id": null,
       "is_top": false,
       "cover_image": null,
-      "source_summary": null
+      "source_summary": null,
+      "created_via": "web",
+      "author_kind": "ordinary",
+      "seed_batch_id": null,
+      "created_by": null,
+      "display_published_at": "2026-11-09T00:00:00Z"
     }
   }
 }

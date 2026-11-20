@@ -29,7 +29,12 @@
       "moderator_id": null,
       "is_top": true,
       "cover_image": "/api/v1/schools/50000000-0000-0000-0000-000000000001/media/60000000-0000-0000-0000-000000000003",
-      "source_summary": null
+      "source_summary": null,
+      "created_via": "web",
+      "author_kind": "ordinary",
+      "seed_batch_id": null,
+      "created_by": null,
+      "display_published_at": "2026-11-09T00:00:00Z"
     }
   }
 }
