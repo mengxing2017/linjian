@@ -43,16 +43,3 @@ export function targetPath(value: ReturnTarget) {
   if (!validPostTarget(value.school, value.id)) throw new Error('帖子链接无效')
   return `/pages/index/detail?school=${value.school}&id=${value.id}`
 }
-export function canSharePost(
-  post: { audit_status?: string; visibility?: string; id?: string; school_id?: string } | undefined,
-  school: string,
-  id: string,
-) {
-  return (
-    !!post &&
-    post.audit_status === 'approved' &&
-    post.visibility === 'visible' &&
-    post.id === id &&
-    post.school_id === school
-  )
-}
