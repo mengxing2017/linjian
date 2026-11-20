@@ -43,6 +43,10 @@ pub struct Window {
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct Metrics {
     pub posts: Option<i64>,
+    pub miniapp_posts: Option<i64>,
+    pub web_posts: Option<i64>,
+    pub seed_posts: Option<i64>,
+    pub unknown_posts: Option<i64>,
     pub comments: Option<i64>,
     pub post_authors: Option<i64>,
     pub comment_authors: Option<i64>,

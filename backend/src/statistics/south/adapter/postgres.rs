@@ -248,6 +248,10 @@ async fn aggregate(
             if view == "overview" {
                 m = Metrics {
                     posts: m.posts,
+                    miniapp_posts: m.miniapp_posts,
+                    web_posts: m.web_posts,
+                    seed_posts: m.seed_posts,
+                    unknown_posts: m.unknown_posts,
                     comments: m.comments,
                     registrations: m.registrations,
                     active_users: m.active_users,
@@ -266,6 +270,10 @@ fn comparable_metrics(bucket: &Bucket) -> Metrics {
     let mut metrics = bucket.metrics.clone();
     if !bucket.coverage.content {
         metrics.posts = None;
+        metrics.miniapp_posts = None;
+        metrics.web_posts = None;
+        metrics.seed_posts = None;
+        metrics.unknown_posts = None;
         metrics.comments = None;
         metrics.post_authors = None;
         metrics.comment_authors = None;
@@ -279,6 +287,10 @@ fn comparable_metrics(bucket: &Bucket) -> Metrics {
 pub fn changes(m: &Metrics, previous: &Metrics) -> BTreeMap<String, Change> {
     [
         ("posts", m.posts, previous.posts),
+        ("miniapp_posts", m.miniapp_posts, previous.miniapp_posts),
+        ("web_posts", m.web_posts, previous.web_posts),
+        ("seed_posts", m.seed_posts, previous.seed_posts),
+        ("unknown_posts", m.unknown_posts, previous.unknown_posts),
         ("comments", m.comments, previous.comments),
         ("participants", m.participants, previous.participants),
         ("post_authors", m.post_authors, previous.post_authors),
@@ -516,7 +528,7 @@ impl StatisticsStore for Repository {
             window: plan.window,
             as_of: now,
             expires_at: now + Duration::seconds(self.1.snapshot_seconds),
-            definition_version: 2,
+            definition_version: 3,
             summary,
             coverage: cov,
             buckets,
@@ -526,7 +538,7 @@ impl StatisticsStore for Repository {
             schools: school_rows,
         };
         tx.commit().await?;
-        sqlx::query("INSERT INTO statistics_snapshots(id,owner_id,school_id,as_of,expires_at,definition_version,result) VALUES($1,$2,$3,$4,$5,2,$6)").bind(report.id).bind(a.id).bind(school).bind(now).bind(report.expires_at).bind(json!(report)).execute(&self.0).await?;
+        sqlx::query("INSERT INTO statistics_snapshots(id,owner_id,school_id,as_of,expires_at,definition_version,result) VALUES($1,$2,$3,$4,$5,3,$6)").bind(report.id).bind(a.id).bind(school).bind(now).bind(report.expires_at).bind(json!(report)).execute(&self.0).await?;
         Ok(report)
     }
     async fn snapshot(&self, a: &Actor, school: Option<Uuid>, id: Uuid) -> Result<Report> {

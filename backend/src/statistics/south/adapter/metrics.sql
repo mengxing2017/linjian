@@ -5,10 +5,10 @@ SELECT jsonb_build_object('key',w.key,
  'unknown_assignments',w.registration AND EXISTS(SELECT 1 FROM statistics_registrations WHERE school_assignment='unknown' AND registered_at>=w.start_at AND registered_at<w.actual_end_at),
  'unknown_base',w.registration AND EXISTS(SELECT 1 FROM statistics_registrations WHERE school_assignment='unknown' AND registered_at<w.actual_end_at),
  'metrics',jsonb_build_object(
- 'posts',CASE WHEN w.content THEN p.n END,'comments',CASE WHEN w.content THEN c.n END,
+ 'posts',CASE WHEN w.content THEN p.n END,'miniapp_posts',CASE WHEN w.content THEN p.miniapp END,'web_posts',CASE WHEN w.content THEN p.web END,'seed_posts',CASE WHEN w.content THEN p.seed END,'unknown_posts',CASE WHEN w.content THEN p.unknown END,'comments',CASE WHEN w.content THEN c.n END,
  'post_authors',CASE WHEN w.content AND w.detail THEN p.authors END,'comment_authors',CASE WHEN w.content AND w.detail THEN c.authors END,
  'participants',CASE WHEN w.content AND w.detail THEN (SELECT count(DISTINCT author_id) FROM (
-   SELECT author_id FROM posts WHERE w.content AND created_at>=w.start_at AND created_at<w.actual_end_at AND school_id=ANY(w.school_ids)
+   SELECT author_id FROM posts WHERE EXISTS(SELECT 1 FROM accounts WHERE id=posts.author_id AND account_kind='ordinary') AND w.content AND created_at>=w.start_at AND created_at<w.actual_end_at AND school_id=ANY(w.school_ids)
    UNION SELECT author_id FROM comments WHERE w.content AND created_at>=w.start_at AND created_at<w.actual_end_at AND school_id=ANY(w.school_ids)
  ) u) END,
  'registrations',CASE WHEN w.registration THEN r.n END,'cumulative_registrations',CASE WHEN w.registration AND w.detail THEN r.total END,
@@ -16,7 +16,7 @@ SELECT jsonb_build_object('key',w.key,
  'active_users',CASE WHEN w.activity THEN a.n END,'registered_participants',CASE WHEN w.activity AND w.detail THEN a.participants END))
 FROM windows w
 CROSS JOIN LATERAL (
- SELECT count(*) n,count(DISTINCT author_id) FILTER(WHERE w.detail) authors FROM posts
+ SELECT count(*) n,count(*) FILTER(WHERE created_via='miniapp') miniapp,count(*) FILTER(WHERE created_via='web') web,count(*) FILTER(WHERE created_via='seed') seed,count(*) FILTER(WHERE created_via='legacy') unknown,count(DISTINCT author_id) FILTER(WHERE w.detail AND EXISTS(SELECT 1 FROM accounts WHERE id=posts.author_id AND account_kind='ordinary')) authors FROM posts
  WHERE w.content AND created_at>=w.start_at AND created_at<w.actual_end_at AND school_id=ANY(w.school_ids)
 ) p
 CROSS JOIN LATERAL (

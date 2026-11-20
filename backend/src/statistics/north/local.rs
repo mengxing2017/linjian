@@ -82,12 +82,16 @@ pub fn csv(report: &Report, kind: &str) -> Result<Vec<u8>> {
         "评论/发帖量比",
         "新注册参与率(%)",
         "注册人员参与率(%)",
+        "小程序投稿",
+        "后台直接发布",
+        "模拟投稿",
+        "未知来源投稿",
     ];
     let metrics: &[usize] = match report.view.as_str() {
-        "content" => &[0, 1, 2, 3, 4, 10, 11, 12],
+        "content" => &[0, 1, 2, 3, 4, 10, 11, 12, 15, 16, 17, 18],
         "registration" => &[5, 6, 7, 13],
         "activity" => &[8, 9, 14],
-        "schools" => &[0, 1, 4, 5, 6, 8],
+        "schools" => &[0, 1, 4, 5, 6, 8, 15, 16, 17, 18],
         _ => &[],
     };
     let include = |index: usize| index < 7 || metrics.contains(&(index - 7));
@@ -154,6 +158,9 @@ pub fn csv(report: &Report, kind: &str) -> Result<Vec<u8>> {
             m.participation_rate,
         ] {
             values.push(n.map(|x| x.to_string()).unwrap_or_default());
+        }
+        for count in [m.miniapp_posts, m.web_posts, m.seed_posts, m.unknown_posts] {
+            values.push(count.map(|value| value.to_string()).unwrap_or_default());
         }
         writer
             .write_record(
