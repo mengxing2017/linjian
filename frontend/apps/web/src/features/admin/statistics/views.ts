@@ -8,7 +8,7 @@ export const titles: Record<StatisticsView, string> = {
 }
 export const metricGroups: Record<StatisticsView, (keyof Metrics)[]> = {
   overview: ['posts', 'comments', 'registrations', 'active_users'],
-  content: ['posts', 'comments', 'post_authors', 'comment_authors', 'participants'],
+  content: ['posts', 'miniapp_posts', 'web_posts', 'seed_posts', 'unknown_posts', 'comments', 'post_authors', 'comment_authors', 'participants'],
   registration: [
     'registrations',
     'cumulative_registrations',

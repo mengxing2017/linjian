@@ -308,6 +308,7 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
             {shanghai(r.window.start_at)} 至 {shanghai(r.window.actual_end_at)} · 上海时间
             {r.window.state === 'in_progress' && <Tag>进行中</Tag>}
           </p>
+          <Alert type="info" title="帖子总量含仿真发帖，按实际创建时间统计；参与人数排除模拟账号。" description={r.summary.posts == null ? undefined : `投稿来源：小程序 ${r.summary.miniapp_posts ?? "—"}，后台直接发布 ${r.summary.web_posts ?? "—"}，模拟 ${r.summary.seed_posts ?? "—"}，未知 ${r.summary.unknown_posts ?? "—"}`} />
           <Row gutter={[12, 12]} align="stretch">
             {metricKeys.map((key) => (
               <Col

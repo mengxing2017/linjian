@@ -138,6 +138,7 @@ export function SchoolComparison({
               </Button>
             ),
           },
+          { title: '投稿来源分项', key: 'post-origins', width: 260, render: (_, row) => `小程序 ${row.metrics.miniapp_posts ?? '—'} / 后台 ${row.metrics.web_posts ?? '—'} / 模拟 ${row.metrics.seed_posts ?? '—'} / 未知 ${row.metrics.unknown_posts ?? '—'}` },
           ...schoolMetrics.map((key) => ({
             title: metricNames[key],
             key,

@@ -13,6 +13,7 @@ export function emptyReport(): StatisticsReport {
     reasons: ['活跃采集未覆盖'],
   }
   const metrics = {
+    miniapp_posts: 0, web_posts: 0, seed_posts: 0, unknown_posts: 0,
     posts: 0,
     comments: 0,
     post_authors: 0,

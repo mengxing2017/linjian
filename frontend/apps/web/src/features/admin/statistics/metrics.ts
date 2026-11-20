@@ -3,6 +3,7 @@ export const metricNames: Record<keyof Metrics, string> = {
   daily_posts: '日均发帖',
   daily_comments: '日均评论',
   posts: '新增帖子',
+  miniapp_posts: '小程序投稿', web_posts: '后台直接发布', seed_posts: '模拟投稿', unknown_posts: '未知来源投稿',
   comments: '新增评论',
   post_authors: '发帖人数',
   comment_authors: '评论人数',
@@ -34,7 +35,7 @@ export function shanghai(value: string) {
 
 export function metricUnit(key: keyof Metrics) {
   if (key.endsWith('_rate')) return '%'
-  if (key === 'posts' || key === 'daily_posts') return '帖'
+  if (key === 'posts' || key.endsWith('_posts')) return '帖'
   if (key === 'comments' || key === 'daily_comments') return '条'
   if (key === 'comment_post_ratio') return '条/帖'
   return '人'
