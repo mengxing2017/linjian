@@ -175,6 +175,7 @@ defineExpose({
         <PrivateImage v-if="post.images[0]" :school="schoolContext.id" :source="post.images[0]" />
         <text class="title">{{ post.title }}</text>
         <text class="summary">{{ post.content }}</text>
+        <text class="muted">发布时间：{{ post.published_at_text }}</text>
         <view class="row spread muted">
           <text>{{ post.author_name || '校园成员' }}</text>
           <text>♡ {{ post.like_count || 0 }}</text>

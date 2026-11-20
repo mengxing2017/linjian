@@ -139,6 +139,7 @@ defineExpose({
     <template v-if="post">
       <view class="card">
         <text class="heading">{{ post.title }}</text>
+        <text class="muted">发布时间：{{ post.published_at_text }}</text>
         <text class="muted">{{ post.author_name || '校园成员' }}</text>
         <text v-if="post.visibility !== 'visible'" class="muted">状态：{{ postVisibilityLabel(post.visibility) }}</text>
         <text class="body">{{ post.content }}</text>

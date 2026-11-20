@@ -57,6 +57,38 @@ function show(path = '/community') {
     </QueryClientProvider>,
   )
 }
+it.each(['feed', 'mine', 'detail'])(
+  'shows only server-provided publication time in %s',
+  async (view) => {
+    const post = {
+      id: 'post',
+      school_id: 's',
+      author_id: 'u',
+      title: '我的帖子',
+      content: '正文',
+      images: [],
+      tags: [],
+      audit_status: 'approved' as const,
+      visibility: 'visible' as const,
+      revision: 1,
+      display_published_at: '2026-11-19T17:30:00Z',
+      published_at_text: '2026-11-20 01:30',
+      created_at: '2026-11-20T02:00:00Z',
+    }
+    vi.mocked(workspace.getPost).mockResolvedValue(post)
+    vi.mocked(workspace.list).mockImplementation(async (_school, resource) => ({
+      items: resource === 'posts' ? [post] : [],
+      page: { number: 1, size: 20, has_more: false },
+    }))
+    show(view === 'detail' ? '/community/s/posts/post' : '/community')
+    if (view === 'mine') fireEvent.click(await screen.findByRole('button', { name: '我的发布' }))
+    const published = await screen.findByText(post.published_at_text)
+    expect(published.getAttribute('datetime')).toBe(post.display_published_at)
+    expect(screen.getByText('发布时间：')).toBeTruthy()
+    expect(screen.queryByText(/创建时间/)).toBeNull()
+    expect(screen.queryByText(post.created_at)).toBeNull()
+  },
+)
 it('uploads through the contract and submits managed form values with image URLs', async () => {
   show()
   fireEvent.click(await screen.findByRole('button', { name: /^发\s*布$/ }))
@@ -112,6 +144,8 @@ it('validates feedback before sending and preserves an empty optional contact', 
 it('preserves comment input across service switches and clears it after submission', async () => {
   vi.mocked(workspace.getPost).mockResolvedValue({
     id: 'post',
+    display_published_at: '2026-11-10T00:00:00Z',
+    published_at_text: '2026-11-10 08:00',
     school_id: 's',
     author_id: 'author',
     title: '帖子标题',
