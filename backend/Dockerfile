@@ -13,6 +13,7 @@ WORKDIR /workspace/backend
 COPY backend/Cargo.toml backend/Cargo.lock ./
 COPY backend/src ./src
 COPY backend/migrations ./migrations
+COPY api-contract/fixtures/school-permission-catalog.json ../api-contract/fixtures/school-permission-catalog.json
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/workspace/backend/target \
     cargo build --locked --release --bins && cp target/release/linjian-api target/release/forum-snapshot /tmp/

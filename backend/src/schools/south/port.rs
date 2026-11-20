@@ -5,15 +5,6 @@ pub trait Store: Clone + Send + Sync + 'static {
     fn list(&self, a: &Actor) -> impl std::future::Future<Output = Result<Vec<Value>>> + Send;
     fn bind(&self, a: &Actor, school: Uuid)
     -> impl std::future::Future<Output = Result<()>> + Send;
-    fn members(&self, school: Uuid)
-    -> impl std::future::Future<Output = Result<Vec<Value>>> + Send;
-    fn grant(
-        &self,
-        a: &Actor,
-        school: Uuid,
-        id: Uuid,
-        role: &str,
-    ) -> impl std::future::Future<Output = Result<()>> + Send;
     fn resources(
         &self,
         school: Uuid,
@@ -27,3 +18,4 @@ pub mod resources;
 
 pub mod blocked_words;
 pub mod home_menu;
+pub mod permissions;

@@ -51,6 +51,12 @@ impl Repository {
         let h = hash(token);
         let row=sqlx::query("UPDATE sessions s SET last_seen_at=now() FROM accounts a WHERE s.account_id=a.id AND s.token_hash=$1 AND s.kind=$2 AND s.expires_at>now() AND s.last_seen_at>now()-interval '30 minutes' AND a.active AND ($3 OR EXISTS(SELECT 1 FROM miniapp_users u WHERE u.account_id=a.id AND u.status='normal')) RETURNING a.id,a.username,CASE WHEN $3 THEN a.display_name ELSE coalesce((SELECT nickname FROM miniapp_users WHERE account_id=a.id),a.display_name) END AS display_name,a.platform_admin,a.bound_school_id,s.csrf,s.login_origin").bind(&h).bind(kind.as_str()).bind(kind == SessionKind::AdminBrowser).fetch_optional(&self.0).await?.ok_or(Error::Unauthorized)?;
         let id: Uuid = row.get("id");
+        let permissions = if kind == SessionKind::AdminBrowser {
+            let value: Value = sqlx::query_scalar("SELECT coalesce(jsonb_object_agg(s.id::text,(SELECT coalesce(jsonb_agg(p->>'key'),'[]'::jsonb) FROM jsonb_array_elements(forum_permission_catalog()) p WHERE forum_has_permission($1,s.id,p->>'key'))),'{}'::jsonb) FROM schools s WHERE s.active AND EXISTS(SELECT 1 FROM school_memberships m WHERE m.school_id=s.id AND m.account_id=$1 AND m.role IN ('admin','operator'))").bind(id).fetch_one(&self.0).await?;
+            serde_json::from_value(value).map_err(|_| Error::Unavailable)?
+        } else {
+            Default::default()
+        };
         let grants=sqlx::query("SELECT m.school_id,m.role FROM school_memberships m JOIN schools s ON s.id=m.school_id WHERE m.account_id=$1 AND s.active AND m.role<>'revoked'").bind(id).fetch_all(&self.0).await?.into_iter().map(|r|Grant{school_id:r.get("school_id"),role:if kind == SessionKind::AdminBrowser{r.get("role")}else{"member".into()}}).collect();
         Ok(Actor {
             id,
@@ -59,6 +65,7 @@ impl Repository {
             platform_admin: kind == SessionKind::AdminBrowser && row.get("platform_admin"),
             bound_school_id: row.get("bound_school_id"),
             grants,
+            permissions,
             csrf: row.get("csrf"),
             session_hash: h,
             request_id: String::new(),

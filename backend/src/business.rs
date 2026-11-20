@@ -64,6 +64,8 @@ pub struct Actor {
     pub bound_school_id: Option<Uuid>,
     pub grants: Vec<Grant>,
     #[serde(skip)]
+    pub permissions: std::collections::BTreeMap<Uuid, Vec<String>>,
+    #[serde(skip)]
     pub csrf: String,
     #[serde(skip)]
     pub session_hash: String,
@@ -75,6 +77,24 @@ pub struct Actor {
     pub login_origin: Option<String>,
 }
 impl Actor {
+    pub fn has_permission(&self, school: Uuid, permission: &str) -> bool {
+        crate::schools::domain::permissions::catalog()
+            .iter()
+            .any(|definition| definition.key == permission)
+            && self.is_admin_browser()
+            && (self.platform_admin
+                || self
+                    .permissions
+                    .get(&school)
+                    .is_some_and(|permissions| permissions.iter().any(|key| key == permission)))
+    }
+    pub fn permission(&self, school: Uuid, permission: &str) -> Result<()> {
+        if self.has_permission(school, permission) {
+            Ok(())
+        } else {
+            Err(Error::Forbidden)
+        }
+    }
     pub fn is_admin_browser(&self) -> bool {
         self.session_kind == SessionKind::AdminBrowser
     }

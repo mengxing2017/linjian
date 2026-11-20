@@ -7,10 +7,11 @@ use crate::{
 use axum::{
     Router,
     extract::{Path, Query, State},
-    routing::{get, post, put},
+    routing::{get, post},
 };
 use serde_json::Value;
 use uuid::Uuid;
+pub mod permissions;
 fn page(mut rows: Vec<Value>, q: &SchoolQuery) -> Result<ApiResponse> {
     let (n, _) = q.bounds()?;
     let more = rows.len() > n as usize;
@@ -44,7 +45,7 @@ async fn detail(
     Path(s): Path<Uuid>,
 ) -> Result<ApiResponse> {
     let row = Repository(a.pool).school_detail(&actor, s).await?;
-    if actor.is_admin_browser() && actor.can(s, "operator") {
+    if actor.is_admin_browser() && actor.has_permission(s, "school.profile.read") {
         Ok(resource("schools", row))
     } else {
         Ok(resource("schools", row.directory()))
@@ -103,25 +104,7 @@ async fn bind(
     a.schools.bind(&actor, s).await?;
     Ok(completed())
 }
-async fn members(
-    State(a): State<Application>,
-    actor: Actor,
-    Path(s): Path<Uuid>,
-) -> Result<ApiResponse> {
-    Ok(resource("accounts", a.schools.members(&actor, s).await?))
-}
-async fn grant(
-    State(a): State<Application>,
-    actor: Actor,
-    Path((s, id)): Path<(Uuid, Uuid)>,
-    input_document: Input,
-) -> Result<ApiResponse> {
-    let v = input_document.decode::<Value>("accounts")?;
-    a.schools
-        .grant(&actor, s, id, v["role"].as_str().unwrap_or(""))
-        .await?;
-    Ok(completed())
-}
+
 async fn resources(
     State(a): State<Application>,
     actor: Actor,
@@ -155,25 +138,8 @@ async fn global_resources(State(a): State<Application>, actor: Actor) -> Result<
     ))
 }
 
-async fn recommendation_capability(
-    State(app): State<Application>,
-    actor: Actor,
-    Path((school, id)): Path<(Uuid, Uuid)>,
-    input: Input,
-) -> Result<ApiResponse> {
-    let v: crate::schools::domain::RecommendationCapability =
-        input.decode("post-recommendation-capabilities")?;
-    app.schools
-        .recommendation_capability(&actor, school, id, v.enabled)
-        .await?;
-    Ok(completed())
-}
 pub fn router() -> Router<Application> {
     Router::new()
-        .route(
-            "/api/v1/schools/{school}/members/{id}/recommendation-capability",
-            put(recommendation_capability),
-        )
         .route("/api/v1/platform/resources", get(global_resources))
         .route("/api/v1/platform/schools", get(platform_list))
         .route(
@@ -184,8 +150,6 @@ pub fn router() -> Router<Application> {
         .route("/api/v1/school-directory", get(directory))
         .route("/api/v1/schools/{school}", get(detail).put(update))
         .route("/api/v1/schools/{school}/bind", post(bind))
-        .route("/api/v1/schools/{school}/members", get(members))
-        .route("/api/v1/schools/{school}/members/{id}", put(grant))
         .route("/api/v1/schools/{school}/resources", get(resources))
         .route(
             "/api/v1/schools/{school}/published-resources",

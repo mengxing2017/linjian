@@ -2,6 +2,7 @@ use crate::business::{Result, require, text};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 pub mod blocked_words;
+pub mod permissions;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ImageRef {
@@ -166,9 +167,3 @@ mod tests {
 pub mod profile;
 
 pub mod home_menu;
-
-#[derive(serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecommendationCapability {
-    pub enabled: bool,
-}
