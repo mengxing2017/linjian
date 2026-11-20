@@ -16,7 +16,9 @@ pub const TABLES: &[&str] = &[
     "miniapp_avatar_assets",
     "miniapp_users",
     "miniapp_identities",
+    "post_seed_batches",
     "posts",
+    "post_seed_items",
     "comments",
     "post_reactions",
     "comment_reactions",
@@ -118,7 +120,7 @@ pub async fn export(
     tx.commit().await?;
     lock.release().await?;
     Ok(Snapshot {
-        schema_version: 5,
+        schema_version: 6,
         digest: digest(&tables),
         tables,
         files: payloads,
@@ -131,7 +133,7 @@ pub async fn import(
     files: &crate::media::south::adapter::filesystem::Files,
 ) -> Result<Value> {
     require(
-        snapshot.schema_version == 5 && snapshot.digest == digest(&snapshot.tables),
+        snapshot.schema_version == 6 && snapshot.digest == digest(&snapshot.tables),
         "快照版本或摘要不匹配",
     )?;
     require(
@@ -211,6 +213,7 @@ pub async fn import(
     // This offline operation already requires an empty target and an exact snapshot digest.
     for (table, trigger) in [
         ("school_source_bindings", "forum_binding_history"),
+        ("posts", "seed_post_guard"),
         ("posts", "forum_post_outbox"),
         ("posts", "forum_post_publication_guard"),
         ("moderation_events", "forum_decision_guard"),
@@ -242,6 +245,7 @@ pub async fn import(
         .await?;
     for (table, trigger) in [
         ("school_source_bindings", "forum_binding_history"),
+        ("posts", "seed_post_guard"),
         ("posts", "forum_post_outbox"),
         ("posts", "forum_post_publication_guard"),
         ("moderation_events", "forum_decision_guard"),
