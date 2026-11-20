@@ -54,18 +54,21 @@ impl Repository {
             .await?;
         let (l, o) = p.fetch_bounds()?;
         let search = format!("%{}%", p.search.unwrap_or_default());
-        Ok(sqlx::query_scalar("SELECT (to_jsonb(p)-'is_top'-'sort_order')||jsonb_build_object('author_name',coalesce((SELECT nickname FROM miniapp_users WHERE account_id=a.id),a.display_name),'like_count',(SELECT count(*) FROM post_reactions WHERE post_id=p.id AND kind='like'),'collect_count',(SELECT count(*) FROM post_reactions WHERE post_id=p.id AND kind='collect'),'comment_count',(SELECT count(*) FROM comments WHERE post_id=p.id AND audit_status='approved' AND visibility='visible' AND NOT deleted)) FROM posts p JOIN accounts a ON a.id=p.author_id WHERE p.school_id=$1 AND p.visibility<>'deleted' AND ($2 OR (p.audit_status='approved' AND p.visibility='visible') OR p.author_id=$3) AND ($4::text IS NULL OR p.audit_status=$4) AND (NOT $5 OR p.author_id=$3) AND (p.title ILIKE $6 OR p.content ILIKE $6) AND ($10::text IS NULL OR $10='' OR p.tags ? $10) AND ($9::text IS NULL OR ($9='collect' AND EXISTS(SELECT 1 FROM post_reactions r WHERE r.post_id=p.id AND r.account_id=$3 AND r.kind='collect')) OR ($9='following' AND EXISTS(SELECT 1 FROM follows f WHERE f.school_id=p.school_id AND f.follower_id=$3 AND f.target_id=p.author_id))) ORDER BY p.is_top DESC,p.sort_order DESC,p.created_at DESC,p.id LIMIT $7 OFFSET $8").bind(s).bind(a.can(s,"operator")).bind(a.id).bind(p.status).bind(p.mine.unwrap_or(false)).bind(search).bind(l).bind(o).bind(p.kind).bind(p.tag).fetch_all(&self.0).await?)
+        Ok(sqlx::query_scalar("SELECT (to_jsonb(p)-'is_top'-'sort_order')||jsonb_build_object('author_name',coalesce((SELECT nickname FROM miniapp_users WHERE account_id=a.id),a.display_name),'like_count',(SELECT count(*) FROM post_reactions WHERE post_id=p.id AND kind='like'),'collect_count',(SELECT count(*) FROM post_reactions WHERE post_id=p.id AND kind='collect'),'comment_count',(SELECT count(*) FROM comments WHERE post_id=p.id AND audit_status='approved' AND visibility='visible' AND NOT deleted)) FROM posts p JOIN accounts a ON a.id=p.author_id WHERE p.school_id=$1 AND p.visibility<>'deleted' AND ($2 OR (p.audit_status='approved' AND p.visibility='visible') OR p.author_id=$3) AND ($4::text IS NULL OR p.audit_status=$4) AND (NOT $5 OR p.author_id=$3) AND (p.title ILIKE $6 OR p.content ILIKE $6) AND ($10::text IS NULL OR $10='' OR p.tags ? $10) AND ($9::text IS NULL OR ($9='collect' AND EXISTS(SELECT 1 FROM post_reactions r WHERE r.post_id=p.id AND r.account_id=$3 AND r.kind='collect')) OR ($9='following' AND EXISTS(SELECT 1 FROM follows f WHERE f.school_id=p.school_id AND f.follower_id=$3 AND f.target_id=p.author_id))) ORDER BY p.is_top DESC,p.sort_order DESC,p.created_at DESC,p.id LIMIT $7 OFFSET $8").bind(s).bind(a.has_permission(s,"content.post.read")).bind(a.id).bind(p.status).bind(p.mine.unwrap_or(false)).bind(search).bind(l).bind(o).bind(p.kind).bind(p.tag).fetch_all(&self.0).await?)
     }
     pub async fn detail(&self, a: &Actor, s: Uuid, id: Uuid) -> Result<Value> {
         crate::schools::south::adapter::postgres::Repository(self.0.clone())
             .require_active(s)
             .await?;
-        let v:Value=sqlx::query_scalar("UPDATE posts SET browse=browse+1 WHERE school_id=$1 AND id=$2 AND visibility<>'deleted' AND ($3 OR author_id=$4 OR (audit_status='approved' AND visibility='visible')) RETURNING (to_jsonb(posts)-'is_top'-'sort_order')||jsonb_build_object('author_name',(SELECT coalesce((SELECT nickname FROM miniapp_users WHERE account_id=accounts.id),display_name) FROM accounts WHERE id=posts.author_id),'like_count',(SELECT count(*) FROM post_reactions WHERE post_id=posts.id AND kind='like'),'comment_count',(SELECT count(*) FROM comments WHERE post_id=posts.id AND audit_status='approved' AND visibility='visible' AND NOT deleted))").bind(s).bind(id).bind(a.can(s,"operator")).bind(a.id).fetch_optional(&self.0).await?.ok_or(Error::NotFound)?;
+        let v:Value=sqlx::query_scalar("UPDATE posts SET browse=browse+1 WHERE school_id=$1 AND id=$2 AND visibility<>'deleted' AND ($3 OR author_id=$4 OR (audit_status='approved' AND visibility='visible')) RETURNING (to_jsonb(posts)-'is_top'-'sort_order')||jsonb_build_object('author_name',(SELECT coalesce((SELECT nickname FROM miniapp_users WHERE account_id=accounts.id),display_name) FROM accounts WHERE id=posts.author_id),'like_count',(SELECT count(*) FROM post_reactions WHERE post_id=posts.id AND kind='like'),'comment_count',(SELECT count(*) FROM comments WHERE post_id=posts.id AND audit_status='approved' AND visibility='visible' AND NOT deleted))").bind(s).bind(id).bind(a.has_permission(s,"content.post.read")).bind(a.id).fetch_optional(&self.0).await?.ok_or(Error::NotFound)?;
         Ok(v)
     }
     pub async fn create(&self, a: &Actor, s: Uuid, v: PostInput) -> Result<Value> {
+        if a.is_admin_browser() {
+            a.platform()?;
+        }
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
-        if a.can(s, "operator") {
+        if a.has_permission(s, "content.post.edit") {
             post_management::guard(&mut tx, a, s, false).await?;
         } else {
             crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
@@ -76,7 +79,14 @@ impl Repository {
     }
     pub async fn update(&self, a: &Actor, s: Uuid, id: Uuid, v: PostInput) -> Result<Value> {
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
-        if a.can(s, "operator") {
+        if a.is_admin_browser() {
+            crate::schools::south::adapter::postgres::permissions::authorize(
+                &mut tx,
+                a,
+                s,
+                "content.post.edit",
+            )
+            .await?;
             post_management::guard(&mut tx, a, s, false).await?;
         } else {
             crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
@@ -97,18 +107,18 @@ impl Repository {
         comment: bool,
     ) -> Result<Value> {
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
+        crate::schools::south::adapter::postgres::permissions::authorize(
+            &mut tx,
+            a,
+            s,
+            if comment {
+                "content.comment.review"
+            } else {
+                "content.post.review"
+            },
+        )
+        .await?;
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
-        if !a.is_admin_browser() {
-            return Err(Error::Forbidden);
-        }
-        let allowed: bool = sqlx::query_scalar(reviews::AUTHORIZATION)
-            .bind(a.id)
-            .bind(s)
-            .fetch_one(&mut *tx)
-            .await?;
-        if !allowed {
-            return Err(Error::Forbidden);
-        }
         let current: Value = sqlx::query_scalar(if comment {
             "SELECT to_jsonb(c) FROM comments c WHERE school_id=$1 AND id=$2 AND NOT deleted FOR UPDATE"
         } else {
@@ -222,7 +232,7 @@ impl Repository {
             .require_active(s)
             .await?;
         let (l, o) = p.fetch_bounds()?;
-        Ok(sqlx::query_scalar("SELECT to_jsonb(c)||jsonb_build_object('author_name',coalesce((SELECT nickname FROM miniapp_users WHERE account_id=a.id),a.display_name),'post_title',p.title)||CASE WHEN $3 THEN forum_decision_details(c.school_id,c.id,'comment',c.decision_revision,c.audit_status) ELSE '{}'::jsonb END FROM comments c JOIN posts p ON p.id=c.post_id JOIN accounts a ON a.id=c.author_id WHERE c.school_id=$1 AND ($2::uuid IS NULL OR c.post_id=$2) AND NOT c.deleted AND ($3 OR (p.visibility='visible' AND p.audit_status='approved' AND c.visibility='visible' AND (c.audit_status='approved' OR c.author_id=$4))) AND ($9::text IS NULL OR $9='' OR c.visibility=$9) AND ($5::text IS NULL OR $5='' OR c.audit_status=$5) AND (c.content ILIKE $8 OR p.title ILIKE $8) ORDER BY c.created_at DESC,c.id DESC LIMIT $6 OFFSET $7").bind(s).bind(id).bind(a.is_admin_browser() && a.can(s,"operator")).bind(a.id).bind(p.status).bind(l).bind(o).bind(format!("%{}%",p.search.unwrap_or_default())).bind(p.visibility).fetch_all(&self.0).await?)
+        Ok(sqlx::query_scalar("SELECT to_jsonb(c)||jsonb_build_object('author_name',coalesce((SELECT nickname FROM miniapp_users WHERE account_id=a.id),a.display_name),'post_title',p.title)||CASE WHEN $3 THEN forum_decision_details(c.school_id,c.id,'comment',c.decision_revision,c.audit_status) ELSE '{}'::jsonb END FROM comments c JOIN posts p ON p.id=c.post_id JOIN accounts a ON a.id=c.author_id WHERE c.school_id=$1 AND ($2::uuid IS NULL OR c.post_id=$2) AND NOT c.deleted AND ($3 OR (p.visibility='visible' AND p.audit_status='approved' AND c.visibility='visible' AND (c.audit_status='approved' OR c.author_id=$4))) AND ($9::text IS NULL OR $9='' OR c.visibility=$9) AND ($5::text IS NULL OR $5='' OR c.audit_status=$5) AND (c.content ILIKE $8 OR p.title ILIKE $8) ORDER BY c.created_at DESC,c.id DESC LIMIT $6 OFFSET $7").bind(s).bind(id).bind(a.is_admin_browser() && a.has_permission(s,"content.comment.read")).bind(a.id).bind(p.status).bind(l).bind(o).bind(format!("%{}%",p.search.unwrap_or_default())).bind(p.visibility).fetch_all(&self.0).await?)
     }
     pub async fn comment(&self, a: &Actor, s: Uuid, id: Uuid, v: CommentInput) -> Result<Value> {
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
@@ -269,12 +279,20 @@ impl Repository {
         v: crate::community::domain::SetCommentVisibility,
     ) -> Result<Value> {
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
+        crate::schools::south::adapter::postgres::permissions::authorize(
+            &mut tx,
+            a,
+            s,
+            "content.comment.visibility",
+        )
+        .await?;
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
-        let allowed: bool = sqlx::query_scalar(reviews::AUTHORIZATION)
-            .bind(a.id)
-            .bind(s)
-            .fetch_one(&mut *tx)
-            .await?;
+        let allowed: bool =
+            sqlx::query_scalar("SELECT true WHERE $1::uuid IS NOT NULL AND $2::uuid IS NOT NULL")
+                .bind(a.id)
+                .bind(s)
+                .fetch_one(&mut *tx)
+                .await?;
         if !a.is_admin_browser() || !allowed {
             return Err(Error::Forbidden);
         }
@@ -298,9 +316,21 @@ impl Repository {
         Ok(item)
     }
     pub async fn delete_comment(&self, a: &Actor, s: Uuid, id: Uuid, revision: i64) -> Result<()> {
+        if a.is_admin_browser() {
+            a.permission(s, "content.comment.delete")?;
+        }
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
+        if a.is_admin_browser() {
+            crate::schools::south::adapter::postgres::permissions::authorize(
+                &mut tx,
+                a,
+                s,
+                "content.comment.delete",
+            )
+            .await?;
+        }
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
-        let n=sqlx::query("UPDATE comments SET deleted=true,revision=revision+1 WHERE school_id=$1 AND id=$2 AND revision=$3 AND (author_id=$4 OR $5)").bind(s).bind(id).bind(revision).bind(a.id).bind(a.can(s,"operator")).execute(&mut *tx).await?.rows_affected();
+        let n=sqlx::query("UPDATE comments SET deleted=true,revision=revision+1 WHERE school_id=$1 AND id=$2 AND revision=$3 AND (author_id=$4 OR $5)").bind(s).bind(id).bind(revision).bind(a.id).bind(a.has_permission(s,"content.comment.delete")).execute(&mut *tx).await?.rows_affected();
         if n == 0 {
             return Err(Error::Conflict);
         }
@@ -361,7 +391,7 @@ impl Repository {
         let post = v["post_id"].as_str().and_then(|x| x.parse::<Uuid>().ok());
         if let Some(id) = post {
             sqlx::query("SELECT id FROM posts WHERE school_id=$1 AND id=$2 AND visibility<>'deleted' AND (author_id=$3 OR $4 OR (audit_status='approved' AND visibility='visible'))")
-                .bind(s).bind(id).bind(a.id).bind(a.can(s,"operator")).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
+                .bind(s).bind(id).bind(a.id).bind(a.has_permission(s,"content.post.read")).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
         }
         let item=sqlx::query_scalar("INSERT INTO cases(id,school_id,account_id,kind,post_id,content,contact,images) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING to_jsonb(cases)-'handled_at'-'handled_by'-'submitted_ip'-'deleted_by'-'submission_key'").bind(Uuid::now_v7()).bind(s).bind(a.id).bind(v["kind"].as_str()).bind(post).bind(v["content"].as_str()).bind(v["contact"].as_str().unwrap_or("")).bind(v.get("images").cloned().unwrap_or(json!([]))).fetch_one(&mut *tx).await?;
         tx.commit().await?;

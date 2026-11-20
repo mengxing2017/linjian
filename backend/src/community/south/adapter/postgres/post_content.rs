@@ -81,7 +81,7 @@ pub(super) async fn update(
 ) -> Result<Value> {
     validate(tx, s, a, Some(id), &v).await?;
     let current:Value=sqlx::query_scalar("SELECT to_jsonb(p) FROM posts p WHERE school_id=$1 AND id=$2 AND revision=$3 AND visibility<>'deleted' AND (author_id=$4 OR $5) FOR UPDATE")
- .bind(s).bind(id).bind(v.revision.unwrap_or(0)).bind(a.id).bind(a.can(s,"operator")).fetch_optional(&mut **tx).await?.ok_or(Error::Conflict)?;
+ .bind(s).bind(id).bind(v.revision.unwrap_or(0)).bind(a.id).bind(a.has_permission(s,"content.post.edit")).fetch_optional(&mut **tx).await?.ok_or(Error::Conflict)?;
     if current["title"] == v.title.trim()
         && current["content"] == v.content.trim()
         && current["images"] == json!(v.images)

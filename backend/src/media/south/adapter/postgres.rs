@@ -14,42 +14,51 @@ impl Repository {
         bytes: Vec<u8>,
         key: Uuid,
     ) -> Result<Value> {
+        self.upload_scoped(a, school, purpose, bytes, key, "resource.school.write")
+            .await
+    }
+    pub async fn upload_scoped(
+        &self,
+        actor: &Actor,
+        school: Option<Uuid>,
+        purpose: &str,
+        bytes: Vec<u8>,
+        key: Uuid,
+        permission: &str,
+    ) -> Result<Value> {
+        crate::schools::domain::permissions::artwork_context(permission, true)?;
         let mut tx = super::lifecycle::begin(&self.0).await?;
-        if !a.is_admin_browser()
+        if !actor.is_admin_browser()
             && let Some(s) = school
         {
-            crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
+            crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, actor, s).await?;
         }
         match purpose {
             "avatar" => {
                 require(
-                    !a.is_admin_browser() && school.is_none(),
+                    !actor.is_admin_browser() && school.is_none(),
                     "请使用小程序身份",
                 )?;
                 let (_, status, _) =
-                    crate::miniapp_users::south::adapter::postgres::lock_user(&mut tx, a.id)
+                    crate::miniapp_users::south::adapter::postgres::lock_user(&mut tx, actor.id)
                         .await?;
                 if status != "normal" {
                     return Err(Error::MiniappBanned);
                 }
-                crate::miniapp_users::south::adapter::postgres::guard_session(&mut tx, a).await?;
+                crate::miniapp_users::south::adapter::postgres::guard_session(&mut tx, actor)
+                    .await?;
             }
             "operation_artwork" => {
-                if let Some(s) = school {
-                    a.authorize(s, "admin")?;
-                } else {
-                    a.platform()?;
-                }
                 crate::schools::south::adapter::postgres::preview::authorize(
-                    &mut tx, a, school, "admin",
+                    &mut tx, actor, school, permission,
                 )
                 .await?;
             }
             "post_image" | "feedback_evidence" => {
                 let s = school.ok_or(Error::Forbidden)?;
-                a.authorize(s, "member")?;
+                actor.authorize(s, "member")?;
                 crate::schools::south::adapter::postgres::preview::authorize(
-                    &mut tx, a, school, "member",
+                    &mut tx, actor, school, "member",
                 )
                 .await?;
             }
@@ -64,10 +73,10 @@ impl Repository {
         } else {
             self.1.config.lifecycle.unbound_ttl_hours
         };
-        let row=sqlx::query("INSERT INTO file_assets(id,school_id,owner_id,purpose,store_id,mime_type,size_bytes,width,height,sha256,state,idempotency_key,expires_at,gc_after) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'uploading',$11,now()+make_interval(hours=>$12),now()+make_interval(hours=>$12)) ON CONFLICT DO NOTHING RETURNING id")
-            .bind(id).bind(school).bind(a.id).bind(purpose).bind(self.1.store_id).bind(&mime).bind(bytes.len() as i64).bind(w as i32).bind(h as i32).bind(&hash).bind(key).bind(hours as i32).fetch_optional(&self.0).await?;
+        let row=sqlx::query("INSERT INTO file_assets(id,school_id,owner_id,purpose,store_id,mime_type,size_bytes,width,height,sha256,state,idempotency_key,expires_at,gc_after,artwork_permission) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'uploading',$11,now()+make_interval(hours=>$12),now()+make_interval(hours=>$12),$13) ON CONFLICT DO NOTHING RETURNING id")
+            .bind(id).bind(school).bind(actor.id).bind(purpose).bind(self.1.store_id).bind(&mime).bind(bytes.len() as i64).bind(w as i32).bind(h as i32).bind(&hash).bind(key).bind(hours as i32).bind(if purpose == "operation_artwork" {Some(permission)} else {None}).fetch_optional(&self.0).await?;
         if row.is_none() {
-            let r=sqlx::query("SELECT id,sha256,state,store_id,size_bytes FROM file_assets WHERE owner_id=$1 AND school_id IS NOT DISTINCT FROM $2 AND purpose=$3 AND idempotency_key=$4").bind(a.id).bind(school).bind(purpose).bind(key).fetch_one(&self.0).await?;
+            let r=sqlx::query("SELECT id,sha256,state,store_id,size_bytes FROM file_assets WHERE owner_id=$1 AND school_id IS NOT DISTINCT FROM $2 AND purpose=$3 AND idempotency_key=$4 AND artwork_permission IS NOT DISTINCT FROM $5").bind(actor.id).bind(school).bind(purpose).bind(key).bind(if purpose == "operation_artwork" {Some(permission)} else {None}).fetch_one(&self.0).await?;
             if r.get::<String, _>("sha256") != hash {
                 return Err(Error::Conflict);
             }
@@ -79,13 +88,15 @@ impl Repository {
                         .read(r.get("store_id"), existing, r.get("size_bytes"), hash)
                         .await
                         .map_err(|_| Error::Conflict)?;
-                    return self.finish(a, school, purpose, existing).await;
+                    return self
+                        .finish(actor, school, purpose, existing, permission)
+                        .await;
                 }
                 _ => return Err(Error::Conflict),
             }
         }
         self.1.write(id, bytes).await?;
-        self.finish(a, school, purpose, id).await
+        self.finish(actor, school, purpose, id, permission).await
     }
     async fn finish(
         &self,
@@ -93,20 +104,9 @@ impl Repository {
         school: Option<Uuid>,
         purpose: &str,
         id: Uuid,
+        permission: &str,
     ) -> Result<Value> {
         let mut tx = super::lifecycle::begin(&self.0).await?;
-        let state: String =
-            sqlx::query_scalar("SELECT state FROM file_assets WHERE id=$1 FOR UPDATE")
-                .bind(id)
-                .fetch_one(&mut *tx)
-                .await?;
-        if state == "ready" {
-            tx.commit().await?;
-            return self.view(id).await;
-        }
-        if state != "uploading" {
-            return Err(Error::Conflict);
-        }
         // Recheck authorization after I/O: a revoked session cannot finalize.
         if !a.is_admin_browser()
             && let Some(s) = school
@@ -121,12 +121,24 @@ impl Repository {
                 a,
                 school,
                 if purpose == "operation_artwork" {
-                    "admin"
+                    permission
                 } else {
                     "member"
                 },
             )
             .await?;
+        }
+        let state: String =
+            sqlx::query_scalar("SELECT state FROM file_assets WHERE id=$1 FOR UPDATE")
+                .bind(id)
+                .fetch_one(&mut *tx)
+                .await?;
+        if state == "ready" {
+            tx.commit().await?;
+            return self.view(id).await;
+        }
+        if state != "uploading" {
+            return Err(Error::Conflict);
         }
         sqlx::query("UPDATE file_assets SET state='ready' WHERE id=$1")
             .bind(id)
@@ -177,8 +189,8 @@ impl Repository {
     }
     pub async fn get(&self, a: &Actor, s: Uuid, id: Uuid) -> Result<(String, Vec<u8>)> {
         a.authorize(s, "member")?;
-        let allowed:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM file_assets f WHERE f.id=$1 AND f.school_id=$2 AND f.state='ready' AND ((f.owner_id=$3 AND ((NOT f.ever_bound AND f.expires_at>now() AND NOT EXISTS(SELECT 1 FROM file_asset_references r WHERE r.asset_id=f.id)) OR EXISTS(SELECT 1 FROM file_asset_leases l WHERE l.asset_id=f.id AND l.owner_id=$3 AND l.expires_at>now()))) OR (f.purpose='post_image' AND EXISTS(SELECT 1 FROM posts p WHERE p.school_id=$2 AND p.images @> $4 AND p.visibility<>'deleted' AND (p.author_id=$3 OR $5 OR (p.audit_status='approved' AND p.visibility='visible')))) OR (f.purpose='feedback_evidence' AND EXISTS(SELECT 1 FROM cases c WHERE c.school_id=$2 AND c.kind='feedback' AND c.deleted_at IS NULL AND c.images @> $4 AND (c.account_id=$3 OR $5)))))")
-            .bind(id).bind(s).bind(a.id).bind(json!([format!("/api/v1/schools/{s}/media/{id}")])).bind(a.can(s,"operator")).fetch_one(&self.0).await?;
+        let allowed:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM file_assets f WHERE f.id=$1 AND f.school_id=$2 AND f.state='ready' AND ((f.owner_id=$3 AND ((NOT f.ever_bound AND f.expires_at>now() AND NOT EXISTS(SELECT 1 FROM file_asset_references r WHERE r.asset_id=f.id)) OR EXISTS(SELECT 1 FROM file_asset_leases l WHERE l.asset_id=f.id AND l.owner_id=$3 AND l.expires_at>now()))) OR (f.purpose='post_image' AND EXISTS(SELECT 1 FROM posts p WHERE p.school_id=$2 AND p.images @> $4 AND p.visibility<>'deleted' AND (p.author_id=$3 OR $5 OR (p.audit_status='approved' AND p.visibility='visible')))) OR (f.purpose='feedback_evidence' AND EXISTS(SELECT 1 FROM cases c WHERE c.school_id=$2 AND c.kind='feedback' AND c.deleted_at IS NULL AND c.images @> $4 AND (c.account_id=$3 OR $6)))))")
+            .bind(id).bind(s).bind(a.id).bind(json!([format!("/api/v1/schools/{s}/media/{id}")])).bind(a.has_permission(s,"content.post.read")).bind(a.has_permission(s,"content.case.read")).fetch_one(&self.0).await?;
         if !allowed {
             return Err(Error::NotFound);
         }

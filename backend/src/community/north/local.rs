@@ -21,7 +21,7 @@ impl<R: Store> Service<R> {
         if !a.is_admin_browser() {
             return Err(crate::business::Error::Forbidden);
         }
-        a.authorize(s, "operator")?;
+        a.permission(s, "content.post.read")?;
         self.0.reviews(a, s, page, None).await
     }
     pub async fn review(
@@ -33,7 +33,7 @@ impl<R: Store> Service<R> {
         if !a.is_admin_browser() {
             return Err(crate::business::Error::Forbidden);
         }
-        a.authorize(s, "operator")?;
+        a.permission(s, "content.post.read")?;
         self.0
             .reviews(a, s, Page::default(), Some(id))
             .await?
@@ -71,7 +71,14 @@ impl<R: Store> Service<R> {
         v: Decision,
         comment: bool,
     ) -> Result<Value> {
-        a.authorize(s, "operator")?;
+        a.permission(
+            s,
+            if comment {
+                "content.comment.review"
+            } else {
+                "content.post.review"
+            },
+        )?;
         require(
             ["approved", "rejected", "pending"].contains(&v.decision.as_str()),
             "审核状态无效",
@@ -124,7 +131,11 @@ impl<R: Store> Service<R> {
         if id.is_none() && !a.is_admin_browser() {
             return Err(crate::business::Error::Forbidden);
         }
-        a.authorize(s, if id.is_some() { "member" } else { "operator" })?;
+        if id.is_some() {
+            a.authorize(s, "member")?;
+        } else {
+            a.permission(s, "content.comment.read")?;
+        }
         require(
             p.visibility
                 .as_deref()
@@ -149,7 +160,7 @@ impl<R: Store> Service<R> {
         if !a.is_admin_browser() {
             return Err(crate::business::Error::Forbidden);
         }
-        a.authorize(s, "operator")?;
+        a.permission(s, "content.comment.visibility")?;
         require(v.revision > 0, "版本无效")?;
         self.0.comment_visibility(a, s, id, v).await
     }
@@ -194,7 +205,7 @@ impl<R: Store> Service<R> {
         id: Uuid,
         mut v: ResolveCaseInput,
     ) -> Result<CaseManagementView> {
-        a.authorize(s, "operator")?;
+        a.permission(s, "content.case.resolve")?;
         v.validate()?;
         self.0.resolve(a, s, id, v).await
     }

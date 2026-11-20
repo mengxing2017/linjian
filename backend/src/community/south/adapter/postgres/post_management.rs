@@ -4,34 +4,16 @@ use crate::{
     community::domain::{PostInput, post_management::*, review},
 };
 use serde_json::{Value, json};
-use sqlx::{PgConnection, Postgres, Row, Transaction};
+use sqlx::{PgConnection, Postgres, Transaction};
 use uuid::Uuid;
 
-pub(super) async fn live_operator(
+pub(super) async fn live_post_reader(
     tx: &mut Transaction<'_, Postgres>,
     a: &Actor,
     s: Uuid,
 ) -> Result<()> {
-    a.authorize(s, "operator")?;
-    let account = sqlx::query("SELECT active,platform_admin FROM accounts WHERE id=$1 FOR SHARE")
-        .bind(a.id)
-        .fetch_optional(&mut **tx)
-        .await?
-        .ok_or(Error::Forbidden)?;
-    let role: Option<String> = sqlx::query_scalar(
-        "SELECT role FROM school_memberships WHERE account_id=$1 AND school_id=$2 FOR SHARE",
-    )
-    .bind(a.id)
-    .bind(s)
-    .fetch_optional(&mut **tx)
-    .await?;
-    if !account.get::<bool, _>("active")
-        || !(account.get::<bool, _>("platform_admin")
-            || role.is_some_and(|r| matches!(r.as_str(), "operator" | "admin")))
-    {
-        return Err(Error::Forbidden);
-    }
-    Ok(())
+    crate::schools::south::adapter::postgres::permissions::authorize(tx, a, s, "content.post.read")
+        .await
 }
 pub(super) async fn guard(
     tx: &mut Transaction<'_, Postgres>,
@@ -39,7 +21,7 @@ pub(super) async fn guard(
     s: Uuid,
     platform: bool,
 ) -> Result<()> {
-    live_operator(tx, a, s).await?;
+    live_post_reader(tx, a, s).await?;
     if platform {
         a.platform()?;
         crate::schools::south::adapter::postgres::preview::platform(tx, a).await?;
@@ -141,7 +123,7 @@ impl Repository {
             .execute(&mut *tx)
             .await?;
         // A single snapshot binds the ordering token to exactly the returned page.
-        a.authorize(s, "operator")?;
+        a.permission(s, "content.post.read")?;
         let allowed: bool = sqlx::query_scalar(super::reviews::AUTHORIZATION)
             .bind(a.id)
             .bind(s)
@@ -196,6 +178,13 @@ impl Repository {
         v: PostInput,
     ) -> Result<PostManagementView> {
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
+        crate::schools::south::adapter::postgres::permissions::authorize(
+            &mut tx,
+            a,
+            s,
+            "content.post.edit",
+        )
+        .await?;
         guard(&mut tx, a, s, id.is_none()).await?;
         let row = if let Some(id) = id {
             require(v.revision.is_some_and(|v| v > 0), "版本号无效")?;
@@ -216,6 +205,13 @@ impl Repository {
         v: PinPostInput,
     ) -> Result<PostManagementView> {
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
+        crate::schools::south::adapter::postgres::permissions::authorize(
+            &mut tx,
+            a,
+            s,
+            "content.post.pin",
+        )
+        .await?;
         guard(&mut tx, a, s, false).await?;
         change(&mut tx, a, (s, id), v.revision, None, Some(v.is_top), "").await?;
         let item = detail(&mut tx, s, id).await?;
@@ -239,6 +235,13 @@ impl Repository {
             2000,
         )?;
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
+        crate::schools::south::adapter::postgres::permissions::authorize(
+            &mut tx,
+            a,
+            s,
+            "content.post.visibility",
+        )
+        .await?;
         guard(&mut tx, a, s, false).await?;
         change(
             &mut tx,
@@ -262,6 +265,13 @@ impl Repository {
         revision: i64,
     ) -> Result<()> {
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
+        crate::schools::south::adapter::postgres::permissions::authorize(
+            &mut tx,
+            a,
+            s,
+            "content.post.delete",
+        )
+        .await?;
         guard(&mut tx, a, s, false).await?;
         change(
             &mut tx,
@@ -302,10 +312,42 @@ pub(super) async fn legacy_visibility(
         ) && input.top_sort.is_none_or(|v| v >= 0),
         "可见状态或置顶参数无效",
     )?;
-    let manager = a.can(s, "operator");
+    let manager = a.is_admin_browser();
     let mut tx = crate::media::south::adapter::lifecycle::begin(&repo.0).await?;
     if manager {
         guard(&mut tx, a, s, false).await?;
+        let previous = locked(&mut tx, s, id, input.revision).await?;
+        if input.visibility == "deleted" {
+            crate::schools::south::adapter::postgres::permissions::authorize(
+                &mut tx,
+                a,
+                s,
+                "content.post.delete",
+            )
+            .await?;
+        } else {
+            if previous["visibility"] != input.visibility {
+                crate::schools::south::adapter::postgres::permissions::authorize(
+                    &mut tx,
+                    a,
+                    s,
+                    "content.post.visibility",
+                )
+                .await?;
+            }
+            if input
+                .top_sort
+                .is_some_and(|weight| previous["is_top"].as_bool() != Some(weight > 0))
+            {
+                crate::schools::south::adapter::postgres::permissions::authorize(
+                    &mut tx,
+                    a,
+                    s,
+                    "content.post.pin",
+                )
+                .await?;
+            }
+        }
     } else {
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
         if input.visibility != "deleted" || input.top_sort != Some(0) {

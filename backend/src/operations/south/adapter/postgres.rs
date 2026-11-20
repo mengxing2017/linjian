@@ -24,15 +24,19 @@ async fn auth(
     role: &str,
 ) -> Result<()> {
     if role != "member" {
-        crate::miniapp_users::south::adapter::postgres::authorize(a, s, role == "admin")?;
+        if let Some(school) = s {
+            crate::schools::south::adapter::postgres::permissions::authorize(tx, a, school, role)
+                .await?;
+        } else {
+            a.platform()?;
+            preview::platform(tx, a).await?;
+        }
     } else {
         a.authorize(school(s)?, "member")?;
     }
-    // Acquire the write fence before authorization's shared school lock to avoid lock upgrades.
-    if let Some(s) = s {
-        crate::miniapp_users::south::adapter::postgres::guard_write(tx, a, s).await?;
+    if let Some(school) = s {
+        crate::miniapp_users::south::adapter::postgres::guard_write(tx, a, school).await?;
     }
-    preview::authorize(tx, a, s, role).await?;
     Ok(())
 }
 async fn audit(
@@ -120,8 +124,29 @@ impl Store for Repository {
     async fn execute(&self, a: &Actor, s: Option<Uuid>, c: Command) -> Result<Value> {
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         let result = match c {
+            Command::PostOptions { page, context } => {
+                if !matches!(
+                    context.as_str(),
+                    "operation.banner.create" | "operation.banner.update" | "resource.school.write"
+                ) {
+                    return Err(Error::Forbidden);
+                }
+                auth(&mut tx, a, s, &context).await?;
+                let (limit, offset) = page.fetch_bounds()?;
+                let rows: Vec<Value> = sqlx::query_scalar("SELECT jsonb_build_object('id',id,'title',title) FROM posts WHERE school_id=$1 AND audit_status='approved' AND visibility='visible' AND title ILIKE $2 ORDER BY created_at DESC,id LIMIT $3 OFFSET $4").bind(school(s)?).bind(format!("%{}%",page.search.as_deref().unwrap_or(""))).bind(limit).bind(offset).fetch_all(&mut *tx).await?;
+                json!(rows)
+            }
             Command::List { kind, q } => {
-                auth(&mut tx, a, s, "operator").await?;
+                auth(
+                    &mut tx,
+                    a,
+                    s,
+                    &format!(
+                        "operation.{}.read",
+                        if kind == "qrcode" { "qrcode" } else { "banner" }
+                    ),
+                )
+                .await?;
                 let scope = if q.defaults { None } else { s };
                 let (limit, offset) = q.page().fetch_bounds()?;
                 let mut rows:Vec<Value>=sqlx::query_scalar(&format!("{RESOURCE_VIEW} WHERE r.school_id IS NOT DISTINCT FROM $1 AND r.kind=$2 AND r.deleted_at IS NULL AND r.title ILIKE '%'||$3||'%' AND ($4='' OR r.active=($4='normal')) AND ($5='' OR r.popup_strategy=$5) AND ($6='' OR r.action->>'kind'=$6) AND ($7::timestamptz IS NULL OR r.starts_at>=$7) AND ($8::timestamptz IS NULL OR r.ends_at<=$8) ORDER BY r.sort_order DESC,r.id ASC LIMIT $9 OFFSET $10")).bind(scope).bind(kind).bind(needle(q.search.as_deref())).bind(q.status.unwrap_or_default()).bind(q.strategy.unwrap_or_default()).bind(q.action.unwrap_or_default()).bind(q.starts_at).bind(q.ends_at).bind(limit).bind(offset).fetch_all(&mut *tx).await?;
@@ -138,11 +163,30 @@ impl Store for Repository {
                 json!(rows)
             }
             Command::Get { kind, id } => {
-                auth(&mut tx, a, s, "operator").await?;
+                auth(
+                    &mut tx,
+                    a,
+                    s,
+                    &format!(
+                        "operation.{}.read",
+                        if kind == "qrcode" { "qrcode" } else { "banner" }
+                    ),
+                )
+                .await?;
                 resource_get(&mut tx, s, &kind, id).await?
             }
             Command::Save { kind, id, input: v } => {
-                auth(&mut tx, a, s, "admin").await?;
+                auth(
+                    &mut tx,
+                    a,
+                    s,
+                    &format!(
+                        "operation.{}.{}",
+                        if kind == "qrcode" { "qrcode" } else { "banner" },
+                        if id.is_some() { "update" } else { "create" }
+                    ),
+                )
+                .await?;
                 sqlx::query("SELECT pg_advisory_xact_lock(78234610244)")
                     .execute(&mut *tx)
                     .await?;
@@ -160,6 +204,12 @@ impl Store for Repository {
                 }
                 let ImageRef::Asset { id: asset } = v.image_ref;
                 check_image(&mut tx, s, asset).await?;
+                if !a.platform_admin {
+                    let valid: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM file_assets WHERE id=$1 AND artwork_permission LIKE $2)").bind(asset).bind(format!("operation.{kind}.%" )).fetch_one(&mut *tx).await?;
+                    if !valid {
+                        return Err(Error::Forbidden);
+                    }
+                }
                 check_action(&mut tx, s, &v.action).await?;
                 if !matches!(
                     v.action,
@@ -195,7 +245,16 @@ impl Store for Repository {
                 current
             }
             Command::Delete { kind, id, revision } => {
-                auth(&mut tx, a, s, "admin").await?;
+                auth(
+                    &mut tx,
+                    a,
+                    s,
+                    &format!(
+                        "operation.{}.delete",
+                        if kind == "qrcode" { "qrcode" } else { "banner" }
+                    ),
+                )
+                .await?;
                 let n=sqlx::query("UPDATE school_resources SET deleted_at=now(),revision=revision+1 WHERE id=$1 AND school_id IS NOT DISTINCT FROM $2 AND kind=$3 AND revision=$4 AND deleted_at IS NULL").bind(id).bind(s).bind(kind).bind(revision).execute(&mut *tx).await?.rows_affected();
                 if n != 1 {
                     return Err(Error::Conflict);
@@ -249,7 +308,7 @@ impl Store for Repository {
                 current
             }
             Command::FeedbackList(q) => {
-                auth(&mut tx, a, s, "operator").await?;
+                auth(&mut tx, a, s, "operation.feedback.read").await?;
                 let s = school(s)?;
                 let (limit, offset) = q.page().fetch_bounds()?;
                 let ids:Vec<Uuid>=sqlx::query_scalar("SELECT c.id FROM cases c LEFT JOIN accounts a ON a.id=c.account_id LEFT JOIN miniapp_users u ON u.account_id=c.account_id WHERE c.school_id=$1 AND c.kind='feedback' AND c.deleted_at IS NULL AND c.content ILIKE '%'||$2||'%' AND c.contact ILIKE '%'||$3||'%' AND ($4='' OR c.feedback_type=$4 OR ($4='legacy' AND c.feedback_type IS NULL)) AND ($5='' OR c.state=$5) AND (coalesce(u.nickname,a.display_name,'') ILIKE '%'||$6||'%' OR c.account_id::text=$6) AND ($7::timestamptz IS NULL OR c.created_at>=$7) AND ($8::timestamptz IS NULL OR c.created_at<$8) ORDER BY c.created_at DESC,c.id DESC LIMIT $9 OFFSET $10").bind(s).bind(needle(q.search.as_deref())).bind(needle(q.contact.as_deref())).bind(q.feedback_type.unwrap_or_default()).bind(q.status.unwrap_or_default()).bind(needle(q.user.as_deref())).bind(q.starts_at).bind(q.ends_at).bind(limit).bind(offset).fetch_all(&mut *tx).await?;
@@ -260,11 +319,11 @@ impl Store for Repository {
                 json!(rows)
             }
             Command::FeedbackGet(id) => {
-                auth(&mut tx, a, s, "operator").await?;
+                auth(&mut tx, a, s, "operation.feedback.read").await?;
                 feedback_get(&mut tx, school(s)?, id).await?
             }
             Command::FeedbackDelete { id, revision } => {
-                auth(&mut tx, a, s, "admin").await?;
+                auth(&mut tx, a, s, "operation.feedback.delete").await?;
                 let n=sqlx::query("UPDATE cases SET deleted_at=now(),deleted_by=$4,updated_at=now(),revision=revision+1 WHERE school_id=$1 AND id=$2 AND kind='feedback' AND revision=$3 AND deleted_at IS NULL").bind(school(s)?).bind(id).bind(revision).bind(a.id).execute(&mut *tx).await?.rows_affected();
                 if n != 1 {
                     return Err(Error::Conflict);
@@ -369,7 +428,18 @@ impl Store for Repository {
                 json!({"id":v.event_id,"accepted":true})
             }
             Command::ResourceMedia(id) => {
-                auth(&mut tx, a, s, "operator").await?;
+                let resource = sqlx::query("SELECT kind FROM school_resources WHERE id=$1 AND school_id IS NOT DISTINCT FROM $2").bind(id).bind(s).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
+                let kind: String = resource.get("kind");
+                auth(
+                    &mut tx,
+                    a,
+                    s,
+                    &format!(
+                        "operation.{}.read",
+                        if kind == "qrcode" { "qrcode" } else { "banner" }
+                    ),
+                )
+                .await?;
                 let row=sqlx::query("SELECT m.id FROM school_resources r JOIN operational_media m ON m.id::text=r.image_ref->>'id' AND m.school_id IS NOT DISTINCT FROM r.school_id WHERE r.id=$1 AND r.deleted_at IS NULL AND (r.school_id=$2 OR r.school_id IS NULL)").bind(id).bind(school(s)?).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
                 {
                     let (mime, bytes) = crate::media::south::adapter::postgres::Repository(
@@ -416,7 +486,7 @@ impl Store for Repository {
                 }
             }
             Command::FeedbackMedia { case, media } => {
-                auth(&mut tx, a, s, "operator").await?;
+                auth(&mut tx, a, s, "operation.feedback.read").await?;
                 let s = school(s)?;
                 let path = format!("/api/v1/schools/{s}/media/{media}");
                 let row=sqlx::query("SELECT m.id FROM media_assets m JOIN cases c ON c.school_id=m.school_id WHERE c.id=$1 AND c.school_id=$2 AND c.kind='feedback' AND c.deleted_at IS NULL AND c.images @> $3 AND m.id=$4").bind(case).bind(s).bind(json!([path])).bind(media).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;

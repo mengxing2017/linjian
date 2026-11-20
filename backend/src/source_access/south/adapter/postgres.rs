@@ -96,7 +96,7 @@ impl Repository {
         Ok(json!({"id":id,"revision":rev}))
     }
     pub async fn bindings(&self, a: &Actor, school: Uuid) -> Result<SchoolRouteSettings> {
-        ensure(a.can(school, "admin"), "forbidden")?;
+        ensure(a.is_admin_browser() && a.platform_admin, "forbidden")?;
         let row = sqlx::query(
             "SELECT id,route_id,active,revision,checked_at,updated_at FROM school_source_bindings WHERE school_id=$1",
         )

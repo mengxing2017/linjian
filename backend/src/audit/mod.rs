@@ -13,7 +13,7 @@ pub async fn list(
     Path(s): Path<Uuid>,
     Query(page): Query<Page>,
 ) -> Result<ApiResponse> {
-    actor.authorize(s, "operator")?;
+    actor.platform()?;
     let (limit, offset) = page.fetch_bounds()?;
     Ok(collection(
         "audit-events",

@@ -76,14 +76,14 @@ impl Repository {
         bytes: &[u8],
     ) -> Result<Value> {
         if let Some(s) = s {
-            a.authorize(s, "admin")?
+            a.permission(s, "school.blocked_word.import")?
         } else {
             a.platform()?
         }
         let (rows, mut errors) =
             crate::schools::south::adapter::blocked_word_import_file::parse(name, bytes)?;
         let mut tx = self.0.begin().await?;
-        preview::authorize(&mut tx, a, s, "admin").await?;
+        preview::authorize(&mut tx, a, s, "school.blocked_word.import").await?;
         let revision = lock(&mut tx, s).await?;
         for row in &rows {
             let exists:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM blocked_words WHERE school_id IS NOT DISTINCT FROM $1 AND lower(word)=lower($2))").bind(s).bind(row["word"].as_str().unwrap_or("")).fetch_one(&mut *tx).await?;
@@ -105,12 +105,12 @@ impl Repository {
         digest: &str,
     ) -> Result<Value> {
         if let Some(s) = s {
-            a.authorize(s, "admin")?
+            a.permission(s, "school.blocked_word.import")?
         } else {
             a.platform()?
         }
         let mut tx = self.0.begin().await?;
-        preview::authorize(&mut tx, a, s, "admin").await?;
+        preview::authorize(&mut tx, a, s, "school.blocked_word.import").await?;
         let revision = lock(&mut tx, s).await?;
         let job:Value=sqlx::query_scalar("SELECT jsonb_build_object('digest',digest,'revision',order_revision,'rows',rows,'errors',errors,'valid',expires_at>now(),'result',result) FROM blocked_word_imports WHERE id=$1 AND school_id IS NOT DISTINCT FROM $2 AND actor_id=$3 FOR UPDATE").bind(id).bind(s).bind(a.id).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
         require(job["digest"].as_str() == Some(digest), "导入摘要不匹配")?;
@@ -150,12 +150,12 @@ impl Repository {
     }
     pub async fn blocked_list(&self, a: &Actor, s: Option<Uuid>, q: &WordQuery) -> Result<Value> {
         if let Some(s) = s {
-            a.authorize(s, "operator")?;
+            a.permission(s, "school.blocked_word.read")?;
         } else {
             a.platform()?;
         }
         let mut tx = self.0.begin().await?;
-        preview::authorize(&mut tx, a, s, "operator").await?;
+        preview::authorize(&mut tx, a, s, "school.blocked_word.read").await?;
         let actual = if q.global.unwrap_or(false) { None } else { s };
         let rev = lock(&mut tx, actual).await?;
         let page = q.page.unwrap_or(1);
@@ -194,7 +194,7 @@ impl Repository {
         mut v: WordInput,
     ) -> Result<Value> {
         if let Some(s) = s {
-            a.authorize(s, "admin")?
+            a.permission(s, "school.blocked_word.write")?
         } else {
             a.platform()?
         }
@@ -204,7 +204,7 @@ impl Repository {
             "修订号无效",
         )?;
         let mut tx = self.0.begin().await?;
-        preview::authorize(&mut tx, a, s, "admin").await?;
+        preview::authorize(&mut tx, a, s, "school.blocked_word.write").await?;
         lock(&mut tx, s).await?;
         let id = id.unwrap_or_else(Uuid::now_v7);
         let duplicate: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM blocked_words WHERE school_id IS NOT DISTINCT FROM $1 AND lower(word)=lower($2) AND id<>$3)")
@@ -236,12 +236,12 @@ impl Repository {
         revision: i64,
     ) -> Result<()> {
         if let Some(s) = s {
-            a.authorize(s, "admin")?
+            a.permission(s, "school.blocked_word.delete")?
         } else {
             a.platform()?
         }
         let mut tx = self.0.begin().await?;
-        preview::authorize(&mut tx, a, s, "admin").await?;
+        preview::authorize(&mut tx, a, s, "school.blocked_word.delete").await?;
         lock(&mut tx, s).await?;
         let n=sqlx::query("DELETE FROM blocked_words WHERE id=$1 AND school_id IS NOT DISTINCT FROM $2 AND revision=$3").bind(id).bind(s).bind(revision).execute(&mut *tx).await?.rows_affected();
         if n != 1 {
@@ -262,12 +262,12 @@ impl Repository {
     }
     pub async fn blocked_order(&self, a: &Actor, s: Option<Uuid>, v: OrderInput) -> Result<()> {
         if let Some(s) = s {
-            a.authorize(s, "admin")?
+            a.permission(s, "school.blocked_word.reorder")?
         } else {
             a.platform()?
         }
         let mut tx = self.0.begin().await?;
-        preview::authorize(&mut tx, a, s, "admin").await?;
+        preview::authorize(&mut tx, a, s, "school.blocked_word.reorder").await?;
         if lock(&mut tx, s).await? != v.order_revision {
             return Err(Error::Conflict);
         }

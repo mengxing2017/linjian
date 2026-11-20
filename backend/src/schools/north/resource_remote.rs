@@ -43,6 +43,12 @@ fn binary((mime, b): (String, Vec<u8>)) -> Response {
 struct QrInput {
     url: String,
 }
+#[derive(Deserialize)]
+struct ArtworkQuery {
+    context: Option<String>,
+    #[serde(flatten)]
+    page: crate::business::Page,
+}
 macro_rules! scope_handlers {
     ($pre:ident,$con:ident,$up:ident,$list:ident,$get:ident,$qr:ident,$scope:expr,$path:ty,$binding:pat) => {
         async fn $pre(
@@ -87,12 +93,19 @@ macro_rules! scope_handlers {
             State(a): State<Application>,
             actor: Actor,
             Path($binding): Path<$path>,
+            Query(query): Query<ArtworkQuery>,
             bytes: Bytes,
         ) -> Result<ApiResponse> {
             Ok(resource(
                 "resource-artwork",
                 service(&a)
-                    .upload(&actor, $scope, bytes.to_vec(), a.options.files.clone())
+                    .upload_scoped(
+                        &actor,
+                        $scope,
+                        bytes.to_vec(),
+                        a.options.files.clone(),
+                        query.context.as_deref().unwrap_or("resource.school.write"),
+                    )
                     .await?,
             ))
         }
@@ -100,12 +113,19 @@ macro_rules! scope_handlers {
             State(a): State<Application>,
             actor: Actor,
             Path($binding): Path<$path>,
-            Query(page): Query<crate::business::Page>,
+            Query(query): Query<ArtworkQuery>,
         ) -> Result<ApiResponse> {
             Ok(crate::http::jsonapi::collection(
                 "resource-artwork",
-                service(&a).list(&actor, $scope, page.clone()).await?,
-                &page,
+                service(&a)
+                    .list_scoped(
+                        &actor,
+                        $scope,
+                        query.page.clone(),
+                        query.context.as_deref().unwrap_or("resource.school.read"),
+                    )
+                    .await?,
+                &query.page,
             ))
         }
         async fn $qr(
@@ -202,10 +222,18 @@ async fn artwork(
     State(a): State<Application>,
     actor: Actor,
     Path((s, id)): Path<(Uuid, Uuid)>,
+    Query(query): Query<ArtworkQuery>,
 ) -> Result<Response> {
     Ok(binary(
         service(&a)
-            .media(&actor, Some(s), id, false, a.options.files.clone())
+            .media_scoped(
+                &actor,
+                Some(s),
+                id,
+                false,
+                a.options.files.clone(),
+                query.context.as_deref().unwrap_or("resource.school.read"),
+            )
             .await?,
     ))
 }

@@ -18,6 +18,13 @@ impl Repository {
     ) -> Result<i64> {
         v.validate()?;
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
+        crate::schools::south::adapter::postgres::permissions::authorize(
+            &mut tx,
+            a,
+            s,
+            "content.post.pin",
+        )
+        .await?;
         guard(&mut tx, a, s, false).await?;
         sqlx::query("INSERT INTO post_order_versions(school_id) VALUES($1) ON CONFLICT DO NOTHING")
             .bind(s)

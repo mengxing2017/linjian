@@ -47,7 +47,17 @@ async fn bump(tx: &mut sqlx::Transaction<'_, sqlx::Postgres>, s: Uuid) -> Result
 impl Repository {
     pub async fn home_menu_list(&self, a: &Actor, s: Uuid, public: bool) -> Result<Value> {
         let mut tx = self.0.begin().await?;
-        guard(&mut tx, a, s, if public { "member" } else { "operator" }).await?;
+        guard(
+            &mut tx,
+            a,
+            s,
+            if public {
+                "member"
+            } else {
+                "school.home_menu.read"
+            },
+        )
+        .await?;
         let settings: Value=sqlx::query_scalar("SELECT jsonb_build_object('latest_label',latest_label,'latest_visible',latest_visible,'revision',revision,'catalog_revision',catalog_revision) FROM home_menu_settings WHERE school_id=$1").bind(s).fetch_optional(&mut *tx).await?.unwrap_or(json!({"latest_label":"最新","latest_visible":true,"revision":1,"catalog_revision":1}));
         let tags: Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',id,'name',name,'menu_status',menu_status,'source_type',source_type,'enable_status',enable_status,'sort_order',sort_order,'revision',revision,'created_at',created_at) FROM home_menu_tags WHERE school_id=$1 AND deleted_at IS NULL AND (NOT $2 OR (source_type='admin' AND enable_status='enabled' AND menu_status IN ('shown','hot'))) ORDER BY sort_order,id").bind(s).bind(public).fetch_all(&mut *tx).await?;
         Ok(json!({"id":s,"settings":settings,"tags":tags}))
@@ -61,7 +71,7 @@ impl Repository {
     ) -> Result<Value> {
         v.validate()?;
         let mut tx = self.0.begin().await?;
-        guard(&mut tx, a, s, "admin").await?;
+        guard(&mut tx, a, s, "school.home_menu.write").await?;
         lock_catalog(&mut tx, s).await?;
         let menu = serde_json::to_value(v.menu_status)
             .unwrap()
@@ -116,7 +126,7 @@ impl Repository {
         revision: i64,
     ) -> Result<()> {
         let mut tx = self.0.begin().await?;
-        guard(&mut tx, a, s, "admin").await?;
+        guard(&mut tx, a, s, "school.home_menu.delete").await?;
         lock_catalog(&mut tx, s).await?;
         let n=sqlx::query("UPDATE home_menu_tags SET deleted_at=now(),updated_at=now(),revision=revision+1 WHERE school_id=$1 AND id=$2 AND revision=$3 AND deleted_at IS NULL").bind(s).bind(id).bind(revision).execute(&mut *tx).await?.rows_affected();
         if n != 1 {
@@ -130,7 +140,7 @@ impl Repository {
     pub async fn home_menu_order(&self, a: &Actor, s: Uuid, v: OrderInput) -> Result<()> {
         v.validate()?;
         let mut tx = self.0.begin().await?;
-        guard(&mut tx, a, s, "admin").await?;
+        guard(&mut tx, a, s, "school.home_menu.reorder").await?;
         if lock_catalog(&mut tx, s).await? != v.catalog_revision {
             return Err(Error::Conflict);
         }
@@ -172,7 +182,7 @@ impl Repository {
     ) -> Result<Value> {
         v.validate()?;
         let mut tx = self.0.begin().await?;
-        guard(&mut tx, a, s, "admin").await?;
+        guard(&mut tx, a, s, "school.home_menu.settings.update").await?;
         lock_catalog(&mut tx, s).await?;
         let row: Option<Value> = sqlx::query_scalar("UPDATE home_menu_settings SET latest_label=$2,latest_visible=$3,revision=revision+1 WHERE school_id=$1 AND revision=$4 RETURNING jsonb_build_object('id',school_id,'latest_label',latest_label,'latest_visible',latest_visible,'revision',revision,'catalog_revision',catalog_revision)").bind(s).bind(v.latest_label.trim()).bind(v.latest_visible).bind(v.revision).fetch_optional(&mut *tx).await?;
         let row = row.ok_or(Error::Conflict)?;
@@ -192,7 +202,7 @@ impl Repository {
     ) -> Result<Value> {
         let (size, offset) = q.bounds()?;
         let mut tx = self.0.begin().await?;
-        guard(&mut tx, a, s, "operator").await?;
+        guard(&mut tx, a, s, "school.home_menu.read").await?;
         let menu = q.menu_status.map(|x| {
             serde_json::to_value(x)
                 .unwrap()
@@ -237,12 +247,12 @@ impl Repository {
         // Authorize before parsing untrusted input, then recheck under the transaction lock.
         {
             let mut tx = self.0.begin().await?;
-            guard(&mut tx, a, s, "admin").await?;
+            guard(&mut tx, a, s, "school.home_menu.import").await?;
         }
         let (rows, mut errors) =
             crate::schools::south::adapter::home_menu_import_file::parse(name, bytes)?;
         let mut tx = self.0.begin().await?;
-        guard(&mut tx, a, s, "admin").await?;
+        guard(&mut tx, a, s, "school.home_menu.import").await?;
         let revision = lock_catalog(&mut tx, s).await?;
         let count: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM home_menu_tags WHERE school_id=$1 AND deleted_at IS NULL",
@@ -279,7 +289,7 @@ impl Repository {
         digest: &str,
     ) -> Result<Value> {
         let mut tx = self.0.begin().await?;
-        guard(&mut tx, a, s, "admin").await?;
+        guard(&mut tx, a, s, "school.home_menu.import").await?;
         let revision = lock_catalog(&mut tx, s).await?;
         let job:Value=sqlx::query_scalar("SELECT jsonb_build_object('digest',digest,'file_digest',file_digest,'catalog_revision',catalog_revision,'rows',rows,'errors',errors,'result',result,'valid',expires_at>now()) FROM home_menu_imports WHERE id=$1 AND school_id=$2 AND actor_id=$3 FOR UPDATE").bind(id).bind(s).bind(a.id).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
         if job["digest"] != digest {
@@ -338,7 +348,7 @@ impl Repository {
 impl Repository {
     pub async fn home_menu_settings(&self, a: &Actor, s: Uuid) -> Result<Value> {
         let mut tx = self.0.begin().await?;
-        guard(&mut tx, a, s, "operator").await?;
+        guard(&mut tx, a, s, "school.home_menu.read").await?;
         Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',school_id,'latest_label',latest_label,'latest_visible',latest_visible,'revision',revision,'catalog_revision',catalog_revision) FROM home_menu_settings WHERE school_id=$1")
             .bind(s).fetch_optional(&mut *tx).await?.unwrap_or(json!({"id":s,"latest_label":"最新","latest_visible":true,"revision":1,"catalog_revision":1})))
     }

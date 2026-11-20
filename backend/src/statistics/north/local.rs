@@ -23,7 +23,7 @@ impl<R: StatisticsStore> Service<R> {
             return Err(Error::Forbidden);
         }
         if let Some(s) = s {
-            a.authorize(s, "operator")?;
+            a.permission(s, "statistics.school.export")?;
         } else {
             a.platform()?;
         }
@@ -37,7 +37,7 @@ impl<R: StatisticsStore> Service<R> {
             return Err(Error::Forbidden);
         }
         if let Some(s) = s {
-            a.authorize(s, "operator")?;
+            a.permission(s, "statistics.school.read")?;
         } else {
             a.platform()?;
         }

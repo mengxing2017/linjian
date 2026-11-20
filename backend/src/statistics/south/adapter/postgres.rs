@@ -13,6 +13,7 @@ async fn authorize(
     tx: &mut Transaction<'_, Postgres>,
     a: &Actor,
     school: Option<Uuid>,
+    permission: &str,
 ) -> Result<()> {
     if !a.is_admin_browser() {
         return Err(Error::Forbidden);
@@ -27,7 +28,12 @@ async fn authorize(
         return Ok(());
     }
     let s = school.ok_or(Error::Forbidden)?;
-    let permitted:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM school_memberships m JOIN schools s ON s.id=m.school_id WHERE m.account_id=$1 AND m.school_id=$2 AND m.role IN ('admin','operator') AND s.active)").bind(a.id).bind(s).fetch_one(&mut **tx).await?;
+    let permitted: bool = sqlx::query_scalar("SELECT forum_has_permission($1,$2,$3)")
+        .bind(a.id)
+        .bind(s)
+        .bind(permission)
+        .fetch_one(&mut **tx)
+        .await?;
     if permitted {
         Ok(())
     } else {
@@ -330,7 +336,7 @@ impl StatisticsStore for Repository {
             .bind(format!("{}ms", self.1.timeout_ms))
             .execute(&mut *tx)
             .await?;
-        authorize(&mut tx, a, school).await?;
+        authorize(&mut tx, a, school, "statistics.school.read").await?;
         let now: DateTime<Utc> = sqlx::query_scalar("SELECT transaction_timestamp()")
             .fetch_one(&mut *tx)
             .await?;
@@ -525,7 +531,7 @@ impl StatisticsStore for Repository {
     }
     async fn snapshot(&self, a: &Actor, school: Option<Uuid>, id: Uuid) -> Result<Report> {
         let mut tx = self.0.begin().await?;
-        authorize(&mut tx, a, school).await?;
+        authorize(&mut tx, a, school, "statistics.school.export").await?;
         let result:Option<Value>=sqlx::query_scalar("SELECT result FROM statistics_snapshots WHERE id=$1 AND owner_id=$2 AND school_id IS NOT DISTINCT FROM $3 AND expires_at>now()").bind(id).bind(a.id).bind(school).fetch_optional(&mut *tx).await?;
         tx.commit().await?;
         serde_json::from_value(result.ok_or(Error::Invalid("快照不可用，请刷新后重新导出".into()))?)

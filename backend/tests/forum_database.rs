@@ -7,6 +7,10 @@ use serde_json::{Value, json};
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use tower::ServiceExt;
 use uuid::Uuid;
+mod member_permissions_fixture;
+#[path = "member_permissions/mod.rs"]
+mod member_permissions_tests;
+use member_permissions_fixture::SchoolFixtures;
 async fn isolated(admin: &PgPool, name: &str) -> PgPool {
     sqlx::query(&format!("CREATE SCHEMA {name}"))
         .execute(admin)
@@ -1803,7 +1807,13 @@ async fn school_profiles_visibility_artwork_and_transactions() {
         .unwrap();
     let bytes = image.into_inner();
     let image = resource_operations
-        .upload(&actor, Some(id), bytes.clone(), Default::default())
+        .upload_scoped(
+            &actor,
+            Some(id),
+            bytes.clone(),
+            Default::default(),
+            "school.profile.update",
+        )
         .await
         .unwrap();
     let asset: Uuid = image["id"].as_str().unwrap().parse().unwrap();
@@ -2883,6 +2893,20 @@ async fn case_management_projection_handling_and_upgrade() {
     for migration in &migrations[target + 1..] {
         sqlx::raw_sql(&migration.sql).execute(&pool).await.unwrap();
     }
+    sqlx::query("INSERT INTO school_authorization_guards(school_id) SELECT id FROM schools")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let (_, actor) = app
+        .identity
+        .0
+        .session(
+            root,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
+        .await
+        .unwrap();
     sqlx::query("INSERT INTO miniapp_users(account_id,nickname) VALUES($1,'提交人昵称')")
         .bind(root)
         .execute(&pool)
@@ -3788,11 +3812,16 @@ async fn post_management_concurrent_reorders_preserve_source_intents() {
     .await
     .unwrap();
     let app = bootstrap::build_application(pool.clone(), bootstrap::Options::local());
-    let actor: linjian_api::business::Actor = serde_json::from_value(json!({
-        "id":account,"username":"test-admin","display_name":"测试管理员",
-        "platform_admin":true,"bound_school_id":null,"grants":[]
-    }))
-    .unwrap();
+    let (_, actor) = app
+        .identity
+        .0
+        .session(
+            account,
+            linjian_api::business::SessionKind::AdminBrowser,
+            Some("http://localhost:5173"),
+        )
+        .await
+        .unwrap();
     let list = app
         .community
         .management_list(
@@ -4378,11 +4407,7 @@ async fn operations_scope_metrics_configuration_and_feedback_deletion() {
         .bootstrap("operator", "运营", "test-password-at-least-12", false)
         .await
         .unwrap();
-    app.schools
-        .0
-        .grant(&actor, s, uid, "operator")
-        .await
-        .unwrap();
+    app.schools.grant(&actor, s, uid, "operator").await.unwrap();
     let (_, operator) = app
         .identity
         .0

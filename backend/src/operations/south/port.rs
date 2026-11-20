@@ -5,6 +5,10 @@ use crate::{
 use serde_json::Value;
 use uuid::Uuid;
 pub enum Command {
+    PostOptions {
+        page: crate::business::Page,
+        context: String,
+    },
     List {
         kind: String,
         q: Query,

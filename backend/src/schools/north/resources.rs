@@ -23,7 +23,8 @@ impl<R: Store> Service<R> {
         b: Vec<u8>,
         files: crate::media::south::adapter::filesystem::Files,
     ) -> Result<Value> {
-        self.0.upload(a, s, b, files).await
+        self.upload_scoped(a, s, b, files, "resource.school.write")
+            .await
     }
     pub async fn qr(
         &self,
@@ -53,7 +54,7 @@ impl<R: Store> Service<R> {
         s: Option<Uuid>,
         page: crate::business::Page,
     ) -> Result<Vec<Value>> {
-        self.0.media_list(a, s, page).await
+        self.list_scoped(a, s, page, "resource.school.read").await
     }
     pub async fn media(
         &self,
@@ -63,6 +64,41 @@ impl<R: Store> Service<R> {
         published: bool,
         files: crate::media::south::adapter::filesystem::Files,
     ) -> Result<(String, Vec<u8>)> {
-        self.0.media(a, s, id, published, files).await
+        self.media_scoped(a, s, id, published, files, "resource.school.read")
+            .await
+    }
+
+    pub async fn upload_scoped(
+        &self,
+        actor: &Actor,
+        school: Option<Uuid>,
+        bytes: Vec<u8>,
+        files: crate::media::south::adapter::filesystem::Files,
+        context: &str,
+    ) -> Result<Value> {
+        crate::schools::domain::permissions::artwork_context(context, true)?;
+        self.0.upload(actor, school, bytes, context, files).await
+    }
+    pub async fn list_scoped(
+        &self,
+        actor: &Actor,
+        school: Option<Uuid>,
+        page: crate::business::Page,
+        context: &str,
+    ) -> Result<Vec<Value>> {
+        self.0.media_list(actor, school, page, context).await
+    }
+    pub async fn media_scoped(
+        &self,
+        actor: &Actor,
+        school: Option<Uuid>,
+        id: Uuid,
+        published: bool,
+        files: crate::media::south::adapter::filesystem::Files,
+        context: &str,
+    ) -> Result<(String, Vec<u8>)> {
+        self.0
+            .media(actor, school, id, published, context, files)
+            .await
     }
 }

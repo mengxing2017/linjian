@@ -7,15 +7,18 @@ use serde_json::{Value, json};
 use sqlx::{PgConnection, Postgres, Row, Transaction};
 use uuid::Uuid;
 
-// Lock order: live account/member -> school -> post -> binding/config -> source event.
-// Shares the account/member and school locks with post-management and capability writes.
 pub(super) async fn can_recommend(
     tx: &mut Transaction<'_, Postgres>,
     a: &Actor,
     s: Uuid,
 ) -> Result<bool> {
-    Ok(sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM accounts a WHERE a.id=$1 AND a.active AND (a.platform_admin OR EXISTS(SELECT 1 FROM school_memberships m WHERE m.school_id=$2 AND m.account_id=a.id AND (m.role='admin' OR (m.role='operator' AND EXISTS(SELECT 1 FROM school_member_capabilities c WHERE c.school_id=m.school_id AND c.account_id=m.account_id AND c.capability='post.recommend'))))))")
-        .bind(a.id).bind(s).fetch_one(&mut **tx).await?)
+    Ok(
+        sqlx::query_scalar("SELECT forum_has_permission($1,$2,'post.recommend')")
+            .bind(a.id)
+            .bind(s)
+            .fetch_one(&mut **tx)
+            .await?,
+    )
 }
 const VIEW: &str = "SELECT jsonb_build_object('id',o.id,'school_id',o.school_id,'post_id',o.post_id,'recommendation_id',r.id,'trigger_type',o.trigger_type,'state',CASE WHEN o.delivery_state='accepted' THEN 'accepted' WHEN o.delivery_state='cancelled' THEN 'cancelled' WHEN o.delivery_state IN ('blocked','waiting_binding','waiting_configuration','paused') OR p.state='blocked' THEN 'blocked' WHEN o.request_body IS NULL THEN 'preparing' ELSE 'processing' END,'created_at',o.created_at,'accepted_at',o.accepted_at,'actor_name',a.display_name,'reason',r.reason,'terminated_reason',t.reason) FROM forum_outbox o LEFT JOIN forum_post_recommendations r ON r.event_id=o.id LEFT JOIN accounts a ON a.id=r.actor_id LEFT JOIN forum_publication_preparations p ON p.event_id=o.id LEFT JOIN forum_source_terminations t ON t.event_id=o.id";
 async fn record(conn: &mut PgConnection, s: Uuid, post: Uuid, id: Uuid) -> Result<Value> {
@@ -103,7 +106,13 @@ impl Repository {
         let digest = crate::business::hash(&json!([s, id, a.id, input]).to_string());
         let mut tx = self.0.begin().await?;
         // Live authorization precedes idempotency; replay does not revalidate mutable post content.
-        post_management::live_operator(&mut tx, a, s).await?;
+        crate::schools::south::adapter::postgres::permissions::authorize(
+            &mut tx,
+            a,
+            s,
+            "post.recommend",
+        )
+        .await?;
         sqlx::query("SELECT id FROM schools WHERE id=$1 FOR UPDATE")
             .bind(s)
             .fetch_optional(&mut *tx)
@@ -160,7 +169,13 @@ impl Repository {
     ) -> Result<Vec<Value>> {
         let (limit, offset) = page.fetch_bounds()?;
         let mut tx = self.0.begin().await?;
-        post_management::live_operator(&mut tx, a, s).await?;
+        crate::schools::south::adapter::postgres::permissions::authorize(
+            &mut tx,
+            a,
+            s,
+            "content.post.read",
+        )
+        .await?;
         let rows=sqlx::query_scalar(&format!("{VIEW} WHERE o.school_id=$1 AND o.post_id=$2 AND ($3::uuid IS NULL OR o.id=$3) ORDER BY o.created_at DESC,o.id DESC LIMIT $4 OFFSET $5"))
             .bind(s).bind(id).bind(event).bind(limit).bind(offset).fetch_all(&mut *tx).await?;
         tx.commit().await?;

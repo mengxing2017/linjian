@@ -44,13 +44,21 @@ async fn resource_check(
 impl Store for Repository {
     async fn command(&self, a: &Actor, s: Option<Uuid>, command: Command) -> Result<Value> {
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
-        preview::authorize(&mut tx, a, s, "admin").await?;
+        preview::authorize(&mut tx, a, s, "resource.school.write").await?;
         sqlx::query("SELECT pg_advisory_xact_lock(78234610244)")
             .execute(&mut *tx)
             .await?;
         let result = match command {
             Command::Preview(input) => {
                 resource_check(&mut tx, s, &input).await?;
+                if !a.platform_admin
+                    && let Some(ImageRef::Asset { id }) = &input.image_ref
+                {
+                    let valid: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM file_assets WHERE id=$1 AND artwork_permission='resource.school.write')").bind(id).fetch_one(&mut *tx).await?;
+                    if !valid {
+                        return Err(Error::Forbidden);
+                    }
+                }
                 if let Some(id) = input.id {
                     sqlx::query("SELECT id FROM school_resources WHERE id=$1 AND school_id IS NOT DISTINCT FROM $2 AND revision=$3 AND deleted_at IS NULL FOR SHARE").bind(id).bind(s).bind(input.revision).fetch_optional(&mut *tx).await?.ok_or(Error::Conflict)?;
                 }
@@ -66,6 +74,14 @@ impl Store for Repository {
                     serde_json::from_value(payload.clone()).map_err(|_| Error::Conflict)?;
                 v.validate()?;
                 resource_check(&mut tx, s, &v).await?;
+                if !a.platform_admin
+                    && let Some(ImageRef::Asset { id }) = &v.image_ref
+                {
+                    let valid: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM file_assets WHERE id=$1 AND artwork_permission='resource.school.write')").bind(id).fetch_one(&mut *tx).await?;
+                    if !valid {
+                        return Err(Error::Forbidden);
+                    }
+                }
                 let id = v.id.unwrap_or_else(Uuid::now_v7);
                 if v.id.is_none() {
                     sqlx::query("INSERT INTO school_resources(id,school_id,kind,title,content,active,sort_order,starts_at,ends_at,image_ref,action) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)").bind(id).bind(s).bind(&v.kind).bind(&v.title).bind(&v.content).bind(v.active).bind(v.sort_order).bind(v.starts_at).bind(v.ends_at).bind(json!(v.image_ref)).bind(json!(v.action)).execute(&mut *tx).await?;
@@ -87,10 +103,11 @@ impl Store for Repository {
         a: &Actor,
         s: Option<Uuid>,
         bytes: Vec<u8>,
+        context: &str,
         files: crate::media::south::adapter::filesystem::Files,
     ) -> Result<Value> {
         crate::media::south::adapter::postgres::Repository(self.0.clone(), files)
-            .upload(a, s, "operation_artwork", bytes, Uuid::new_v4())
+            .upload_scoped(a, s, "operation_artwork", bytes, Uuid::new_v4(), context)
             .await
     }
 
@@ -99,11 +116,13 @@ impl Store for Repository {
         a: &Actor,
         s: Option<Uuid>,
         page: crate::business::Page,
+        context: &str,
     ) -> Result<Vec<Value>> {
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
-        preview::authorize(&mut tx, a, s, "admin").await?;
+        let prefix = crate::schools::domain::permissions::artwork_context(context, false)?;
+        preview::authorize(&mut tx, a, s, context).await?;
         let (limit, offset) = page.fetch_bounds()?;
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',id,'image_ref',jsonb_build_object('kind','asset','id',id),'width',width,'height',height,'size_bytes',size_bytes,'created_at',created_at,'url',CASE WHEN school_id IS NULL THEN '/api/v1/platform/resource-artwork/' ELSE '/api/v1/schools/'||school_id||'/resource-artwork/' END||id) FROM operational_media WHERE school_id IS NOT DISTINCT FROM $1 ORDER BY created_at DESC,id DESC LIMIT $2 OFFSET $3").bind(s).bind(limit).bind(offset).fetch_all(&mut *tx).await?)
+        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',id,'image_ref',jsonb_build_object('kind','asset','id',id),'width',width,'height',height,'size_bytes',size_bytes,'created_at',created_at,'url',CASE WHEN school_id IS NULL THEN '/api/v1/platform/resource-artwork/' ELSE '/api/v1/schools/'||school_id||'/resource-artwork/' END||id||CASE WHEN school_id IS NOT NULL THEN '?context='||$5::text ELSE '' END) FROM operational_media m WHERE school_id IS NOT DISTINCT FROM $1 AND EXISTS(SELECT 1 FROM file_assets f WHERE f.id=m.id AND f.artwork_permission LIKE $4) ORDER BY created_at DESC,id DESC LIMIT $2 OFFSET $3").bind(s).bind(limit).bind(offset).bind(format!("{prefix}%")).bind(context).fetch_all(&mut *tx).await?)
     }
     async fn media(
         &self,
@@ -111,10 +130,12 @@ impl Store for Repository {
         s: Option<Uuid>,
         id: Uuid,
         published: bool,
+        context: &str,
         files: crate::media::south::adapter::filesystem::Files,
     ) -> Result<(String, Vec<u8>)> {
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
-        preview::authorize(&mut tx, a, s, if published { "member" } else { "admin" }).await?;
+        preview::authorize(&mut tx, a, s, if published { "member" } else { context }).await?;
+        let prefix = crate::schools::domain::permissions::artwork_context(context, false)?;
         let row=if published{
  let s=s.ok_or(Error::Forbidden)?;
  let resources=self.resources(s,false).await?;
@@ -122,7 +143,7 @@ impl Store for Repository {
  let image:ImageRef=serde_json::from_value(resource["image_ref"].clone()).map_err(|_|Error::NotFound)?;
  let ImageRef::Asset{id:asset}=image;
  sqlx::query("SELECT id FROM operational_media WHERE id=$1 AND (school_id=$2 OR school_id IS NULL)").bind(asset).bind(s).fetch_optional(&mut *tx).await?
- }else{sqlx::query("SELECT id FROM operational_media WHERE id=$1 AND school_id IS NOT DISTINCT FROM $2").bind(id).bind(s).fetch_optional(&mut *tx).await?}.ok_or(Error::NotFound)?;
+ }else{sqlx::query("SELECT id FROM operational_media m WHERE id=$1 AND school_id IS NOT DISTINCT FROM $2 AND EXISTS(SELECT 1 FROM file_assets f WHERE f.id=m.id AND f.artwork_permission LIKE $3)").bind(id).bind(s).bind(format!("{prefix}%")).fetch_optional(&mut *tx).await?}.ok_or(Error::NotFound)?;
         crate::media::south::adapter::postgres::Repository(self.0.clone(), files)
             .read(row.get("id"))
             .await

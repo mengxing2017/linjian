@@ -19,7 +19,14 @@ pub fn authorize(a: &Actor, school: Option<Uuid>, write: bool) -> Result<()> {
         return Err(Error::Forbidden);
     }
     if let Some(s) = school {
-        if !a.can(s, if write { "admin" } else { "operator" }) {
+        if !a.has_permission(
+            s,
+            if write {
+                "school.user.status.update"
+            } else {
+                "school.user.read"
+            },
+        ) {
             return Err(Error::NotFound);
         }
     } else {
@@ -148,6 +155,15 @@ impl Repository {
         )?;
         let reason = reason(&v.reason)?;
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
+        if let Some(school) = school {
+            crate::schools::south::adapter::postgres::permissions::authorize(
+                &mut tx,
+                a,
+                school,
+                "school.user.status.update",
+            )
+            .await?;
+        }
         let (bound, status, revision) = lock_user(&mut tx, id).await?;
         if school.is_some() && bound != school {
             return Err(Error::NotFound);
@@ -328,7 +344,7 @@ impl Repository {
         files: crate::media::south::adapter::filesystem::Files,
     ) -> Result<(String, Vec<u8>)> {
         let row=sqlx::query("SELECT x.id FROM miniapp_avatar_assets x JOIN accounts owner ON owner.id=x.owner_id WHERE x.id=$1 AND (x.owner_id=$2 OR ($3 AND EXISTS(SELECT 1 FROM miniapp_users u WHERE u.account_id=owner.id AND u.avatar_asset_id=x.id) AND ($4 OR owner.bound_school_id=ANY($5))))")
-  .bind(id).bind(a.id).bind(a.is_admin_browser()).bind(a.platform_admin).bind(a.grants.iter().filter(|g|matches!(g.role.as_str(),"admin"|"operator")).map(|g|g.school_id).collect::<Vec<_>>()).fetch_optional(&self.0).await?.ok_or(Error::NotFound)?;
+  .bind(id).bind(a.id).bind(a.is_admin_browser()).bind(a.platform_admin).bind(a.grants.iter().filter(|g|a.has_permission(g.school_id,"school.user.read")).map(|g|g.school_id).collect::<Vec<_>>()).fetch_optional(&self.0).await?.ok_or(Error::NotFound)?;
         crate::media::south::adapter::postgres::Repository(self.0.clone(), files)
             .read(row.get("id"))
             .await
@@ -358,6 +374,7 @@ pub async fn guard_write(
     school: Uuid,
 ) -> Result<()> {
     if a.is_admin_browser() {
+        crate::schools::south::adapter::postgres::permissions::fence(tx, school, false).await?;
         return crate::schools::south::adapter::postgres::profiles::lock_active_school(tx, school)
             .await;
     }

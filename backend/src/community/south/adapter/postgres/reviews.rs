@@ -6,7 +6,7 @@ use crate::{
 use serde_json::Value;
 use uuid::Uuid;
 
-pub(super) const AUTHORIZATION: &str = "SELECT EXISTS(SELECT 1 FROM accounts a WHERE a.id=$1 AND a.active AND (a.platform_admin OR EXISTS(SELECT 1 FROM school_memberships m WHERE m.account_id=a.id AND m.school_id=$2 AND m.role IN('operator','admin'))))";
+pub(super) const AUTHORIZATION: &str = "SELECT forum_has_permission($1,$2,'content.post.read')";
 
 impl Repository {
     pub async fn reviews(
@@ -19,7 +19,7 @@ impl Repository {
         if !a.is_admin_browser() {
             return Err(crate::business::Error::Forbidden);
         }
-        a.authorize(school, "operator")?;
+        a.permission(school, "content.post.read")?;
         let allowed: bool = sqlx::query_scalar(AUTHORIZATION)
             .bind(a.id)
             .bind(school)

@@ -17,6 +17,17 @@ pub async fn authorize(
     s: Option<Uuid>,
     role: &str,
 ) -> Result<()> {
+    if let Some(school) = s {
+        super::permissions::fence(tx, school, false).await?;
+    }
+    if role.contains('.') {
+        return if let Some(school) = s {
+            super::permissions::authorize(tx, a, school, role).await
+        } else {
+            a.platform()?;
+            platform(tx, a).await
+        };
+    }
     if a.platform_admin {
         platform(tx, a).await?;
         if let Some(s) = s {
@@ -70,34 +81,5 @@ pub async fn finish(tx: &mut Transaction<'_, Postgres>, id: Uuid, result: &Value
     .bind(result)
     .execute(&mut **tx)
     .await?;
-    Ok(())
-}
-
-/// Account/member locks precede the school lock. Caller can lock its target member next.
-pub async fn platform_or_school_admin(
-    tx: &mut Transaction<'_, Postgres>,
-    a: &Actor,
-    s: Uuid,
-) -> Result<()> {
-    if !a.is_admin_browser() {
-        return Err(Error::Forbidden);
-    }
-    let account = sqlx::query("SELECT active,platform_admin FROM accounts WHERE id=$1 FOR SHARE")
-        .bind(a.id)
-        .fetch_optional(&mut **tx)
-        .await?
-        .ok_or(Error::Forbidden)?;
-    let role: Option<String> = sqlx::query_scalar(
-        "SELECT role FROM school_memberships WHERE school_id=$1 AND account_id=$2 FOR SHARE",
-    )
-    .bind(s)
-    .bind(a.id)
-    .fetch_optional(&mut **tx)
-    .await?;
-    if !account.get::<bool, _>("active")
-        || !(account.get::<bool, _>("platform_admin") || role.as_deref() == Some("admin"))
-    {
-        return Err(Error::Forbidden);
-    }
     Ok(())
 }

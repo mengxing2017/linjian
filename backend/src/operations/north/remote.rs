@@ -301,8 +301,40 @@ async fn resource_media(
             .await?,
     )
 }
+#[derive(serde::Deserialize)]
+struct PostOptionsQuery {
+    context: String,
+    #[serde(flatten)]
+    page: crate::business::Page,
+}
+async fn post_options(
+    State(app): State<Application>,
+    actor: Actor,
+    Path(school): Path<Uuid>,
+    Params(query): Params<PostOptionsQuery>,
+) -> Result<ApiResponse> {
+    let page = query.page.clone();
+    let rows = service(app)
+        .execute(
+            &actor,
+            Some(school),
+            Command::PostOptions {
+                page: query.page,
+                context: query.context,
+            },
+        )
+        .await?;
+    Ok(collection(
+        "operation-post-options",
+        serde_json::from_value(rows).map_err(|_| Error::Unavailable)?,
+        &page,
+    ))
+}
 pub fn router() -> Router<Application> {
-    let mut router = Router::new();
+    let mut router = Router::new().route(
+        "/api/v1/schools/{school}/operation-post-options",
+        get(post_options),
+    );
     for root in ["/api/v1/schools/{school}", "/api/v1/platform"] {
         for k in ["group-qrcodes", "home-banners"] {
             router = router

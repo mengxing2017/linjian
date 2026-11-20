@@ -49,7 +49,7 @@ impl Repository {
         rows.into_iter()
             .map(|v| {
                 let s = decode(v)?;
-                if a.is_admin_browser() && a.can(s.id, "operator") {
+                if a.is_admin_browser() && a.has_permission(s.id, "school.profile.read") {
                     serde_json::to_value(s).map_err(|_| Error::Unavailable)
                 } else {
                     Ok(s.directory())
@@ -96,14 +96,18 @@ impl Repository {
             a.platform()?;
         }
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
+        if let Some(school) = id {
+            super::permissions::fence(&mut tx, school, raw.get("status").is_some()).await?;
+            if !a.platform_admin {
+                super::permissions::authorize(&mut tx, a, school, "school.profile.read").await?;
+            }
+        }
         if a.platform_admin {
             super::preview::platform(&mut tx, a).await?;
         }
         let mut previous_config = None;
         let mut input = if let Some(id) = id {
-            if !a.platform_admin {
-                a.authorize(id, "admin")?;
-            }
+            super::permissions::fence(&mut tx, id, false).await?;
             let v: Value = sqlx::query_scalar(&format!(
                 "SELECT to_jsonb(v) FROM ({VIEW} WHERE s.id=$1 FOR UPDATE OF s) v"
             ))
@@ -112,6 +116,46 @@ impl Repository {
             .await?
             .ok_or(Error::NotFound)?;
             let old = decode(v)?;
+            if !a.platform_admin {
+                let previous = serde_json::to_value(old.input()).map_err(|_| Error::Unavailable)?;
+                let changed_profile = raw
+                    .as_object()
+                    .ok_or(Error::Invalid("学校资料无效".into()))?
+                    .iter()
+                    .any(|(key, value)| {
+                        !matches!(key.as_str(), "revision" | "config" | "status")
+                            && previous.get(key) != Some(value)
+                    });
+                let changed_policy =
+                    raw.get("config")
+                        .and_then(Value::as_object)
+                        .is_some_and(|config| {
+                            config.iter().any(|(key, value)| {
+                                matches!(key.as_str(), "post_audit_mode" | "comment_audit_mode")
+                                    && old.config.get(key) != Some(value)
+                            })
+                        });
+                let changed_profile = changed_profile
+                    || raw
+                        .get("config")
+                        .and_then(Value::as_object)
+                        .is_some_and(|config| {
+                            config.iter().any(|(key, value)| {
+                                !matches!(key.as_str(), "post_audit_mode" | "comment_audit_mode")
+                                    && old.config.get(key) != Some(value)
+                            })
+                        });
+                if changed_profile {
+                    super::permissions::authorize(&mut tx, a, id, "school.profile.update").await?;
+                }
+                if changed_policy {
+                    super::permissions::authorize(&mut tx, a, id, "school.review_settings.update")
+                        .await?;
+                }
+                if !changed_profile && !changed_policy {
+                    super::permissions::authorize(&mut tx, a, id, "school.profile.read").await?;
+                }
+            }
             if old.status != "normal"
                 && raw.get("config").is_some_and(|c| {
                     ["post_audit_mode", "comment_audit_mode"]
@@ -123,10 +167,6 @@ impl Repository {
             }
             if !a.platform_admin {
                 require(old.status == "normal", "学校暂不可用")?;
-                let authorized:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM school_memberships WHERE school_id=$1 AND account_id=$2 AND role='admin')").bind(id).bind(a.id).fetch_one(&mut *tx).await?;
-                if !authorized {
-                    return Err(Error::Forbidden);
-                }
             }
             if supplied.revision != old.revision {
                 return Err(Error::Conflict);
@@ -156,10 +196,11 @@ impl Repository {
             .flatten()
         {
             sqlx::query(
-                "SELECT id FROM operational_media WHERE id=$1 AND school_id=$2 FOR KEY SHARE",
+                "SELECT m.id FROM operational_media m JOIN file_assets f ON f.id=m.id WHERE m.id=$1 AND m.school_id=$2 AND ($3 OR f.artwork_permission='school.profile.update') FOR KEY SHARE OF m",
             )
             .bind(asset)
             .bind(id)
+            .bind(a.platform_admin)
             .fetch_optional(&mut *tx)
             .await?
             .ok_or(Error::Forbidden)?;

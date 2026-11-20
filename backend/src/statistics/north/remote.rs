@@ -64,6 +64,7 @@ async fn school_export(
     Path((s, id)): Path<(Uuid, Uuid)>,
     Query(q): Query<ExportQuery>,
 ) -> Result<Response> {
+    actor.permission(s, "statistics.school.export")?;
     export_response(
         &a.statistics.snapshot(&actor, Some(s), id).await?,
         q.kind.as_deref().unwrap_or("periods"),

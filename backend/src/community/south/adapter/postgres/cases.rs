@@ -1,4 +1,4 @@
-use super::{Repository, reviews::AUTHORIZATION};
+use super::Repository;
 use crate::{
     business::{Actor, Error, Page, Result, require, text},
     community::domain::case::{CaseManagementView, ResolveCaseInput},
@@ -36,13 +36,14 @@ impl Repository {
         crate::schools::south::adapter::postgres::Repository(self.0.clone())
             .require_active(school)
             .await?;
-        let managing = a.can(school, "operator");
+        let managing = a.has_permission(school, "content.case.read");
         if managing {
-            let allowed: bool = sqlx::query_scalar(AUTHORIZATION)
-                .bind(a.id)
-                .bind(school)
-                .fetch_one(&self.0)
-                .await?;
+            let allowed: bool =
+                sqlx::query_scalar("SELECT forum_has_permission($1,$2,'content.case.read')")
+                    .bind(a.id)
+                    .bind(school)
+                    .fetch_one(&self.0)
+                    .await?;
             if !allowed {
                 return Err(Error::Forbidden);
             }
@@ -82,9 +83,16 @@ impl Repository {
         id: Uuid,
         mut input: ResolveCaseInput,
     ) -> Result<CaseManagementView> {
-        a.authorize(school, "operator")?;
+        a.permission(school, "content.case.resolve")?;
         input.validate()?;
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
+        crate::schools::south::adapter::postgres::permissions::authorize(
+            &mut tx,
+            a,
+            school,
+            "content.case.resolve",
+        )
+        .await?;
         // Lock live authorization rows to serialize handling with account/role revocation.
         let account =
             sqlx::query("SELECT active,platform_admin FROM accounts WHERE id=$1 FOR SHARE")
