@@ -3,7 +3,7 @@
     "type": "school-permission-catalogs",
     "id": "current",
     "attributes": {
-      "catalog_version": "2026-11-20.2",
+      "catalog_version": "2026-11-20.4",
       "permissions": [
         {
           "id": "P01",
@@ -835,6 +835,25 @@
             "statistics.school.read"
           ],
           "high_risk": false
+        },
+        {
+          "id": "P46",
+          "key": "content.simulation.manage",
+          "name": "管理仿真发帖",
+          "description": "学校管理员及运营发布和管理仿真帖子、模拟作者与批次；不含审核或来源推送",
+          "group": "内容治理",
+          "applicable_roles": [
+            "admin",
+            "operator"
+          ],
+          "default_by_role": {
+            "admin": true,
+            "operator": true
+          },
+          "requires": [
+            "content.post.read"
+          ],
+          "high_risk": true
         }
       ]
     }

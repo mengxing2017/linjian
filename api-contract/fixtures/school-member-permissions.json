@@ -10,7 +10,7 @@
       "active": true,
       "mode": "school",
       "revision": "9007199254740994",
-      "catalog_version": "2026-11-20.2",
+      "catalog_version": "2026-11-20.4",
       "overrides": [
         {
           "permission_key": "post.recommend",
@@ -34,6 +34,7 @@
         "content.comment.delete",
         "content.case.read",
         "content.case.resolve",
+        "content.simulation.manage",
         "operation.qrcode.read",
         "operation.banner.read",
         "operation.feedback.read",
