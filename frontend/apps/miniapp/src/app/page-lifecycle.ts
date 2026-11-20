@@ -12,18 +12,29 @@ interface Screen {
   hide?: () => void
   refresh?: () => void | Promise<void>
   loadMore?: () => void | Promise<void>
-  share?: () => { title: string; path: string }
+  share?: () => { title: string; path: string; imageUrl?: string }
 }
 /** Uni page hooks belong to registered page wrappers, not child components. */
 export function useScreen(share = false) {
   const screen = shallowRef<Screen>()
+  let pendingShow = false
+  let dispatched = false
+  let visible = true
   onReady(() => {
-    void screen.value?.show?.()
+    if (visible && (pendingShow || !dispatched)) {
+      pendingShow = false
+      dispatched = true
+      void screen.value?.show?.()
+    }
   })
   onShow(() => {
+    visible = true
+    if (!screen.value) { pendingShow = true; return }
+    pendingShow = false
+    dispatched = true
     void screen.value?.show?.()
   })
-  onHide(() => screen.value?.hide?.())
+  onHide(() => { visible = false; pendingShow = false; screen.value?.hide?.() })
   onPullDownRefresh(() => {
     Promise.resolve(screen.value?.refresh?.()).finally(() => uni.stopPullDownRefresh())
   })

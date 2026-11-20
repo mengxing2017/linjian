@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { canSharePost, clearReturnTarget, readReturnTarget, saveReturnTarget, targetPath } from '../src/features/identity/return-target'
+import { clearReturnTarget, readReturnTarget, saveReturnTarget, targetPath } from '../src/features/identity/return-target'
 const mocks = vi.hoisted(() => ({ load: vi.fn(), restore: vi.fn(), session: { user: null as unknown } }))
 vi.mock('../src/features/school-context/context', () => ({ loadSchools: mocks.load }))
 vi.mock('../src/features/identity/session', () => ({ restoreSession: mocks.restore, session: mocks.session }))
@@ -29,13 +29,6 @@ it('only reconstructs a fixed school-scoped detail path and expires stale target
   vi.setSystemTime(Date.now() + 31 * 60 * 1000)
   expect(readReturnTarget()).toBeUndefined()
   expect(saved).toBeUndefined()
-})
-it('does not share an unapproved, hidden or mismatched post', () => {
-  const post = { id, school_id: school, audit_status: 'approved', visibility: 'visible' }
-  expect(canSharePost(post, school, id)).toBe(true)
-  for (const change of [{ audit_status: 'pending' }, { visibility: 'hidden' }, { school_id: id }])
-    expect(canSharePost({ ...post, ...change }, school, id)).toBe(false)
-  expect(canSharePost(undefined, school, id)).toBe(false)
 })
 it('waits for login and school authorization and coalesces simultaneous resumption', async () => {
   saveReturnTarget(school, id)

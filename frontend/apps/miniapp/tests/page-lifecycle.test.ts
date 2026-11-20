@@ -43,3 +43,22 @@ it('bridges registered page lifecycle events to feature components after refs be
   })
   vi.unstubAllGlobals()
 })
+it('does not dispatch again from onReady when onShow already reached the child', () => {
+  const screen = useScreen()
+  const show = vi.fn()
+  screen.value = { show }
+  hooks.onShow.mock.calls[0][0]()
+  hooks.onReady.mock.calls[0][0]()
+  expect(show).toHaveBeenCalledOnce()
+})
+it('does not display a hidden page when its ref becomes ready late', () => {
+  const screen = useScreen()
+  const show = vi.fn()
+  hooks.onShow.mock.calls[0][0]()
+  hooks.onHide.mock.calls[0][0]()
+  screen.value = { show }
+  hooks.onReady.mock.calls[0][0]()
+  expect(show).not.toHaveBeenCalled()
+  hooks.onShow.mock.calls[0][0]()
+  expect(show).toHaveBeenCalledOnce()
+})
