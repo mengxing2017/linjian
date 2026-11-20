@@ -1,0 +1,21 @@
+{
+  "data": {
+    "type": "school-member-authorizations",
+    "attributes": {
+      "catalog_version": "2026-11-20.2",
+      "expected_revision": "9007199254740993",
+      "role": "operator",
+      "overrides": [
+        {
+          "permission_key": "post.recommend",
+          "effect": "allow"
+        },
+        {
+          "permission_key": "content.post.review",
+          "effect": "deny"
+        }
+      ],
+      "reason": "调整运营岗位"
+    }
+  }
+}

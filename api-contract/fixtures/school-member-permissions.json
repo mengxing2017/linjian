@@ -1,0 +1,49 @@
+{
+  "data": {
+    "type": "school-member-permissions",
+    "id": "operator",
+    "attributes": {
+      "school_id": "school",
+      "username": "operator",
+      "display_name": "运营",
+      "role": "operator",
+      "active": true,
+      "mode": "school",
+      "revision": "9007199254740994",
+      "catalog_version": "2026-11-20.2",
+      "overrides": [
+        {
+          "permission_key": "post.recommend",
+          "effect": "allow"
+        },
+        {
+          "permission_key": "content.post.review",
+          "effect": "deny"
+        }
+      ],
+      "effective_permissions": [
+        "content.post.read",
+        "content.post.edit",
+        "content.post.visibility",
+        "content.post.pin",
+        "content.post.delete",
+        "post.recommend",
+        "content.comment.read",
+        "content.comment.review",
+        "content.comment.visibility",
+        "content.comment.delete",
+        "content.case.read",
+        "content.case.resolve",
+        "operation.qrcode.read",
+        "operation.banner.read",
+        "operation.feedback.read",
+        "school.home_menu.read",
+        "school.blocked_word.read",
+        "school.profile.read",
+        "school.user.read",
+        "statistics.school.read",
+        "statistics.school.export"
+      ]
+    }
+  }
+}

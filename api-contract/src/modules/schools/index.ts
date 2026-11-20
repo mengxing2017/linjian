@@ -1,4 +1,5 @@
 import type { Client, Cancellation } from "../../http/client";
+export * from './permissions'
 import type { School } from "../business/types";
 export type { School } from "../business/types";
 export type SchoolDisplay = Pick<
@@ -98,7 +99,7 @@ export function createSchoolsClient(
       ),
     artwork: (school: string, id: string) =>
       client.requestBinary(
-        `${schoolPath(school)}/resource-artwork/${encodeURIComponent(id)}`,
+        `${schoolPath(school)}/resource-artwork/${encodeURIComponent(id)}?context=school.profile.read`,
       ),
   };
 }

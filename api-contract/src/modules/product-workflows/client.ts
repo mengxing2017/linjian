@@ -14,8 +14,8 @@ export function createProductClient(client:Pick<Client,'requestResource'|'reques
  list:(school?:string)=>r<PublishedResource[]>(`${root(school)}/${school?'published-resources':'resources'}`),
  preview:(school:string|undefined,input:ResourceInput)=>r<BusinessPreview<ResourceInput>>(`${root(school)}/resource-previews`,'POST',{...input,id:input.id??undefined}),
  confirm:(school:string|undefined,input:Confirmation)=>r<{id:string;published:boolean}>(`${root(school)}/resource-publications`,'POST',input),
- upload:(school:string|undefined,bytes:ArrayBuffer)=>r<Artwork>(`${root(school)}/resource-artwork`,'POST',bytes),
- artwork:(school?:string,page=1)=>client.requestCollection<Artwork>(`${root(school)}/resource-artwork?page[number]=${page}&page[size]=30`),
+ upload:(school:string|undefined,bytes:ArrayBuffer,context='resource.school.write')=>r<Artwork>(`${root(school)}/resource-artwork${school ? '?context='+encodeURIComponent(context) : ''}`,'POST',bytes),
+ artwork:(school?:string,page=1,context='resource.school.read')=>client.requestCollection<Artwork>(`${root(school)}/resource-artwork?page[number]=${page}&page[size]=30${school ? '&context='+encodeURIComponent(context) : ''}`),
  qr:(school:string|undefined,url:string)=>r<Artwork>(`${root(school)}/resource-qrcodes`,'POST',{url}),
  },
  }

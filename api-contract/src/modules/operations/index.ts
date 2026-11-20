@@ -45,6 +45,7 @@ export function operationsQuery(q: Filters = {}) {
 export function createOperationsClient(c: Client) {
   const root = (s?: string) => s ? `/api/v1/schools/${encodeURIComponent(s)}` : '/api/v1/platform'
   return {
+    postOptions: (school: string, context: 'operation.banner.create' | 'operation.banner.update' | 'resource.school.write', search = '', signal?: Cancellation) => c.requestCollection<{id:string;title:string}>(`${root(school)}/operation-post-options?context=${encodeURIComponent(context)}&search=${encodeURIComponent(search)}`,signal),
     list: (s: string | undefined, m: Module, q: Filters = {}, signal?: Cancellation) => c.requestCollection<OperationResource>(`${root(s)}/${m}${operationsQuery(q)}`, signal),
     get: (s: string | undefined, m: Module, id: string) => c.requestResource<OperationResource>(`${root(s)}/${m}/${encodeURIComponent(id)}`),
     save: (s: string | undefined, m: Module, v: OperationInput, id?: string) => c.requestResource<OperationResource>(`${root(s)}/${m}${id ? `/${encodeURIComponent(id)}` : ''}`, id ? 'PATCH' : 'POST', v),

@@ -1,3 +1,5 @@
+import { createSchoolPermissionsClient } from "../src/modules/schools";
+import { client } from "../src/http";
 import { afterEach, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { workspace, type RecommendPostInput } from "../src/modules/business";
@@ -52,11 +54,11 @@ it("keeps recommendation grants and safe termination separate from event recover
       ),
     );
   vi.stubGlobal("fetch", fetch);
-  await workspace.setRecommendationCapability("school", "operator", true);
+  await createSchoolPermissionsClient(client).recommendation("school", "operator", {catalog_version:"2026-11-20.2",expected_revision:"9",effect:"allow",reason:"岗位配置"});
   await workspace.terminateSource("school", "event", "核对为未尝试且无法恢复");
   expect(JSON.parse(fetch.mock.calls[0][1].body).data).toEqual({
     type: "post-recommendation-capabilities",
-    attributes: { enabled: true },
+    attributes: { catalog_version:"2026-11-20.2",expected_revision:"9",effect:"allow",reason:"岗位配置" },
   });
   expect(JSON.parse(fetch.mock.calls[1][1].body).data.type).toBe(
     "source-event-terminations",

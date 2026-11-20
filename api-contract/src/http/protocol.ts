@@ -109,6 +109,8 @@ export function resourceType(path: string): string {
   if(parts[2]==='platform' && parts[3]==='site-settings')return 'site-settings';
   if(parts[2]==='schools' && parts[4]==='source-outbox' && parts[6]==='terminations')return 'source-event-terminations';
   if(parts[2]==='schools' && parts[4]==='members' && parts[6]==='recommendation-capability')return 'post-recommendation-capabilities';
+  if(parts[2]==='schools' && parts[4]==='members' && parts[6]==='authorization')return 'school-member-authorizations';
+  if(parts[2]==='schools' && parts[4]==='members' && parts[6]==='authorization-actions')return 'school-member-authorization-actions';
   if(parts[2]==='schools' && parts[4]==='post-management' && parts[6]==='recommendations')return 'post-recommendations';
   if(parts[2]==='schools' && parts[4]==='source-outbox' && parts[6]==='preparation-retries')return 'source-preparation-retries';
   if(parts[2]==='schools' && parts[4]==='source-outbox' && parts[6]==='replays')return 'source-outbox-replays';
@@ -142,7 +144,7 @@ export function resourceType(path: string): string {
   if (parts[2] === "profile" || parts[2] === "accounts") return "accounts";
   if (parts[2] === "schools") {
     const kind = parts[4] ?? "schools";
-    if (kind === "members") return "accounts";
+    if (kind === "members") return "school-management-members";
     if (kind === "posts" && parts[6] === "comments") return "comments";
     if (
       [
