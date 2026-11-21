@@ -1,9 +1,11 @@
 import type { Client, Cancellation } from '../../http/client'
-import type { ImageRef, ResourceAction } from '../product-workflows/client'
+import type { ImageRef } from '../product-workflows/client'
+import type { BannerAction, EffectiveService } from './services'
+export * from './services'
 export type Module = 'group-qrcodes' | 'home-banners'
 export type FeedbackType = 'product_suggestion' | 'bug_report' | 'other'
 export interface OperationInput {
-  revision: number; title: string; content: string; image_ref: ImageRef; action: ResourceAction
+  revision: number; title: string; content: string; image_ref: ImageRef; action: BannerAction
   active: boolean; sort_order: number; starts_at: string | null; ends_at: string | null
   popup_strategy: 'always' | 'daily' | 'interval'; popup_interval_days: number
 }
@@ -27,6 +29,7 @@ export interface Feedback {
 }
 export interface Display {
   id: string; server_time: string; qrcode: OperationResource | null; banners: OperationResource[]
+  shortcuts: EffectiveService[]; categories: { id: string; name: string }[]; config_token: string
   customer: { enabled: boolean; note?: string; business?: string | null; join?: string | null; service?: string | null }
 }
 export interface Filters {
@@ -57,6 +60,6 @@ export function createOperationsClient(c: Client) {
     deleteFeedback: (s: string, id: string, revision: number) => c.requestResource<null>(`${root(s)}/feedback/${encodeURIComponent(id)}`, 'DELETE', { revision }),
     submit: (s: string, v: FeedbackInput) => c.requestResource<{ id: string; submitted: boolean }>(`${root(s)}/feedback`, 'POST', v),
     display: (s: string) => c.requestResource<Display>(`${root(s)}/operations-display`),
-    event: (s: string, v: { event_id: string; resource_id: string; event_type: 'view' | 'click'; display_cycle: string; occurred_at: string }) => c.requestResource<{ id: string; accepted: boolean }>(`${root(s)}/banner-events`, 'POST', v),
+    event: (s: string, v: { event_id: string; resource_id: string; event_type: 'view' | 'click'; display_cycle: string; occurred_at: string }) => c.requestResource<{ id: string; accepted: boolean }>(`${root(s)}/operation-events`, 'POST', { ...v, channel: null, target_version_id: null, placement: 'home_banner', attempt_id: v.event_type === 'click' ? v.event_id : null }),
   }
 }

@@ -1,0 +1,15 @@
+{
+  "data": {
+    "type": "operation-services",
+    "id": "current",
+    "attributes": {
+      "server_time": "2026-11-21T00:00:00Z",
+      "token": "4:1",
+      "featured": [],
+      "items": [],
+      "categories": [{ "id": "catalog-category", "name": "校园服务" }],
+      "has_more": false,
+      "preview": false
+    }
+  }
+}

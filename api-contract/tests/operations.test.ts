@@ -12,7 +12,7 @@ it('reads a hidden display and sends metric IDs and revisioned deletions as JSON
   expect(JSON.parse(transport.mock.calls[1][0].body)).toEqual({ data: { type: 'feedback', attributes: { revision: 3 } } })
   const event = { event_id: 'event', resource_id: 'ad', event_type: 'view' as const, display_cycle: 'cycle', occurred_at: '2026-11-10T09:00:00Z' }
   await api.event('school', event)
-  expect(JSON.parse(transport.mock.calls[2][0].body)).toEqual({ data: { type: 'banner-events', attributes: event } })
+  expect(JSON.parse(transport.mock.calls[2][0].body)).toEqual({ data: { type: 'operation-events', attributes: { ...event, channel: null, target_version_id: null, placement: 'home_banner', attempt_id: null } } })
   await api.saveCustomer({ revision: 0, enabled: false, business_asset_id: null, join_asset_id: null, service_asset_id: null, fallback_asset_id: null, note: '' })
   expect(JSON.parse(transport.mock.calls[3][0].body).data.type).toBe('customer-config')
 })

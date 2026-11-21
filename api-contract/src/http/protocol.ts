@@ -122,7 +122,14 @@ export function resourceType(path: string): string {
   if(parts[2]==='schools' && parts[4]==='post-imports')return 'post-imports';
   if (parts[2] === 'schools' && parts[4] === 'home-menu-tags' && parts[5] === 'order') return 'home-menu-order';
   const kind=parts[2]==='platform'?parts[3]:parts[2]==='schools'?parts[4]:undefined;
-  if(kind && ['group-qrcodes','home-banners','customer-config','feedback','banner-events'].includes(kind))return kind;
+  if(kind==='operation-service-targets' && ['submit','approve','reject','withdraw'].includes(parts[5]))return 'operation-target-reviews';
+  if(kind==='home-shortcut-overrides')return 'home-shortcut-overrides';
+  if(kind==='home-shortcuts' && parts[parts[2]==='platform'?4:5]==='preview')return 'home-shortcut-previews';
+  if(kind==='home-shortcuts' && ['order','batch-status'].includes(parts[5]))return 'shortcut-batches';
+  if(kind==='operation-services')return parts[6]==='resolve' ? 'operation-service-resolutions' : 'operation-services';
+  if(kind==='marketing'||kind==='marketing-settings')return 'school-marketing';
+  if(kind==='marketing-events')return 'marketing-events';
+  if(kind && ['group-qrcodes','home-banners','customer-config','feedback','home-shortcuts','operation-service-categories','operation-service-targets','operation-partners','operation-cooperations','marketing-slots','operation-events','operation-action-events','operation-reports'].includes(kind))return kind;
   if(kind==='blocked-words')return 'blocked-words';
   if(kind==='blocked-word-imports')return 'blocked-word-imports';
   if(kind && ['resource-previews','resource-publications','resource-qrcodes','source-outbox','home-menu-tags','home-menu-settings','home-menu-imports'].includes(kind))return kind;
