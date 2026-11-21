@@ -8,6 +8,26 @@
       }
     },
     {
+      "path": "pages/operations/services",
+      "style": {
+        "navigationBarTitleText": "更多服务",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/operations/service",
+      "style": {
+        "navigationBarTitleText": "服务说明",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/operations/webview",
+      "style": {
+        "navigationBarTitleText": "第三方服务"
+      }
+    },
+    {
       "path": "pages/index/hot",
       "style": {
         "navigationBarTitleText": "关注动态",

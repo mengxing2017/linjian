@@ -3,7 +3,7 @@ import { ref, shallowRef, onUnmounted } from 'vue'
 import { operationsApi, type Display, type OperationResource } from './api'
 import { uuid, shouldPopup, popupKey } from './policy'
 import { imagePath } from '../media/files'
-import { executeResourceAction } from '../resources/actions'
+import { executeBannerAction } from './banner-actions'
 import { schoolContext, scopeKey, onScopeChange } from '../school-context/context'
 import { session } from '../identity/session'
 const data = shallowRef<Display>(), paths = ref<Record<string, string>>({}), index = ref(0), qrVisible = ref(false), qrPath = ref('')
@@ -55,7 +55,7 @@ function qrLoaded() {
   if (qrVisible.value && qr && current(qr) && session.user) uni.setStorageSync(popupKey(session.user.id, schoolContext.id, qr.id), now())
 }
 function manual() { if (data.value?.qrcode && current(data.value.qrcode) && qrPath.value) qrVisible.value = true; else uni.showToast({ title: '本校群二维码暂未配置', icon: 'none' }) }
-function click(v: OperationResource) { metric(v, 'click'); if (v.action_available === false) { uni.showToast({ title: '目标内容已不可用', icon: 'none' }); return }; void executeResourceAction(v.action).catch(() => uni.showToast({ title: '页面打开失败', icon: 'none' })) }
+function click(v: OperationResource) { if (!active || !current(v)) return; metric(v, 'click'); if (v.action_available === false) { uni.showToast({ title: '目标内容已不可用', icon: 'none' }); return }; void executeBannerAction(v.action).catch(() => uni.showToast({ title: '站内页面不可用', icon: 'none' })) }
 function previewQr() { if(qrPath.value) uni.previewImage({urls:[qrPath.value]}) }
 function hide() { active = false; loading = false; reset() }
 defineExpose({ show, hide, refresh: () => show(true) })

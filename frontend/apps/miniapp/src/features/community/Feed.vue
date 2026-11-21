@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { recordPage } from '../statistics/activity'
 import HomeOperations from '../operations/HomeOperations.vue'
+import HomeShortcuts from '../operations/HomeShortcuts.vue'
+const shortcuts = shallowRef<InstanceType<typeof HomeShortcuts>>()
 const operations = shallowRef<InstanceType<typeof HomeOperations>>()
 import { postVisibilityLabel } from './post-status'
 import { shallowRef, ref, computed, watch } from 'vue'
@@ -114,10 +116,11 @@ function detail(post: CommunityPost) {
   navigate(`/pages/index/detail?school=${schoolContext.id}&id=${post.id}`)
 }
 defineExpose({
-  hide: () => operations.value?.hide(),
+  hide: () => { operations.value?.hide(); shortcuts.value?.hide() },
   show: async () => {
     if (!(await requireSchool())) return
     void operations.value?.show()
+    void shortcuts.value?.show()
     const activeSchool = schoolContext.id
     const scope = `${scopeKey()}:${session.user?.id ?? ''}`
     const dirty = invalidatedPosts(scope, activeSchool)
@@ -127,7 +130,7 @@ defineExpose({
       : load())
     if (!error.value && activeSchool === schoolContext.id) recordPage('feed_open', activeSchool)
   },
-  refresh: async () => { await load(); await operations.value?.refresh() },
+  refresh: async () => { await load(); await Promise.all([operations.value?.refresh(), shortcuts.value?.refresh()]) },
   loadMore: () => {
     if (more.value) return load(false)
   },
@@ -137,6 +140,7 @@ defineExpose({
   <view class="page">
     <HomeOperations v-if="!searchPage" ref="operations" />
     <SchoolHeader :school="school" />
+    <HomeShortcuts v-if="!searchPage" ref="shortcuts" />
     <text v-if="session.user?.bound_school_id && !schoolContext.schools.length">
       学校暂不可用，请联系管理员
     </text>
