@@ -1,6 +1,22 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { violations } from './check-boundaries.mjs'
+test('contract consumers cannot bypass package exports through deep imports', () => {
+  const file = 'apps/web/src/features/community/api/index.ts'
+  for (const specifier of [
+    '@linjian/api-contract/community/client',
+    '@linjian/api-contract/src/modules/community/types',
+    '@linjian/api-contract/http/browser-client',
+    '@linjian/api-contract',
+  ])
+    assert.ok(
+      violations(file, `export * from '${specifier}'`).some((error) =>
+        error.includes('禁止深层导入'),
+      ),
+    )
+  for (const specifier of ['community', 'http', 'client', 'miniapp-users/browser'])
+    assert.deepEqual(violations(file, `export * from '@linjian/api-contract/${specifier}'`), [])
+})
 test('checks static, type-only, re-export and dynamic imports, including Vue scripts', () => {
   for (const statement of [
     "import type {User} from '@linjian/api-contract/identity'",
@@ -52,19 +68,14 @@ test('keeps public indexes as session wiring and compatibility exports', () => {
 
 test('requires row action columns to stay fixed on the right', () => {
   const file = 'apps/web/src/features/admin/example.tsx'
-  assert.equal(
-    violations(file, "const column={title:'操作',width:120,render:()=>null}").length,
-    1,
-  )
+  assert.equal(violations(file, "const column={title:'操作',width:120,render:()=>null}").length, 1)
   assert.equal(
     violations(file, "const column={title:'操作',width:120,fixed:'right',render:()=>null}").length,
     0,
   )
   assert.equal(
-    violations(
-      file,
-      "const column={title:'操作',width:120,fixed:'right' as const,render:()=>null}",
-    ).length,
+    violations(file, "const column={title:'操作',width:120,fixed:'right' as const,render:()=>null}")
+      .length,
     0,
   )
   assert.equal(

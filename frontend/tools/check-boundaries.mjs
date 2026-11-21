@@ -3,6 +3,13 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 
+const contractManifest = JSON.parse(
+  fs.readFileSync(new URL('../../api-contract/package.json', import.meta.url), 'utf8'),
+)
+const contractEntries = new Set(
+  Object.keys(contractManifest.exports).map((entry) => `@linjian/api-contract/${entry.slice(2)}`),
+)
+
 export function imports(source, filename) {
   const chunks = filename.endsWith('.vue')
     ? [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1])
@@ -102,6 +109,8 @@ export function violations(file, source) {
     if (spec === '<computed-import>') errors.push('动态导入必须使用可检查的字面量')
     if (spec.startsWith('@linjian/api-contract') && !/\/features\/.+\/api\/index\.ts$/.test(file))
       errors.push('只允许 feature/api/index.ts 引用 contract')
+    if (spec.startsWith('@linjian/api-contract') && !contractEntries.has(spec))
+      errors.push('contract 只允许 package.json#exports 声明的公开子路径，禁止深层导入')
     const resolved = spec.startsWith('.')
       ? path.posix.normalize(path.posix.join(path.posix.dirname(file), spec))
       : spec
