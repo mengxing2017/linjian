@@ -7,6 +7,7 @@ import { feedbackApi, type FeedbackType } from './api'
 import { requireSchool, schoolContext, scopeKey } from '../school-context/context'
 import { usePage } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
+const props=defineProps<{serviceId?:string;serviceTitle?:string}>()
 const feedbackType = ref<FeedbackType>(), submissionKey = ref(uuid())
 const typeLabels = ['产品建议','bug反馈','其他建议']
 const typeValues: FeedbackType[] = ['product_suggestion','bug_report','other']
@@ -27,6 +28,7 @@ watch([content,contact,feedbackType,images], () => {submissionKey.value=uuid()},
 function load() {
   return run(async () => {
     await requireSchool()
+    if (props.serviceId && /^[0-9a-f-]{36}$/i.test(props.serviceId) && !content.value) content.value=`【服务反馈】${(props.serviceTitle??'').slice(0,40)}\n服务 ID：${props.serviceId}\n`
   })
 }
 function submit() {
