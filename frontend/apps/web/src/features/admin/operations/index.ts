@@ -1,3 +1,6 @@
 export { OperationResources } from './resources'
 export { CustomerConfiguration } from './customer'
 export { OperationFeedback } from './feedback'
+export { OperationServices } from './services'
+export { OperationReports } from './reports'
+export { SchoolMarketing } from './marketing'
