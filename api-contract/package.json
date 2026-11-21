@@ -23,8 +23,9 @@
     "./statistics": "./src/modules/statistics/index.ts"
   },
   "scripts": {
-    "build": "tsc --noEmit && tsc -p tsconfig.platform.json",
-    "test": "vitest run"
+    "build": "pnpm lint && tsc --noEmit && tsc -p tsconfig.platform.json",
+    "lint": "node tools/check-boundaries.mjs",
+    "test": "node --test tools/*.test.mjs && vitest run tests"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
