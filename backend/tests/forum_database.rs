@@ -41,6 +41,39 @@ async fn isolated(admin: &PgPool, name: &str) -> PgPool {
         .unwrap()
 }
 
+#[tokio::test]
+#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
+async fn fresh_baseline_initializes_once_with_current_constraints() {
+    let admin = PgPool::connect(
+        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
+    )
+    .await
+    .unwrap();
+    let schema = format!("forum_baseline_{}", Uuid::new_v4().simple());
+    let pool = isolated(&admin, &schema).await;
+    database::migrate(&pool).await.unwrap();
+    database::migrate(&pool).await.unwrap();
+    sqlx::raw_sql(include_str!("fresh_baseline.sql"))
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::raw_sql(include_str!("source_messages.sql"))
+        .execute(&pool)
+        .await
+        .unwrap();
+    let applied: i64 = sqlx::query_scalar("SELECT count(*) FROM _sqlx_migrations WHERE success")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(applied as usize, database::MIGRATOR.iter().count());
+    pool.close().await;
+    sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
+        .execute(&admin)
+        .await
+        .unwrap();
+    admin.close().await;
+}
+
 async fn approve_post(pool: &PgPool, actor: &linjian_api::business::Actor, post: Uuid) -> Value {
     let row: Value = sqlx::query_scalar("SELECT to_jsonb(p) FROM posts p WHERE id=$1")
         .bind(post)
@@ -2745,101 +2778,7 @@ async fn moderation_modes_preserve_policy_evidence_and_publication_boundaries() 
 
 #[tokio::test]
 #[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
-async fn moderation_mode_upgrade_preserves_legacy_publication_evidence() {
-    let admin = PgPool::connect(
-        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
-    )
-    .await
-    .unwrap();
-    let schema = format!("forum_mode_upgrade_{}", Uuid::new_v4().simple());
-    let pool = isolated(&admin, &schema).await;
-    let migrations = database::MIGRATOR.iter().collect::<Vec<_>>();
-    let target = migrations
-        .iter()
-        .position(|m| m.version == 202611090005)
-        .unwrap();
-    for migration in &migrations[..target] {
-        sqlx::raw_sql(&migration.sql).execute(&pool).await.unwrap();
-    }
-    let account = Uuid::new_v4();
-    let school = Uuid::new_v4();
-    let post = Uuid::new_v4();
-    let event = Uuid::new_v4();
-    let snapshot = Uuid::new_v4();
-    sqlx::query("INSERT INTO accounts(id,username,display_name,password_hash) VALUES($1,'upgrade','历史管理员','unused')").bind(account).execute(&pool).await.unwrap();
-    sqlx::query("INSERT INTO schools(id,name) VALUES($1,'历史学校')")
-        .bind(school)
-        .execute(&pool)
-        .await
-        .unwrap();
-    sqlx::query("INSERT INTO posts(id,school_id,author_id,title,content,created_via,source_projection) VALUES($1,$2,$3,'历史标题','历史正文','miniapp','miniapp_summary_v1')").bind(post).bind(school).bind(account).execute(&pool).await.unwrap();
-    sqlx::query("INSERT INTO moderation_events(id,school_id,actor_id,object_id,object_kind,decision,reason) VALUES($1,$2,$3,$4,'post','approved','历史人工审核')").bind(event).bind(school).bind(account).bind(post).execute(&pool).await.unwrap();
-    sqlx::query("INSERT INTO forum_publication_snapshots(id,school_id,post_id,author_id,content_revision,approved_post_revision,moderation_event_id,moderator_id,title,content,images,tags,content_digest,summary,summary_algorithm,preview_digest,link_policy) VALUES($1,$2,$3,$4,1,2,$5,$4,'历史标题','历史正文','[]','[]','old-digest','历史正文','plain-v1','old-preview','{}')").bind(snapshot).bind(school).bind(post).bind(account).bind(event).execute(&pool).await.unwrap();
-    sqlx::query(
-        "UPDATE posts SET audit_status='approved',approved_snapshot_id=$2,revision=2 WHERE id=$1",
-    )
-    .bind(post)
-    .bind(snapshot)
-    .execute(&pool)
-    .await
-    .unwrap();
-    let before: i64 = sqlx::query_scalar("SELECT count(*) FROM forum_outbox")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    sqlx::raw_sql(&migrations[target].sql)
-        .execute(&pool)
-        .await
-        .unwrap();
-    assert_eq!(
-        sqlx::query_scalar::<_, String>(
-            "SELECT decision_source FROM forum_publication_snapshots WHERE id=$1"
-        )
-        .bind(snapshot)
-        .fetch_one(&pool)
-        .await
-        .unwrap(),
-        "legacy"
-    );
-    sqlx::query("UPDATE posts SET browse=browse+1 WHERE id=$1")
-        .bind(post)
-        .execute(&pool)
-        .await
-        .unwrap();
-    assert_eq!(
-        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM forum_outbox")
-            .fetch_one(&pool)
-            .await
-            .unwrap(),
-        before
-    );
-    assert_eq!(
-        sqlx::query_scalar::<_, String>("SELECT audit_status FROM posts WHERE id=$1")
-            .bind(post)
-            .fetch_one(&pool)
-            .await
-            .unwrap(),
-        "approved"
-    );
-    assert!(
-        sqlx::query("UPDATE forum_publication_snapshots SET summary='改写' WHERE id=$1")
-            .bind(snapshot)
-            .execute(&pool)
-            .await
-            .is_err()
-    );
-    assert!(sqlx::query("INSERT INTO moderation_events(id,school_id,actor_id,object_id,object_kind,decision,reason,decision_source) VALUES($1,$2,$3,$4,'post','approved','','legacy')").bind(Uuid::new_v4()).bind(school).bind(account).bind(post).execute(&pool).await.is_err());
-    pool.close().await;
-    sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
-        .execute(&admin)
-        .await
-        .unwrap();
-    admin.close().await;
-}
-
-#[tokio::test]
-#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
-async fn case_management_projection_handling_and_upgrade() {
+async fn case_management_projection_and_handling() {
     use linjian_api::{
         business::{Error, Page},
         community::domain::case::ResolveCaseInput,
@@ -2851,23 +2790,13 @@ async fn case_management_projection_handling_and_upgrade() {
     .unwrap();
     let schema = format!("forum_cases_{}", Uuid::new_v4().simple());
     let pool = isolated(&admin, &schema).await;
-    // Exercise a populated upgrade, keeping historical terminal metadata unknown.
-    let migrations = database::MIGRATOR.iter().collect::<Vec<_>>();
-    let target = migrations
-        .iter()
-        .position(|m| m.version == 202611100001)
-        .unwrap();
-    for migration in &migrations[..target] {
-        sqlx::raw_sql(&migration.sql).execute(&pool).await.unwrap();
-    }
+    database::migrate(&pool).await.unwrap();
     let app = bootstrap::build_application(pool.clone(), bootstrap::Options::local());
     let root = app
         .identity
         .bootstrap("case-root", "显示名", "test-password-at-least-12", true)
         .await
         .unwrap();
-    // This test intentionally exercises an intermediate schema, before session scoping.
-    // Use a domain actor fixture; authenticate only against the complete schema.
     let actor: linjian_api::business::Actor = serde_json::from_value(json!({
         "id":root,"username":"test-admin","display_name":"测试管理员",
         "platform_admin":true,"bound_school_id":null,"grants":[]
@@ -2883,30 +2812,8 @@ async fn case_management_projection_handling_and_upgrade() {
         .unwrap()
         .parse()
         .unwrap();
-    let legacy = Uuid::now_v7();
-    sqlx::query("INSERT INTO cases(id,school_id,account_id,kind,content,state,resolution) VALUES($1,$2,$3,'feedback','历史反馈','resolved','旧处理')").bind(legacy).bind(school).bind(root).execute(&pool).await.unwrap();
-    sqlx::raw_sql(&migrations[target].sql)
-        .execute(&pool)
-        .await
-        .unwrap();
-    assert!(
-        sqlx::query_scalar::<_, Option<chrono::DateTime<chrono::Utc>>>(
-            "SELECT handled_at FROM cases WHERE id=$1"
-        )
-        .bind(legacy)
-        .fetch_one(&pool)
-        .await
-        .unwrap()
-        .is_none()
-    );
-    // The current application requires all later forward-only schema extensions.
-    for migration in &migrations[target + 1..] {
-        sqlx::raw_sql(&migration.sql).execute(&pool).await.unwrap();
-    }
-    sqlx::query("INSERT INTO school_authorization_guards(school_id) SELECT id FROM schools")
-        .execute(&pool)
-        .await
-        .unwrap();
+    let resolved = Uuid::now_v7();
+    sqlx::query("INSERT INTO cases(id,school_id,account_id,kind,content,state,resolution) VALUES($1,$2,$3,'feedback','已处理反馈','resolved','已完成')").bind(resolved).bind(school).bind(root).execute(&pool).await.unwrap();
     let (_, actor) = app
         .identity
         .0
@@ -4165,72 +4072,6 @@ async fn blocked_words_scope_import_and_order_fencing() {
         .await
         .unwrap();
     assert_eq!(outbox, 0);
-    pool.close().await;
-    sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
-        .execute(&admin)
-        .await
-        .unwrap();
-}
-
-#[tokio::test]
-#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
-async fn blocked_words_upgrade_preserves_resources_and_rejects_duplicates() {
-    let admin = PgPool::connect(
-        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
-    )
-    .await
-    .unwrap();
-    let schema = format!("forum_words_upgrade_{}", Uuid::new_v4().simple());
-    let pool = isolated(&admin, &schema).await;
-    let migrations = database::MIGRATOR.iter().collect::<Vec<_>>();
-    let target = migrations
-        .iter()
-        .position(|m| m.version == 202611100006)
-        .unwrap();
-    for migration in &migrations[..target] {
-        sqlx::raw_sql(&migration.sql).execute(&pool).await.unwrap();
-    }
-    let account = Uuid::new_v4();
-    let school = Uuid::new_v4();
-    let resource = Uuid::new_v4();
-    let duplicate = Uuid::new_v4();
-    sqlx::query("INSERT INTO accounts(id,username,display_name,password_hash,platform_admin) VALUES($1,'root','管理员','unused',true)").bind(account).execute(&pool).await.unwrap();
-    sqlx::query("INSERT INTO schools(id,name) VALUES($1,'学校')")
-        .bind(school)
-        .execute(&pool)
-        .await
-        .unwrap();
-    sqlx::query("INSERT INTO school_resources(id,school_id,kind,title,content,active,sort_order) VALUES($1,$2,'blocked_word','词语','旧备注',true,4),($3,$2,'blocked_word','词语','重复',false,0)").bind(resource).bind(school).bind(duplicate).execute(&pool).await.unwrap();
-    sqlx::query("INSERT INTO resource_publications(id,resource_id,school_id,actor_id,snapshot) VALUES($1,$2,$3,$4,'{}')").bind(Uuid::new_v4()).bind(resource).bind(school).bind(account).execute(&pool).await.unwrap();
-    assert!(
-        sqlx::raw_sql(&migrations[target].sql)
-            .execute(&pool)
-            .await
-            .is_err()
-    );
-    sqlx::query("DELETE FROM school_resources WHERE id=$1")
-        .bind(duplicate)
-        .execute(&pool)
-        .await
-        .unwrap();
-    sqlx::raw_sql(&migrations[target].sql)
-        .execute(&pool)
-        .await
-        .unwrap();
-    let row: (String, String, bool, i32) =
-        sqlx::query_as("SELECT word,remark,active,sort_order FROM blocked_words WHERE id=$1")
-            .bind(resource)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-    assert_eq!(row, ("词语".into(), "旧备注".into(), true, 4));
-    let history: i64 =
-        sqlx::query_scalar("SELECT count(*) FROM resource_publications WHERE resource_id=$1")
-            .bind(resource)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-    assert_eq!(history, 1);
     pool.close().await;
     sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
         .execute(&admin)

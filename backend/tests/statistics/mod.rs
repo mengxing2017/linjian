@@ -509,7 +509,7 @@ async fn statistics_scope_registration_snapshot_and_activity_are_isolated() {
 
 #[tokio::test]
 #[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
-async fn registration_upgrade_preserves_time_without_inventing_school_history() {
+async fn registration_captures_time_and_school_without_following_later_binding_changes() {
     let admin = PgPool::connect(
         &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
     )
@@ -517,14 +517,7 @@ async fn registration_upgrade_preserves_time_without_inventing_school_history() 
     .unwrap();
     let schema = format!("statistics_upgrade_{}", Uuid::new_v4().simple());
     let pool = isolated(&admin, &schema).await;
-    let migrations = database::MIGRATOR.iter().collect::<Vec<_>>();
-    let index = migrations
-        .iter()
-        .position(|m| m.version == 202611180002)
-        .unwrap();
-    for m in &migrations[..index] {
-        sqlx::raw_sql(&m.sql).execute(&pool).await.unwrap();
-    }
+    database::migrate(&pool).await.unwrap();
     let s = Uuid::new_v4();
     let u = Uuid::new_v4();
     sqlx::query("INSERT INTO schools(id,name) VALUES($1,'历史注册归属校')")
@@ -534,13 +527,9 @@ async fn registration_upgrade_preserves_time_without_inventing_school_history() 
         .unwrap();
     sqlx::query("INSERT INTO accounts(id,username,display_name,bound_school_id) VALUES($1,'historical-user','历史用户',$2)").bind(u).bind(s).execute(&pool).await.unwrap();
     sqlx::query("INSERT INTO miniapp_users(account_id,nickname,created_at) VALUES($1,'历史昵称','2024-02-29T00:00:00Z')").bind(u).execute(&pool).await.unwrap();
-    sqlx::raw_sql(&migrations[index].sql)
-        .execute(&pool)
-        .await
-        .unwrap();
     let (assignment,school,time):(String,Option<Uuid>,chrono::DateTime<chrono::Utc>)=sqlx::query_as("SELECT school_assignment,registration_school_id,registered_at FROM statistics_registrations WHERE account_id=$1").bind(u).fetch_one(&pool).await.unwrap();
-    assert_eq!(assignment, "unknown");
-    assert!(school.is_none());
+    assert_eq!(assignment, "known_school");
+    assert_eq!(school, Some(s));
     assert_eq!(
         time,
         "2024-02-29T00:00:00Z"
@@ -552,7 +541,7 @@ async fn registration_upgrade_preserves_time_without_inventing_school_history() 
         .execute(&pool)
         .await
         .unwrap();
-    let count:i64=sqlx::query_scalar("SELECT count(*) FROM statistics_registrations WHERE account_id=$1 AND school_assignment='unknown'").bind(u).fetch_one(&pool).await.unwrap();
+    let count:i64=sqlx::query_scalar("SELECT count(*) FROM statistics_registrations WHERE account_id=$1 AND school_assignment='known_school'").bind(u).fetch_one(&pool).await.unwrap();
     assert_eq!(count, 1);
     pool.close().await;
     sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))

@@ -1071,61 +1071,6 @@ async fn self_review_and_cross_account_documents_are_forbidden() {
 
 #[tokio::test]
 #[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
-async fn previously_approved_materials_are_revoked_by_the_purge_migration_and_deleted() {
-    let fixture = Fixture::new().await;
-    let request = fixture.request().await;
-    let document_id = id(&request["documents"][0]);
-    let path = fixture.root.join(format!("{document_id}.blob"));
-    let bytes = std::fs::read(&path).unwrap();
-    fixture
-        .app
-        .school_changes
-        .review(&fixture.reviewer, id(&request), decision(1), true)
-        .await
-        .unwrap();
-    std::fs::write(&path, bytes).unwrap();
-    sqlx::query("UPDATE miniapp_school_change_documents SET state='ready',deleted_at=NULL,purge_after=now()+interval '1 hour',retry_at=now()+interval '1 hour' WHERE id=$1")
-        .bind(document_id).execute(&fixture.pool).await.unwrap();
-    assert!(matches!(
-        fixture
-            .app
-            .school_changes
-            .document(&fixture.reviewer, document_id, Some(id(&request)))
-            .await,
-        Err(Error::Policy("school_change_document_unavailable"))
-    ));
-    sqlx::raw_sql(include_str!(
-        "../../migrations/202611210008_school_change_approved_document_purge.sql"
-    ))
-    .execute(&fixture.pool)
-    .await
-    .unwrap();
-    let due: bool = sqlx::query_scalar("SELECT d.purge_after<=r.closed_at AND d.retry_at<=clock_timestamp() FROM miniapp_school_change_documents d JOIN miniapp_school_change_requests r ON r.id=d.request_id WHERE d.id=$1")
-        .bind(document_id).fetch_one(&fixture.pool).await.unwrap();
-    assert!(due);
-    assert!(path.exists());
-    assert!(matches!(
-        fixture
-            .app
-            .school_changes
-            .document(&fixture.reviewer, document_id, Some(id(&request)))
-            .await,
-        Err(Error::Policy("school_change_document_unavailable"))
-    ));
-    let detail = fixture
-        .app
-        .school_changes
-        .detail(&fixture.reviewer, id(&request), true)
-        .await
-        .unwrap();
-    assert_eq!(detail["documents"][0]["available"], false);
-    fixture.app.school_changes.cleanup().await.unwrap();
-    assert!(!path.exists());
-    fixture.close().await;
-}
-
-#[tokio::test]
-#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
 async fn approved_material_deletion_failures_do_not_undo_the_result_and_retry() {
     let fixture = Fixture::new().await;
     let request = fixture.request().await;
