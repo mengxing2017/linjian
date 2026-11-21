@@ -8,6 +8,7 @@
     "skipLibCheck": false
   },
   "include": [
+    "src/modules/school-changes/index.ts",
     "src/http/client.ts",
     "src/modules/identity/index.ts",
     "src/modules/schools/index.ts",

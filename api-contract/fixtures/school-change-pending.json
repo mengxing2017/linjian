@@ -1,0 +1,30 @@
+{
+  "data": {
+    "type": "miniapp-school-change-requests",
+    "id": "30000000-0000-4000-8000-000000000001",
+    "attributes": {
+      "account_id": "10000000-0000-4000-8000-000000000001",
+      "from_school_id": "20000000-0000-4000-8000-000000000001",
+      "from_school_name": "原学校",
+      "to_school_id": "20000000-0000-4000-8000-000000000002",
+      "to_school_name": "目标学校",
+      "student_relationship": "new_student",
+      "status": "pending",
+      "revision": 1,
+      "submitted_at": "2026-11-21T00:00:00Z",
+      "review_due_at": "2026-11-25T00:00:00Z",
+      "closed_at": null,
+      "reviewed_at": null,
+      "reviewed_by": null,
+      "consent_version": "test-v1",
+      "declared_student_name": "测试申请人",
+      "declared_student_number": null,
+      "reason": "升学进入目标学校",
+      "result_reason_code": null,
+      "result_reason": null,
+      "personal_data_purged": false,
+      "blocked_reasons": [],
+      "documents": [{ "id": "40000000-0000-4000-8000-000000000001", "mime": "image/png", "available": true }]
+    }
+  }
+}

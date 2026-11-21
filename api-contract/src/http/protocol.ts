@@ -101,6 +101,13 @@ export function decodeResource(value: unknown): Record<string, unknown> {
 }
 /** Explicit aliases for action routes whose target resource differs from the URL leaf. */
 export function resourceType(path: string): string {
+  const changePath = path.split('?')[0]
+  if (/^\/api\/v1\/(?:miniapp|platform)\/school-change-requests(?:\/|$)/.test(changePath)) {
+    if (changePath.endsWith('/cancel')) return 'miniapp-school-change-cancellations'
+    if (changePath.endsWith('/approve')) return 'miniapp-school-change-approvals'
+    if (changePath.endsWith('/reject')) return 'miniapp-school-change-rejections'
+    return 'miniapp-school-change-requests'
+  }
   const parts = path.split("?")[0].split("/").filter(Boolean);
   if (parts[1] === 'v2' && parts[2] === 'source-connections') return 'source-connections';
   if (parts[1] === 'v2' && parts[2] === 'schools' && parts[4] === 'source-bindings') return 'source-bindings';

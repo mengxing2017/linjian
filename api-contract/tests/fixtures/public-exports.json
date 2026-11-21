@@ -171,6 +171,10 @@
       "createIdentityClient"
     ]
   },
+  "./school-changes": {
+    "types": ["SchoolChangeDocument", "SchoolChangeFilters", "SchoolChangePolicy", "SchoolChangeRequest", "SchoolChangeStatus", "SchoolChangeSubmission", "SchoolChangeSummary"],
+    "values": ["createSchoolChangesClient"]
+  },
   "./schools": {
     "types": [
       "AuthorizationAction",
