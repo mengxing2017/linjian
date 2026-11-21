@@ -5,6 +5,7 @@ use crate::{
 use serde_json::Value;
 use uuid::Uuid;
 pub enum Command {
+    Services(crate::operations::domain::services::ServiceCommand),
     PostOptions {
         page: crate::business::Page,
         context: String,
@@ -40,7 +41,6 @@ pub enum Command {
         ip: Option<String>,
     },
     Display,
-    Event(BannerEvent),
     CustomerMedia(String),
     ResourceMedia(Uuid),
     FeedbackMedia {

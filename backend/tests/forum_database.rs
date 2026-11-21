@@ -10,6 +10,8 @@ use uuid::Uuid;
 mod member_permissions_fixture;
 #[path = "member_permissions/mod.rs"]
 mod member_permissions_tests;
+#[path = "operation_services/mod.rs"]
+mod operation_services_tests;
 #[path = "post_interactions/mod.rs"]
 mod post_interactions_tests;
 #[path = "post_seed/mod.rs"]
@@ -1850,7 +1852,7 @@ async fn school_profiles_visibility_artwork_and_transactions() {
         .execute(&pool)
         .await
         .unwrap();
-    repo.cleanup_artwork().await.unwrap();
+    app.media.0.cleanup().await.unwrap();
     assert!(
         repo.branding(id, "header", Default::default())
             .await
@@ -4370,22 +4372,60 @@ async fn operations_scope_metrics_configuration_and_feedback_deletion() {
     assert_eq!(display["qrcode"]["id"], qr["id"]);
     let event_id = Uuid::new_v4();
     let cycle = Uuid::new_v4();
+    let occurred_at = chrono::Utc::now();
     let ev = |event_id, event_type: &str| {
-        serde_json::from_value(json!({"event_id":event_id,"resource_id":id,"event_type":event_type,"display_cycle":cycle,"occurred_at":chrono::Utc::now()})).unwrap()
+        serde_json::from_value(json!({"event_id":event_id,"resource_id":id,"event_type":event_type,"display_cycle":cycle,"occurred_at":occurred_at,"channel":null,"target_version_id":null,"placement":"home_banner","attempt_id":if event_type=="click"{Some(event_id)}else{None}})).unwrap()
     };
-    ops.execute(&actor, Some(s), Command::Event(ev(event_id, "view")))
-        .await
-        .unwrap();
-    ops.execute(&actor, Some(s), Command::Event(ev(event_id, "view")))
-        .await
-        .unwrap();
-    ops.execute(&actor, Some(s), Command::Event(ev(Uuid::new_v4(), "view")))
-        .await
-        .unwrap();
+    ops.execute(
+        &actor,
+        Some(s),
+        Command::Services(
+            linjian_api::operations::domain::services::ServiceCommand::Metric(ev(event_id, "view")),
+        ),
+    )
+    .await
+    .unwrap();
+    ops.execute(
+        &actor,
+        Some(s),
+        Command::Services(
+            linjian_api::operations::domain::services::ServiceCommand::Metric(ev(event_id, "view")),
+        ),
+    )
+    .await
+    .unwrap();
+    ops.execute(
+        &actor,
+        Some(s),
+        Command::Services(
+            linjian_api::operations::domain::services::ServiceCommand::Metric(ev(
+                Uuid::new_v4(),
+                "view",
+            )),
+        ),
+    )
+    .await
+    .unwrap();
     let click = Uuid::new_v4();
     let (a, b) = tokio::join!(
-        ops.execute(&actor, Some(s), Command::Event(ev(click, "click"))),
-        ops.execute(&actor, Some(s), Command::Event(ev(click, "click")))
+        ops.execute(
+            &actor,
+            Some(s),
+            Command::Services(
+                linjian_api::operations::domain::services::ServiceCommand::Metric(ev(
+                    click, "click"
+                ))
+            )
+        ),
+        ops.execute(
+            &actor,
+            Some(s),
+            Command::Services(
+                linjian_api::operations::domain::services::ServiceCommand::Metric(ev(
+                    click, "click"
+                ))
+            )
+        )
     );
     a.unwrap();
     b.unwrap();
@@ -4400,7 +4440,12 @@ async fn operations_scope_metrics_configuration_and_feedback_deletion() {
         ops.execute(
             &actor,
             Some(other),
-            Command::Event(ev(Uuid::new_v4(), "view"))
+            Command::Services(
+                linjian_api::operations::domain::services::ServiceCommand::Metric(ev(
+                    Uuid::new_v4(),
+                    "view"
+                ))
+            )
         )
         .await
         .is_err()
@@ -4486,10 +4531,7 @@ async fn operations_scope_metrics_configuration_and_feedback_deletion() {
         .execute(&pool)
         .await
         .unwrap();
-    linjian_api::schools::south::adapter::postgres::Repository(pool.clone())
-        .cleanup_artwork()
-        .await
-        .unwrap();
+    app.media.0.cleanup().await.unwrap();
     assert!(
         ops.execute(&actor, Some(s), Command::CustomerMedia("business".into()))
             .await
@@ -4614,9 +4656,18 @@ async fn operations_scope_metrics_configuration_and_feedback_deletion() {
     .await
     .unwrap();
     assert!(
-        ops.execute(&actor, Some(s), Command::Event(ev(Uuid::new_v4(), "view")))
-            .await
-            .is_err()
+        ops.execute(
+            &actor,
+            Some(s),
+            Command::Services(
+                linjian_api::operations::domain::services::ServiceCommand::Metric(ev(
+                    Uuid::new_v4(),
+                    "view"
+                ))
+            )
+        )
+        .await
+        .is_err()
     );
     assert_eq!(
         sqlx::query_scalar::<_, i64>("SELECT count(*) FROM forum_outbox")

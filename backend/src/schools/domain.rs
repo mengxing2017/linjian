@@ -109,6 +109,18 @@ impl ResourceInput {
         )?;
         self.action.validate()?;
         require(
+            self.kind != "banner"
+                || matches!(
+                    self.action,
+                    ResourceAction::None {} | ResourceAction::InternalPage { .. }
+                ),
+            "首页广告仅支持本站页面或不跳转",
+        )?;
+        require(
+            self.kind != "qrcode" || matches!(self.action, ResourceAction::None {}),
+            "群二维码只提供图片展示",
+        )?;
+        require(
             !matches!(self.kind.as_str(), "banner" | "qrcode") || self.image_ref.is_some(),
             "请选择展示图片",
         )?;

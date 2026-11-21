@@ -18,6 +18,7 @@ use axum::{
 use std::{collections::HashMap, net::SocketAddr};
 use uuid::Uuid;
 type Keys = Path<HashMap<String, String>>;
+mod services;
 fn key(p: &HashMap<String, String>, k: &str) -> Result<Uuid> {
     p.get(k).and_then(|v| v.parse().ok()).ok_or(Error::NotFound)
 }
@@ -232,23 +233,6 @@ async fn display(
             .await?,
     ))
 }
-async fn event(
-    State(a): State<Application>,
-    actor: Actor,
-    Path(s): Path<Uuid>,
-    input: Input,
-) -> Result<ApiResponse> {
-    Ok(resource(
-        "banner-events",
-        service(a)
-            .execute(
-                &actor,
-                Some(s),
-                Command::Event(input.decode("banner-events")?),
-            )
-            .await?,
-    ))
-}
 fn binary(v: serde_json::Value) -> Result<Response> {
     let bytes: Vec<u8> =
         serde_json::from_value(v["bytes"].clone()).map_err(|_| Error::Unavailable)?;
@@ -359,7 +343,7 @@ pub fn router() -> Router<Application> {
             get(feedback_get).delete(feedback_delete),
         )
         .route("/api/v1/schools/{school}/operations-display", get(display))
-        .route("/api/v1/schools/{school}/banner-events", post(event))
+        .merge(services::router())
         .route(
             "/api/v1/schools/{school}/customer-images/{kind}",
             get(customer_media),

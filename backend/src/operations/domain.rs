@@ -5,6 +5,7 @@ use crate::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+pub mod services;
 
 #[derive(Clone, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -131,6 +132,15 @@ impl ResourceInput {
             "结束展示时间必须晚于开始",
         )?;
         self.action.validate()?;
+        if kind == "banner" {
+            require(
+                matches!(
+                    self.action,
+                    ResourceAction::None {} | ResourceAction::InternalPage { .. }
+                ),
+                "首页广告仅支持本站页面或不跳转",
+            )?;
+        }
         if kind == "qrcode" {
             require(
                 matches!(self.action, ResourceAction::None {}),
@@ -179,28 +189,6 @@ impl FeedbackInput {
         require(self.images.len() <= 9, "最多上传九张图片")
     }
 }
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BannerEvent {
-    pub event_id: Uuid,
-    pub resource_id: Uuid,
-    pub event_type: String,
-    pub display_cycle: Uuid,
-    pub occurred_at: DateTime<Utc>,
-}
-impl BannerEvent {
-    pub fn validate(&self) -> Result<()> {
-        require(
-            matches!(self.event_type.as_str(), "view" | "click"),
-            "事件类型无效",
-        )?;
-        let delta = Utc::now() - self.occurred_at;
-        require(
-            delta.num_seconds() >= -60 && delta.num_seconds() <= 7 * 86400,
-            "统计事件已过期",
-        )
-    }
-}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -217,17 +205,6 @@ mod tests {
         v.contact = "微信".into();
         assert!(v.validate().is_ok());
         v.feedback_type = "invented".into();
-        assert!(v.validate().is_err());
-    }
-    #[test]
-    fn events_reject_stale_replays() {
-        let v = BannerEvent {
-            event_id: Uuid::new_v4(),
-            resource_id: Uuid::new_v4(),
-            event_type: "view".into(),
-            display_cycle: Uuid::new_v4(),
-            occurred_at: Utc::now() - chrono::Duration::days(8),
-        };
         assert!(v.validate().is_err());
     }
 }

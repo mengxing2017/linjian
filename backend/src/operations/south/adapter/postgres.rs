@@ -9,6 +9,24 @@ use crate::{
 use serde_json::{Value, json};
 use sqlx::{PgPool, Postgres, Row, Transaction};
 use uuid::Uuid;
+mod services;
+impl Repository {
+    pub async fn cleanup_metrics(&self) -> Result<()> {
+        let mut tx = self.0.begin().await?;
+        sqlx::query("DELETE FROM operation_metric_events WHERE created_at<now()-interval '8 days'")
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query("DELETE FROM marketing_events WHERE created_at<now()-interval '8 days'")
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query("DELETE FROM operation_daily_metrics WHERE day<(now() AT TIME ZONE 'Asia/Shanghai')::date-365").execute(&mut *tx).await?;
+        sqlx::query("DELETE FROM operation_report_snapshots WHERE expires_at<now()")
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+}
 #[derive(Clone)]
 pub struct Repository(
     pub PgPool,
@@ -83,7 +101,16 @@ async fn check_action(
 }
 /// Shared selection for both legacy resources and operations display. GET never counts views.
 pub async fn effective_resources(pool: &PgPool, s: Uuid) -> Result<Vec<Value>> {
-    let mut rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(r)||jsonb_build_object('image_url',CASE WHEN r.image_ref->>'kind'='asset' THEN '/api/v1/schools/'||($1::uuid)::text||'/resource-media/'||r.id ELSE NULL END,'action_available',CASE WHEN r.action->>'kind'='internal_page' AND r.action->>'page'='post' THEN EXISTS(SELECT 1 FROM posts p WHERE p.id::text=r.action->>'object_id' AND p.school_id=$1 AND p.visibility='visible' AND p.audit_status='approved') ELSE true END) FROM school_resources r WHERE r.deleted_at IS NULL AND r.kind IN ('banner','qrcode','service','legal') AND (r.kind NOT IN ('banner','qrcode') OR (char_length(btrim(r.title)) BETWEEN 1 AND 100 AND (r.kind<>'qrcode' OR char_length(r.content)<=255) AND EXISTS(SELECT 1 FROM operational_media m WHERE m.id::text=r.image_ref->>'id' AND m.school_id IS NOT DISTINCT FROM r.school_id))) AND r.active AND (r.starts_at IS NULL OR r.starts_at<=now()) AND (r.ends_at IS NULL OR r.ends_at>now()) AND (r.school_id=$1 OR (r.school_id IS NULL AND (r.kind='banner' OR NOT EXISTS(SELECT 1 FROM school_resources c WHERE c.school_id=$1 AND c.kind=r.kind AND c.deleted_at IS NULL AND c.active AND (c.kind NOT IN ('banner','qrcode') OR (char_length(btrim(c.title)) BETWEEN 1 AND 100 AND (c.kind<>'qrcode' OR char_length(c.content)<=255) AND EXISTS(SELECT 1 FROM operational_media cm WHERE cm.id::text=c.image_ref->>'id' AND cm.school_id IS NOT DISTINCT FROM c.school_id))) AND (c.starts_at IS NULL OR c.starts_at<=now()) AND (c.ends_at IS NULL OR c.ends_at>now()))))) ORDER BY (r.school_id IS NULL),r.sort_order DESC,r.id ASC").bind(s).fetch_all(pool).await?;
+    effective_resources_with(pool, s).await
+}
+async fn effective_resources_with<
+    'connection,
+    E: sqlx::Executor<'connection, Database = Postgres>,
+>(
+    executor: E,
+    s: Uuid,
+) -> Result<Vec<Value>> {
+    let mut rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(r)||jsonb_build_object('image_url',CASE WHEN r.image_ref->>'kind'='asset' THEN '/api/v1/schools/'||($1::uuid)::text||'/resource-media/'||r.id ELSE NULL END,'action_available',CASE WHEN r.action->>'kind'='internal_page' AND r.action->>'page'='post' THEN EXISTS(SELECT 1 FROM posts p WHERE p.id::text=r.action->>'object_id' AND p.school_id=$1 AND p.visibility='visible' AND p.audit_status='approved') ELSE true END) FROM school_resources r WHERE r.deleted_at IS NULL AND r.kind IN ('banner','qrcode','service','legal') AND (r.kind NOT IN ('banner','qrcode') OR (char_length(btrim(r.title)) BETWEEN 1 AND 100 AND (r.kind<>'qrcode' OR char_length(r.content)<=255) AND EXISTS(SELECT 1 FROM operational_media m WHERE m.id::text=r.image_ref->>'id' AND m.school_id IS NOT DISTINCT FROM r.school_id))) AND r.active AND (r.starts_at IS NULL OR r.starts_at<=now()) AND (r.ends_at IS NULL OR r.ends_at>now()) AND (r.school_id=$1 OR (r.school_id IS NULL AND (r.kind='banner' OR NOT EXISTS(SELECT 1 FROM school_resources c WHERE c.school_id=$1 AND c.kind=r.kind AND c.deleted_at IS NULL AND c.active AND (c.kind NOT IN ('banner','qrcode') OR (char_length(btrim(c.title)) BETWEEN 1 AND 100 AND (c.kind<>'qrcode' OR char_length(c.content)<=255) AND EXISTS(SELECT 1 FROM operational_media cm WHERE cm.id::text=c.image_ref->>'id' AND cm.school_id IS NOT DISTINCT FROM c.school_id))) AND (c.starts_at IS NULL OR c.starts_at<=now()) AND (c.ends_at IS NULL OR c.ends_at>now()))))) ORDER BY (r.school_id IS NULL),r.sort_order DESC,r.id ASC").bind(s).fetch_all(executor).await?;
     let mut qr = false;
     let mut banners = 0;
     rows.retain(|r| {
@@ -124,6 +151,7 @@ impl Store for Repository {
     async fn execute(&self, a: &Actor, s: Option<Uuid>, c: Command) -> Result<Value> {
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         let result = match c {
+            Command::Services(command) => services::execute(self, &mut tx, a, s, command).await?,
             Command::PostOptions { page, context } => {
                 if !matches!(
                     context.as_str(),
@@ -211,17 +239,6 @@ impl Store for Repository {
                     }
                 }
                 check_action(&mut tx, s, &v.action).await?;
-                if !matches!(
-                    v.action,
-                    ResourceAction::None {} | ResourceAction::InternalPage { .. }
-                ) {
-                    require(
-                        prior
-                            .as_ref()
-                            .is_some_and(|p| p["action"] == json!(v.action)),
-                        "新广告请选择本站页面或不跳转",
-                    )?;
-                }
                 let id = id.unwrap_or_else(Uuid::now_v7);
                 if prior.is_some() {
                     let n=sqlx::query("UPDATE school_resources SET title=$3,content=$4,image_ref=$5,action=$6,active=$7,sort_order=$8,starts_at=$9,ends_at=$10,popup_strategy=$11,popup_interval_days=$12,revision=revision+1 WHERE id=$1 AND school_id IS NOT DISTINCT FROM $2 AND revision=$13 AND deleted_at IS NULL").bind(id).bind(s).bind(&v.title).bind(&v.content).bind(json!({"kind":"asset","id":asset})).bind(json!(v.action)).bind(v.active).bind(v.sort_order).bind(v.starts_at).bind(v.ends_at).bind(&v.popup_strategy).bind(v.popup_interval_days).bind(v.revision).execute(&mut *tx).await?.rows_affected();
@@ -395,37 +412,8 @@ impl Store for Repository {
                         )));
                     }
                 }
-                json!({"id":"current","server_time":chrono::Utc::now(),"qrcode":rows.iter().find(|r|r["kind"]=="qrcode"),"banners":rows.iter().filter(|r|r["kind"]=="banner").collect::<Vec<_>>(),"customer":display})
-            }
-            Command::Event(v) => {
-                auth(&mut tx, a, s, "member").await?;
-                let s = school(s)?;
-                // Serialize a user's metric events to make both throttling and deduplication race-safe.
-                sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,73121))")
-                    .bind(a.id.to_string())
-                    .execute(&mut *tx)
-                    .await?;
-                let visible = effective_resources(&self.0, s).await?;
-                visible
-                    .iter()
-                    .find(|r| r["id"] == v.resource_id.to_string() && r["kind"] == "banner")
-                    .ok_or(Error::NotFound)?;
-                sqlx::query("SELECT id FROM school_resources WHERE id=$1 AND deleted_at IS NULL AND active AND (starts_at IS NULL OR starts_at<=now()) AND (ends_at IS NULL OR ends_at>now()) FOR SHARE").bind(v.resource_id).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
-                let count:i64=sqlx::query_scalar("SELECT count(*) FROM banner_metric_events WHERE account_id=$1 AND created_at>now()-interval '1 minute'").bind(a.id).fetch_one(&mut *tx).await?;
-                require(count < 120, "统计请求过于频繁")?;
-                let n=sqlx::query("INSERT INTO banner_metric_events(event_id,resource_id,school_id,account_id,event_type,display_cycle,occurred_at) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING").bind(v.event_id).bind(v.resource_id).bind(s).bind(a.id).bind(&v.event_type).bind(v.display_cycle).bind(v.occurred_at).execute(&mut *tx).await?.rows_affected();
-                if n == 1 {
-                    let sql = if v.event_type == "view" {
-                        "UPDATE school_resources SET views=views+1 WHERE id=$1"
-                    } else {
-                        "UPDATE school_resources SET clicks=clicks+1 WHERE id=$1"
-                    };
-                    sqlx::query(sql)
-                        .bind(v.resource_id)
-                        .execute(&mut *tx)
-                        .await?;
-                }
-                json!({"id":v.event_id,"accepted":true})
+                let home = services::home_catalog(&mut tx, s).await?;
+                json!({"id":"current","server_time":chrono::Utc::now(),"shortcuts":home["shortcuts"],"categories":home["categories"],"config_token":home["token"],"qrcode":rows.iter().find(|r|r["kind"]=="qrcode"),"banners":rows.iter().filter(|r|r["kind"]=="banner").collect::<Vec<_>>(),"customer":display})
             }
             Command::ResourceMedia(id) => {
                 let resource = sqlx::query("SELECT kind FROM school_resources WHERE id=$1 AND school_id IS NOT DISTINCT FROM $2").bind(id).bind(s).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
