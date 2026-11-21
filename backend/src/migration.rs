@@ -37,12 +37,26 @@ pub const TABLES: &[&str] = &[
     "forum_post_recommendations",
     "forum_source_terminations",
     "cases",
+    "operation_service_categories",
+    "operation_partners",
+    "operation_cooperations",
+    "operation_service_targets",
+    "operation_target_versions",
+    "operation_target_reviews",
     "school_resources",
     "media_assets",
     "operational_media",
     "resource_publications",
     "customer_config",
-    "banner_metric_events",
+    "school_shortcut_overrides",
+    "operation_config_revisions",
+    "marketing_slots",
+    "marketing_events",
+    "school_marketing_settings",
+    "operation_metric_events",
+    "operation_action_events",
+    "operation_daily_metrics",
+    "operation_report_snapshots",
     "audit_events",
     "legacy_id_map",
     "legacy_aliases",
@@ -71,7 +85,7 @@ fn filter(table: &str) -> &'static str {
     match table {
         "file_asset_references" => " WHERE object_type <> 'product_previews'",
         "audit_events" => {
-            " WHERE action LIKE 'post.%' OR action LIKE 'comment.%' OR action LIKE 'case.%' OR action LIKE 'school.%' OR action LIKE 'account.%' OR action LIKE 'resource.%'"
+            " WHERE action LIKE 'post.%' OR action LIKE 'comment.%' OR action LIKE 'case.%' OR action LIKE 'school.%' OR action LIKE 'account.%' OR action LIKE 'resource.%' OR action LIKE 'operation.%'"
         }
         "legacy_id_map" => {
             " WHERE source_table IN ('accounts','schools','posts','comments','cases','school_resources')"
@@ -200,6 +214,8 @@ pub async fn import(
         "posts",
         "cases",
         "school_resources",
+        "school_shortcut_overrides",
+        "operation_target_versions",
         "resource_publications",
         "forum_publication_snapshots",
     ] {
@@ -261,6 +277,8 @@ pub async fn import(
         "posts",
         "cases",
         "school_resources",
+        "school_shortcut_overrides",
+        "operation_target_versions",
         "resource_publications",
         "forum_publication_snapshots",
     ] {
