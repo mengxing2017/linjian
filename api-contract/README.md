@@ -3,6 +3,16 @@
 不部署的 TypeScript DTO/client 包，按 http、system、health、business 子路径导出。
 前端仅在 feature/api/index.ts 引用本包，不重复定义 HTTP DTO 或另写 fetch。
 
+## 模块公开边界
+
+`src/modules/**/index.ts` 与 `src/http/index.ts` 只显式导出公开符号，不定义类型、函数、状态或客户端实例，也不使用 `export *`。公共子路径由 `package.json#exports` 固定，使用方无需改动导入路径。
+
+类型放在 `types.ts`；查询、路径、协议校验分别放在 `query.ts`、`path.ts` / `paths.ts`、`validation.ts`；客户端工厂放在 `client.ts`。浏览器单例放在 `default-client.ts` 或具名装配文件中。内部文件直接依赖具名文件，不反向导入入口；跨模块内部依赖也遵守此规则。
+
+`http` 的浏览器 transport、会话/CSRF 单例、multipart 分别位于 `browser-transport.ts`、`browser-client.ts`、`multipart.ts`；平台无关客户端仍从 `client` 子路径导入。导出浏览器单例的入口仍会加载对应装配文件，本次拆分不承诺导入入口完全没有初始化，也不声明整个包 `sideEffects: false`。
+
+`pnpm lint` 检查纯导出入口、内部反向依赖及循环依赖（包括类型导入）；`pnpm build` 自动执行该检查。`pnpm test` 同时覆盖边界规则与公开导出清单回归，保持已有符号及其类型/值角色，仅新增可注入 transport 的 `createSourceAccessClient`。
+
 ## 单一 JSON:API 业务协议
 
 `/api/v1` 结构化成功和错误响应统一为 `application/vnd.api+json`，后端使用固定版本的 Cairnkit `Resource`、`DocumentData`、`PrimaryData`、`error_document`。没有旧 `{data: DTO}`、`{error: ...}` 解包分支。
