@@ -1276,7 +1276,7 @@ async fn miniapp_users_registration_school_scope_and_ban() {
             .fetch_one(&pool)
             .await
             .unwrap(),
-        "微信用户",
+        own.nickname,
         "miniapp nickname is independent"
     );
     let profile = repo
@@ -4930,5 +4930,7 @@ mod media_gc_tests;
 #[path = "post_recommendation/mod.rs"]
 mod post_recommendation_tests;
 
+#[path = "miniapp_profile/mod.rs"]
+mod miniapp_profile_tests;
 #[path = "site_settings/mod.rs"]
 mod site_settings_tests;

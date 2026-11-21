@@ -16,6 +16,35 @@ use axum::{
     routing::{get, post, put},
 };
 use uuid::Uuid;
+async fn registration_settings(
+    State(app): State<Application>,
+    actor: Actor,
+) -> Result<ApiResponse> {
+    Ok(singleton(
+        "miniapp-registration-settings",
+        "current",
+        app.registration_settings.read(&actor).await?,
+    ))
+}
+
+async fn update_registration_settings(
+    State(app): State<Application>,
+    actor: Actor,
+    input: Input,
+) -> Result<ApiResponse> {
+    Ok(singleton(
+        "miniapp-registration-settings",
+        "current",
+        app.registration_settings
+            .update(
+                &actor,
+                input.decode::<registration::RegistrationSettingsInput>(
+                    "miniapp-registration-settings",
+                )?,
+            )
+            .await?,
+    ))
+}
 fn collection(mut rows: Vec<UserView>, q: &Query) -> Result<ApiResponse> {
     let (size, _) = q.bounds()?;
     let more = rows.len() > size as usize;
@@ -174,6 +203,10 @@ async fn avatar(
 }
 pub fn router() -> Router<Application> {
     Router::new()
+        .route(
+            "/api/v1/platform/miniapp-registration-settings",
+            get(registration_settings).put(update_registration_settings),
+        )
         .route(
             "/api/v1/schools/{school}/miniapp-users/searches",
             post(search),

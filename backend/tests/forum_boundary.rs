@@ -5,6 +5,38 @@ use axum::{
 use linjian_api::{bootstrap, http};
 use tower::ServiceExt;
 #[tokio::test]
+async fn registration_settings_jsonapi_matches_shared_fixtures() {
+    use axum::response::IntoResponse;
+    use linjian_api::miniapp_users::domain::registration::{
+        RegistrationSettings, RegistrationSettingsInput,
+    };
+    let expected: serde_json::Value = serde_json::from_str(include_str!(
+        "../../api-contract/fixtures/miniapp-registration-settings.json"
+    ))
+    .unwrap();
+    let value: RegistrationSettings =
+        serde_json::from_value(expected["data"]["attributes"].clone()).unwrap();
+    let response =
+        linjian_api::http::jsonapi::singleton("miniapp-registration-settings", "current", value)
+            .into_response();
+    let actual: serde_json::Value =
+        serde_json::from_slice(&to_bytes(response.into_body(), 8192).await.unwrap()).unwrap();
+    assert_eq!(actual, expected);
+    let input: serde_json::Value = serde_json::from_str(include_str!(
+        "../../api-contract/fixtures/miniapp-registration-settings-input.json"
+    ))
+    .unwrap();
+    let value: RegistrationSettingsInput =
+        serde_json::from_value(input["data"]["attributes"].clone()).unwrap();
+    assert_eq!(value.validate().unwrap(), "校园用户");
+    assert!(
+        serde_json::from_value::<RegistrationSettingsInput>(
+            serde_json::json!({"nickname_prefix":"用户","revision":0,"owner_id":"other"})
+        )
+        .is_err()
+    );
+}
+#[tokio::test]
 async fn blocked_words_jsonapi_matches_shared_fixture() {
     use axum::response::IntoResponse;
     let fixture: serde_json::Value = serde_json::from_str(include_str!(

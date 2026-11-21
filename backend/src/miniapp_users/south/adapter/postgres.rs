@@ -1,5 +1,5 @@
 use crate::{
-    business::{Actor, Error, Result, hash, require, text},
+    business::{Actor, Error, Result, require, text},
     miniapp_users::{
         domain::*,
         south::port::{ProfileStore, RegistrationStore},
@@ -8,6 +8,7 @@ use crate::{
 use serde_json::{Value, json};
 use sqlx::{PgPool, Postgres, Row, Transaction};
 use uuid::Uuid;
+pub mod registration;
 #[derive(Clone)]
 pub struct Repository(pub PgPool);
 const VIEW: &str = "SELECT u.account_id AS id,CASE WHEN u.avatar_asset_id IS NULL THEN NULL ELSE '/api/v1/miniapp/avatar-assets/'||u.avatar_asset_id END AS avatar_url,u.avatar_asset_id,u.nickname,a.account_kind,u.mobile,a.bound_school_id AS school_id,s.name AS school_name,(SELECT count(*) FROM posts p WHERE p.author_id=u.account_id AND p.school_id=a.bound_school_id AND p.visibility<>'deleted') AS post_count,u.created_at,u.status,u.revision FROM miniapp_users u JOIN accounts a ON a.id=u.account_id LEFT JOIN schools s ON s.id=a.bound_school_id";
@@ -54,43 +55,12 @@ pub async fn lock_user(
 }
 impl RegistrationStore for Repository {
     async fn register(&self, app: &str, openid: &str) -> Result<Uuid> {
-        let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
-        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,73109))")
-            .bind(json!([app, openid]).to_string())
-            .execute(&mut *tx)
-            .await?;
-        if let Some(id) = sqlx::query_scalar::<_, Uuid>(
-            "SELECT account_id FROM miniapp_identities WHERE app_id=$1 AND openid=$2",
+        self.register_with_random(
+            app,
+            openid,
+            super::registration_random::RegistrationRandom::new,
         )
-        .bind(app)
-        .bind(openid)
-        .fetch_optional(&mut *tx)
-        .await?
-        {
-            tx.commit().await?;
-            return Ok(id);
-        }
-        let id = Uuid::now_v7();
-        sqlx::query("INSERT INTO accounts(id,username,display_name) VALUES($1,$2,'微信用户')")
-            .bind(id)
-            .bind(format!(
-                "miniapp_{}",
-                hash(&json!([app, openid]).to_string())
-            ))
-            .execute(&mut *tx)
-            .await?;
-        sqlx::query("INSERT INTO miniapp_users(account_id,nickname) VALUES($1,'微信用户')")
-            .bind(id)
-            .execute(&mut *tx)
-            .await?;
-        sqlx::query("INSERT INTO miniapp_identities(app_id,openid,account_id) VALUES($1,$2,$3)")
-            .bind(app)
-            .bind(openid)
-            .bind(id)
-            .execute(&mut *tx)
-            .await?;
-        tx.commit().await?;
-        Ok(id)
+        .await
     }
 }
 impl ProfileStore for Repository {

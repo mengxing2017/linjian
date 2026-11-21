@@ -2,6 +2,7 @@ use crate::business::{Error, Result, require, text};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+pub mod registration;
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct UserView {
