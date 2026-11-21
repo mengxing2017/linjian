@@ -1,7 +1,7 @@
 # @linjian/api-contract
 
 不部署的 TypeScript DTO/client 包，按 http、system、health、business 子路径导出。
-前端仅在 feature/api/index.ts 引用本包，不重复定义 HTTP DTO 或另写 fetch。
+前端仅在 feature 的 api/index.ts、api/client.ts、api/contract.ts 引用本包，不重复定义 HTTP DTO 或另写 fetch。
 
 ## 模块公开边界
 

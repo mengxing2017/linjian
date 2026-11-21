@@ -43,7 +43,11 @@ Web 默认 `http://localhost:5173`，通过 Vite 代理请求 `LINJIAN_DEV_API_U
 
 小程序仅开放用户主动好友/群分享，使用中性标题和本地静态封面，不外发私有图片或帖子标题；分享不授予学校权限。默认封面生成源为 `apps/miniapp/tools/build-share-cover.mjs`，修改后运行 `node frontend/apps/miniapp/tools/build-share-cover.mjs`（仓库根目录）更新 PNG。朋友圈、码/海报和复制链接不在本期开放，真机验证与发布验收仍须独立完成。
 
-只有 feature 的 `api/index.ts` 导入 `@linjian/api-contract/*`。Web 与小程序禁止互相引用，社区不得依赖管理工作区，shared 不定义 DTO/client。`tools/check-boundaries.mjs` 检查静态导入、类型导入、re-export、动态导入和 Vue script。
+只有 feature 的 `api/index.ts`、`api/client.ts`、`api/contract.ts` 引用 `@linjian/api-contract/*`，禁止绕过 package exports 深层导入。所有 `index.ts` / `index.tsx` 只保留导入、导出及类型声明，不创建客户端、定义组件或初始化状态；组件实现在具名 `*-page.tsx` 中，feature 客户端装配在 `api/client.ts` 中。
+
+两端从各自 `app/api` 取得共享 client。小程序只在 `app/api/client.ts` 调用一次 `createClient(createUniTransport(...))`；它通过 identity 的纯 `api/contract.ts` 获取平台协议工厂，不依赖 identity API 实例或其入口。Web 的应用级 client 复用 contract 已有浏览器单例，确保 Cookie、CSRF、multipart 和会话过期监听共享同一状态，不额外创建 transport 或 client。identity API 保留原有 `client` 导出，但其他 feature 的客户端不得借此获取共享 client。入口的 re-export 仍可能加载单例装配模块，不承诺运行时导入完全无初始化。
+
+Web 与小程序禁止互相引用，社区不得依赖管理工作区，shared 不定义 DTO/client。`tools/check-boundaries.mjs` 检查静态导入、类型导入、re-export、动态导入、Vue script、跨 feature 的 `api/client` 深层导入和运行时循环依赖；纯类型依赖不计入运行时循环。`tools/public-entries.test.mjs` 对照拆分前的公开符号及类型/值角色，防止入口重构丢失导出。
 
 平台中立 client 通过 transport 传输，统一编码 JSON:API、验证资源/分页并保留服务器错误。Web 保留 Cookie + CSRF 兼容 facade；小程序使用独立 Bearer 和可信 HTTPS origin。写入不自动重试，响应丢失时先核对“我的发布”。
 

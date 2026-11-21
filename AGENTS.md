@@ -7,7 +7,7 @@
 - 不引入手机、目标群、官方群发或发送设备模块。Outbox 是来源推送，不产生发送任务或发送授权。
 - Rust 保留 domain、north/local、north/remote、south/port、south/adapter 分层；HTTP 不写 SQL。
 - 论坛新库只执行 `backend/migrations/` 中的独立基线与后续 forward-only migration。
-- Web 与小程序独立构建，禁止互相 import。只在 feature 的 api/index.ts 引用 contract。
+- Web 与小程序独立构建，禁止互相 import。只在 feature 的 api/index.ts、api/client.ts、api/contract.ts 引用 contract；index 仅导出，应用层统一装配共享 client。
 - JSON:API 接口同步维护 Rust 序列化、TypeScript client 与 fixture。保留学校边界、权限、Origin 与 CSRF 校验。
 - 浏览器 Cookie、缓存、小程序存储键及环境变量使用 linjian 独立命名空间；不复用旧会话或来源密钥。
 - 来源凭据只在后端。正文变更与 Outbox 在同一事务提交；不因浏览、点赞或计数变化推送。接收端故障不影响论坛写入。
