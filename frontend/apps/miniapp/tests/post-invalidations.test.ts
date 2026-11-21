@@ -1,6 +1,18 @@
-import { beforeEach, expect, it } from 'vitest'
-import { acknowledgePost, clearPostInvalidations, invalidatePost, invalidatedPosts } from '../src/features/community/post-invalidations'
+import { beforeEach, expect, it, vi } from 'vitest'
+import { acknowledgePost, clearPostInvalidations, invalidatePost, invalidatedPosts, onPostInvalidated } from '../src/features/community/post-invalidations'
 beforeEach(clearPostInvalidations)
+it('broadcasts scope-local invalidations without consuming the feed queue, and unsubscribes cleanly', () => {
+  const listener = vi.fn()
+  const stop = onPostInvalidated(listener)
+  invalidatePost('account', 'school', 'post')
+  expect(listener).toHaveBeenCalledWith({ scope: 'account', school: 'school', id: 'post' })
+  expect(invalidatedPosts('account', 'school')).toHaveLength(1)
+  clearPostInvalidations()
+  expect(listener).toHaveBeenCalledOnce()
+  stop()
+  invalidatePost('account', 'school', 'another')
+  expect(listener).toHaveBeenCalledOnce()
+})
 it('isolates accounts and schools and acknowledges only the exact invalidation version', () => {
   invalidatePost('account-a', 'school-a', 'post')
   const first = invalidatedPosts('account-a', 'school-a')[0]

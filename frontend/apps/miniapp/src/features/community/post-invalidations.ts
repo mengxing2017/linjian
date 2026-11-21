@@ -6,6 +6,11 @@ interface Invalidation {
   authorId?: string
 }
 const pending = new Map<string, Map<string, Invalidation>>()
+const listeners = new Set<(event: { scope: string; school: string; id: string }) => void>()
+export function onPostInvalidated(listener: (event: { scope: string; school: string; id: string }) => void) {
+  listeners.add(listener)
+  return () => { listeners.delete(listener) }
+}
 let sequence = 0
 const key = (scope: string, school: string) => JSON.stringify([scope, school])
 export function invalidatePost(scope: string, school: string, id: string, content = false, authorId?: string) {
@@ -14,6 +19,7 @@ export function invalidatePost(scope: string, school: string, id: string, conten
   const version = ++sequence
   items.set(id, { id, version, content: content || !!items.get(id)?.content, contentVersion: content ? version : (items.get(id)?.contentVersion ?? 0), authorId: authorId ?? items.get(id)?.authorId })
   pending.set(scopeKey, items)
+  listeners.forEach(listener => listener({ scope, school, id }))
 }
 export function invalidatedPosts(scope: string, school: string) {
   return [...(pending.get(key(scope, school))?.values() ?? [])]
