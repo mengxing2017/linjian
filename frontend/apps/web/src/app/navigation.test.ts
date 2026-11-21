@@ -37,7 +37,7 @@ it('exposes complete forum management without sending capabilities', () => {
     operations: ['group-qrcodes','home-banners','home-shortcuts','service-targets','operation-reports','marketing-slots','school-marketing','customer-config','feedback'],
     school: ['schools', 'miniapp-users', 'members', 'settings'],
     source: ['source-connections', 'source-bindings', 'source-outbox'],
-    administration: ['administrators', 'accounts', 'site-settings', 'audit'],
+    administration: ['administrators', 'accounts', 'site-settings', 'miniapp-registration-settings', 'audit'],
   })
   expect(navigation.some((item) => item.key === 'comments')).toBe(false)
   expect(navigation.map((v) => v.key)).not.toEqual(
@@ -54,6 +54,8 @@ it('keeps platform account and school management separate from school operators'
   expect(visibleNavigationKeys(false, 'admin', rolePermissions('admin'))).not.toContain('schools')
   expect(visibleNavigationKeys(false, 'member')).toEqual([])
   expect(visibleNavigationKeys(true)).toContain('accounts')
+  expect(visibleNavigationKeys(true)).toContain('miniapp-registration-settings')
+  expect(visibleNavigationKeys(false, 'admin', rolePermissions('admin'))).not.toContain('miniapp-registration-settings')
   expect(navigation.find((item) => item.key === 'accounts')?.label).toBe('后台账号')
 })
 

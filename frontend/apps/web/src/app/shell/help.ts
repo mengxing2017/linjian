@@ -32,6 +32,7 @@ export const pageHelp: Record<string, string> = {
   accounts: 'platform-admin/accounts-and-schools',
   administrators: 'platform-admin/accounts-and-schools',
   'site-settings': 'platform-admin/site-settings',
+  'miniapp-registration-settings': 'miniapp-users',
   'platform-resources': 'platform-admin/audit-and-resources',
 }
 export const helpHref = (active: string) =>
