@@ -1456,11 +1456,10 @@ async fn report(
         values.1 += row["clicks"].as_i64().unwrap_or(0);
     }
     let trends:Vec<Value>=trends.into_iter().map(|(day,(views,clicks))|json!({"day":day,"views":views,"clicks":clicks,"ctr":if views>0 {Some(clicks as f64/views as f64)}else{None}})).collect();
-    let launched_at: DateTime<Utc> = sqlx::query_scalar(
-        "SELECT installed_on FROM _sqlx_migrations WHERE version=202611210002 AND success",
-    )
-    .fetch_one(&mut **tx)
-    .await?;
+    let launched_at: DateTime<Utc> =
+        sqlx::query_scalar("SELECT created_at FROM application_metadata WHERE singleton")
+            .fetch_one(&mut **tx)
+            .await?;
     let coverage_from = launched_at.max(Utc::now() - chrono::Duration::days(365));
     let report = json!({"filters":input,"coverage":{"available_from":coverage_from,"requested_from":input.starts_at,"partial":input.starts_at < coverage_from,"notice":"启用前及保留期外不可追溯；无数据不等于零访问"},"starts_at":input.starts_at,"ends_at":input.ends_at,"timezone":"Asia/Shanghai","generated_at":Utc::now(),"retention_days":365,"rows":rows,"summary":summary,"trends":trends,"notice":"API 成功、复制及二维码展示不代表交易或服务完成；按自然日汇总"});
     let id = Uuid::now_v7();
