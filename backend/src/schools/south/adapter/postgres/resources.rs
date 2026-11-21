@@ -149,13 +149,3 @@ impl Store for Repository {
             .await
     }
 }
-
-impl Repository {
-    pub async fn cleanup_artwork(&self) -> Result<()> {
-        // Content deletion is handled by the media lifecycle worker.
-        sqlx::query("DELETE FROM banner_metric_events WHERE created_at<now()-interval '8 days'")
-            .execute(&self.0)
-            .await?;
-        Ok(())
-    }
-}

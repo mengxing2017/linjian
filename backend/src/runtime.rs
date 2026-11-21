@@ -103,7 +103,10 @@ async fn serve_inner(
         }
     }
     info!(address = %listener.local_addr()?, "Linjian API listening");
-    let artwork = crate::schools::south::adapter::postgres::Repository(application.pool.clone());
+    let operation_metrics = crate::operations::south::adapter::postgres::Repository(
+        application.pool.clone(),
+        application.options.files.clone(),
+    );
     let avatar_cleanup =
         crate::miniapp_users::south::adapter::postgres::Repository(application.pool.clone());
     let import_cleanup =
@@ -120,8 +123,8 @@ async fn serve_inner(
             if avatar_cleanup.cleanup().await.is_err() {
                 tracing::warn!("unused miniapp avatar cleanup failed");
             }
-            if artwork.cleanup_artwork().await.is_err() {
-                tracing::warn!("abandoned artwork cleanup failed; referenced assets retained");
+            if operation_metrics.cleanup_metrics().await.is_err() {
+                tracing::warn!("operation metric retention cleanup failed");
             }
             tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
         }
