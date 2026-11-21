@@ -1,0 +1,9 @@
+{
+  "data": {
+    "type": "miniapp-registration-settings",
+    "attributes": {
+      "nickname_prefix": "校园用户",
+      "revision": 0
+    }
+  }
+}

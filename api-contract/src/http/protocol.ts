@@ -107,6 +107,7 @@ export function resourceType(path: string): string {
   if (parts[0] !== "api" || parts[1] !== "v1")
     throw new Error("Unknown resource path");
   if(parts[2]==='platform' && parts[3]==='site-settings')return 'site-settings';
+  if(parts[2]==='platform' && parts[3]==='miniapp-registration-settings')return 'miniapp-registration-settings';
   if(parts[2]==='schools' && parts[4]==='source-outbox' && parts[6]==='terminations')return 'source-event-terminations';
   if(parts[2]==='schools' && parts[4]==='members' && parts[6]==='recommendation-capability')return 'post-recommendation-capabilities';
   if(parts[2]==='schools' && parts[4]==='members' && parts[6]==='authorization')return 'school-member-authorizations';

@@ -1,0 +1,12 @@
+{
+  "data": {
+    "type": "miniapp-registration-settings",
+    "id": "current",
+    "attributes": {
+      "nickname_prefix": "用户",
+      "revision": 0,
+      "updated_at": "2026-11-21T00:00:00Z",
+      "updated_by_name": null
+    }
+  }
+}
