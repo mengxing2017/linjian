@@ -2,6 +2,8 @@ import type { Client, Cancellation } from '../../http/client'
 import { decodeResource, invalidDocument, type ResourceObject } from '../../http/protocol'
 import { schoolPath } from '../schools'
 import type { Post, Row } from '../business/types'
+import { hotPostsLimit, readHotPosts, type HotPostsQuery } from './hot-posts'
+export type { HotPostSummary, HotPostsMeta, HotPostsQuery, HotPostsResult } from './hot-posts'
 export type { Post, Row } from '../business/types'
 export interface CommunityPost extends Post {
   like_count: number
@@ -80,6 +82,11 @@ export function createCommunityClient(client: Client) {
   const scope = (s: string, p: string) => `${schoolPath(s)}/${p}`
   const part = encodeURIComponent
   return {
+    async hotPosts(school: string, query: HotPostsQuery = {}, signal?: Cancellation) {
+      const limit = hotPostsLimit(query)
+      const document = await client.requestDocument(`${scope(school, 'hot-posts')}?limit=${limit}`, 'GET', undefined, signal)
+      return readHotPosts(document, school, limit)
+    },
     async posts(s: string, filter: FeedFilter = {}, signal?: Cancellation) {
       const query = `${pageQuery(filter.page)}&search=${part(filter.search ?? '')}&mine=${!!filter.mine}${filter.kind ? `&kind=${filter.kind}` : ''}&tag=${part(filter.tag ?? '')}`
       const doc = await client.requestDocument(scope(s, 'posts') + '?' + query, 'GET', undefined, signal)

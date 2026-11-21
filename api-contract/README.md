@@ -19,6 +19,8 @@ client 统一编码/解码协议，向 feature 提供 `{id,...attributes}` 领�
 
 ## 分页与任务记录
 
+本校热榜通过 `community` 子路径的 `hotPosts(school, {limit}, signal)` 读取，返回 `{items, meta}`，资源类型为 `hot-posts`，资源 ID 即帖子 ID。默认 10 条，范围 1–20；无分页，`meta` 必含窗口、排名/校验时点及实际请求上限。只接受同校、ID 唯一、排名连续、计数有效的摘要，缺失字段或旧普通 JSON 响应不回退；成功与空榜由 `fixtures/hot-posts.json`、`hot-posts-empty.json` 在 Rust/TS 两端共同验证。
+
 帖子、评论、审计、发件、通知、反馈采用 `page[number]`、`page[size]`，默认 1/30，size 为 1–100，number 为 1–100000。旧 `page/page_size` 被拒绝。数据库多取一条，响应只保留请求页大小，并提供 `meta.page = {number,size,has_more}`；不伪造 total。前端据 `has_more` 控制翻页。学校/账号/成员/配置等完整选择列表不分页、不暗中截断，故没有 `meta.page`。
 
 
