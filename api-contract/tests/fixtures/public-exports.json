@@ -1,0 +1,379 @@
+{
+  "./http": {
+    "types": [
+      "ApiError",
+      "ApiFailure",
+      "Cancellation",
+      "Client",
+      "Collection",
+      "PageMeta",
+      "ResourceDocument",
+      "ResourceObject",
+      "Transport",
+      "TransportRequest",
+      "TransportResponse"
+    ],
+    "values": [
+      "ApiError",
+      "assertApiPath",
+      "browserTransport",
+      "client",
+      "createClient",
+      "decodeData",
+      "decodeResource",
+      "failureDetails",
+      "getJson",
+      "invalidDocument",
+      "object",
+      "requestBinary",
+      "requestCollection",
+      "requestDocument",
+      "requestJson",
+      "requestMultipart",
+      "requestResource",
+      "resourceType",
+      "setCsrf",
+      "subscribeUnauthorized",
+      "writeDocument"
+    ]
+  },
+  "./system": {
+    "types": [
+      "SystemInfo"
+    ],
+    "values": [
+      "getSystemInfo"
+    ]
+  },
+  "./health": {
+    "types": [
+      "ReadyResponse"
+    ],
+    "values": [
+      "getReadiness"
+    ]
+  },
+  "./business": {
+    "types": [
+      "AdminSiteSettings",
+      "ApiError",
+      "Artwork",
+      "AuditMode",
+      "BlockedWord",
+      "BlockedWordCatalog",
+      "BlockedWordImport",
+      "BlockedWordInput",
+      "BusinessPreview",
+      "CaseKind",
+      "CaseManagementView",
+      "CaseRecord",
+      "CaseState",
+      "Comment",
+      "CommentVisibility",
+      "CommitPostImport",
+      "Confirmation",
+      "CopyrightEndMode",
+      "CreatePostInput",
+      "DecisionSource",
+      "Grant",
+      "ImageRef",
+      "Json",
+      "PinPostInput",
+      "Post",
+      "PostContentInput",
+      "PostImportPreview",
+      "PostImportResult",
+      "PostManagementFilter",
+      "PostManagementFilters",
+      "PostManagementPage",
+      "PostManagementView",
+      "PostOrderInput",
+      "PostReview",
+      "PostVisibility",
+      "PublicSiteSettings",
+      "PublishedResource",
+      "RecommendationPreview",
+      "RecommendationView",
+      "RecommendPostInput",
+      "ReorderPostsInput",
+      "ResolveCaseInput",
+      "Resource",
+      "ResourceAction",
+      "ResourceInput",
+      "Row",
+      "School",
+      "SeedAuthor",
+      "SeedAuthorInput",
+      "SeedAvatar",
+      "SeedBatch",
+      "SeedBatchSummary",
+      "SeedCommit",
+      "SeedExistingAuthor",
+      "SeedItem",
+      "SeedPreviewInput",
+      "SeedRow",
+      "Session",
+      "SetCommentVisibility",
+      "SetPostStatusInput",
+      "SiteSettingsHistory",
+      "SiteSettingsInput",
+      "UpdatePostInput",
+      "User"
+    ],
+    "values": [
+      "ApiError",
+      "createBlockedWordsClient",
+      "createPostSeedClient",
+      "createProductClient",
+      "identity",
+      "postManagement",
+      "postSeed",
+      "product",
+      "scope",
+      "siteSettings",
+      "workspace"
+    ]
+  },
+  "./client": {
+    "types": [
+      "ApiError",
+      "ApiFailure",
+      "Cancellation",
+      "Client",
+      "Collection",
+      "PageMeta",
+      "ResourceDocument",
+      "ResourceObject",
+      "Transport",
+      "TransportRequest",
+      "TransportResponse"
+    ],
+    "values": [
+      "ApiError",
+      "assertApiPath",
+      "createClient",
+      "decodeData",
+      "decodeResource",
+      "failureDetails",
+      "invalidDocument",
+      "object",
+      "resourceType",
+      "writeDocument"
+    ]
+  },
+  "./identity": {
+    "types": [
+      "MiniappSession",
+      "Session",
+      "User"
+    ],
+    "values": [
+      "createIdentityClient"
+    ]
+  },
+  "./schools": {
+    "types": [
+      "AuthorizationAction",
+      "AuthorizationInput",
+      "ManagementMember",
+      "MemberFilters",
+      "MemberPermissions",
+      "PermissionCatalog",
+      "PermissionDefinition",
+      "PermissionEffect",
+      "PermissionOverride",
+      "RecommendationPermission",
+      "School",
+      "SchoolDisplay",
+      "SchoolFilters",
+      "SchoolInput"
+    ],
+    "values": [
+      "createSchoolPermissionsClient",
+      "createSchoolsClient",
+      "schoolPath"
+    ]
+  },
+  "./community": {
+    "types": [
+      "Comment",
+      "CommunityPost",
+      "FeedFilter",
+      "Follow",
+      "HotPostsMeta",
+      "HotPostsQuery",
+      "HotPostsResult",
+      "HotPostSummary",
+      "Notification",
+      "Post",
+      "PostInput",
+      "PostInteractionState",
+      "Reaction",
+      "Row",
+      "SchoolResource"
+    ],
+    "values": [
+      "createCommunityClient",
+      "pageQuery"
+    ]
+  },
+  "./media": {
+    "types": [
+      "UploadedMedia",
+      "UploadPurpose"
+    ],
+    "values": [
+      "createMediaClient",
+      "uploadKey"
+    ]
+  },
+  "./source-events": {
+    "types": [
+      "SourceEvent",
+      "SourceReceipt"
+    ],
+    "values": []
+  },
+  "./source-access": {
+    "types": [
+      "SchoolRouteSettings",
+      "SourceBinding",
+      "SourceCapabilitiesV2",
+      "SourceCheckV2",
+      "SourceConnection",
+      "SourceConnectionSettings",
+      "SourceDeliveryState",
+      "SourceDocument",
+      "SourceEventV2",
+      "SourceOutboxView",
+      "SourcePreparationView",
+      "SourceReceiptV2"
+    ],
+    "values": [
+      "sourceAccess"
+    ]
+  },
+  "./miniapp-users/browser": {
+    "types": [
+      "MiniappUser",
+      "RegistrationSettings",
+      "RegistrationSettingsInput",
+      "UserFilters"
+    ],
+    "values": [
+      "miniappUsers",
+      "registrationSettings"
+    ]
+  },
+  "./miniapp-users": {
+    "types": [
+      "MiniappUser",
+      "UserFilters"
+    ],
+    "values": [
+      "createMiniappUsersClient"
+    ]
+  },
+  "./home-menu": {
+    "types": [
+      "EnableStatus",
+      "HomeMenu",
+      "HomeMenuImport",
+      "HomeMenuQuery",
+      "HomeMenuSearch",
+      "HomeMenuSettings",
+      "HomeMenuTag",
+      "MenuStatus",
+      "TagInput"
+    ],
+    "values": [
+      "createHomeMenuClient",
+      "homeMenuQuery"
+    ]
+  },
+  "./operations": {
+    "types": [
+      "ActionOutcome",
+      "BannerAction",
+      "CategoryInput",
+      "CooperationInput",
+      "CustomerConfig",
+      "CustomerInput",
+      "Display",
+      "EffectiveChannel",
+      "EffectiveService",
+      "EntityInputs",
+      "EntityRecord",
+      "ExecutionAction",
+      "Feedback",
+      "FeedbackInput",
+      "FeedbackType",
+      "Filters",
+      "ManageSet",
+      "MarketingInput",
+      "MarketingSlot",
+      "Module",
+      "OperationEvent",
+      "OperationInput",
+      "OperationOutcome",
+      "OperationReport",
+      "OperationReportRow",
+      "OperationResource",
+      "PartnerInput",
+      "Presentation",
+      "ReportFilters",
+      "ServiceCatalog",
+      "ServiceEntity",
+      "ServiceFilters",
+      "ServiceOptions",
+      "ServiceTarget",
+      "Shortcut",
+      "ShortcutAction",
+      "ShortcutInput",
+      "TargetAction",
+      "TargetChannel",
+      "TargetInput",
+      "TargetVersion"
+    ],
+    "values": [
+      "createOperationsClient",
+      "createServiceOperationsClient",
+      "operationsQuery",
+      "serviceQuery"
+    ]
+  },
+  "./statistics": {
+    "types": [
+      "ActivityInput",
+      "Bucket",
+      "Change",
+      "Comparison",
+      "Coverage",
+      "Metrics",
+      "Period",
+      "SchoolRow",
+      "StatisticsQuery",
+      "StatisticsReport",
+      "StatisticsView",
+      "Window"
+    ],
+    "values": [
+      "createStatisticsClient"
+    ]
+  },
+  "internal/product-workflows": {
+    "types": [
+      "Artwork",
+      "BusinessPreview",
+      "Confirmation",
+      "ImageRef",
+      "PublishedResource",
+      "ResourceAction",
+      "ResourceInput"
+    ],
+    "values": [
+      "createProductClient",
+      "product"
+    ]
+  }
+}
