@@ -1,11 +1,6 @@
-import {
-  requestResource,
-  requestDocument,
-  requestMultipart,
-  decodeResource,
-  invalidDocument,
-  type PageMeta,
-} from "../../http";
+import { requestDocument, requestResource } from "../../http/browser-client";
+import { requestMultipart } from "../../http/multipart";
+import { decodeResource, invalidDocument, type PageMeta } from "../../http/protocol";
 import type { PostReview, Row } from "./types";
 export type PostVisibility = "visible" | "hidden" | "offline";
 export interface PostManagementView extends PostReview {

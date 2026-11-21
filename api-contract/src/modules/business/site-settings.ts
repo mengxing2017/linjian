@@ -1,4 +1,4 @@
-import { requestResource } from "../../http";
+import { requestResource } from "../../http/browser-client";
 
 export type CopyrightEndMode = "auto" | "fixed";
 

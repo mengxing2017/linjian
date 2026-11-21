@@ -1,4 +1,11 @@
-import {requestResource,requestCollection} from '../../http'
-import {createProductClient} from './client'
-export * from './client'
-export const product=createProductClient({requestResource,requestCollection})
+export { createProductClient } from './client'
+export type {
+  Artwork,
+  BusinessPreview,
+  Confirmation,
+  ImageRef,
+  PublishedResource,
+  ResourceAction,
+  ResourceInput,
+} from './client'
+export { product } from './default-client'

@@ -1,4 +1,5 @@
-import { client, type Client, type Cancellation } from "../../http";
+import { client } from "../../http/browser-client";
+import type { Cancellation, Client } from "../../http/client";
 
 export interface SeedAuthorInput {
   key: string;
