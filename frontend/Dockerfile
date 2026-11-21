@@ -5,6 +5,7 @@ RUN npm install --global pnpm@11.22.0
 COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml frontend/.npmrc ./
 COPY frontend/apps/web/package.json apps/web/package.json
 COPY frontend/apps/miniapp/package.json apps/miniapp/package.json
+COPY frontend/packages packages
 COPY api-contract ../api-contract
 RUN pnpm --dir ../api-contract install --frozen-lockfile && pnpm --dir ../api-contract build && pnpm --filter @linjian/web install --frozen-lockfile
 COPY frontend/apps/web apps/web
