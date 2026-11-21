@@ -55,6 +55,7 @@ defineExpose({ show: load, hide: () => contacts.value?.hide() })
     <view v-if="session.user" class="card menu">
       <button @tap="navigate('/pages/user/userInfo')">个人信息</button>
       <button @tap="navigate('/pages/plugin/index')">学校</button>
+      <button v-if="session.user.bound_school_id" @tap="navigate('/pages/user/schoolChange')">换校申请与审核结果</button>
       <button @tap="navigate('/pages/index/search?view=mine')">我的发布</button>
       <button @tap="navigate('/pages/index/search?view=collect')">我的收藏</button>
       <button @tap="navigate('/pages/user/attentions')">我的关注</button>
