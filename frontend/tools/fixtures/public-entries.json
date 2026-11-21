@@ -1,0 +1,426 @@
+{
+  "apps/web/src/app/shell/index.tsx": {
+    "types": [],
+    "values": ["AppShell", "navigation", "schoolRoleLabel"]
+  },
+  "apps/web/src/entries/admin/index.tsx": {
+    "types": [],
+    "values": ["default"]
+  },
+  "apps/web/src/features/admin/miniapp-registration-settings/api/index.ts": {
+    "types": ["RegistrationSettings"],
+    "values": ["registrationSettings"]
+  },
+  "apps/web/src/features/admin/miniapp-registration-settings/index.ts": {
+    "types": [],
+    "values": ["MiniappRegistrationSettings"]
+  },
+  "apps/web/src/features/admin/miniapp-users/api/index.ts": {
+    "types": ["MiniappUser", "UserFilters"],
+    "values": ["miniappUsers"]
+  },
+  "apps/web/src/features/admin/miniapp-users/index.tsx": {
+    "types": [],
+    "values": ["MiniappUsers"]
+  },
+  "apps/web/src/features/admin/operations/api/index.ts": {
+    "types": [
+      "CustomerConfig",
+      "CustomerInput",
+      "EffectiveService",
+      "EntityInputs",
+      "EntityRecord",
+      "Feedback",
+      "Filters",
+      "ImageRef",
+      "Module",
+      "OperationInput",
+      "OperationReport",
+      "OperationResource",
+      "Presentation",
+      "ResourceAction",
+      "ServiceCatalog",
+      "ServiceEntity",
+      "ServiceOptions",
+      "ServiceTarget",
+      "ShortcutInput",
+      "TargetChannel",
+      "TargetInput",
+      "TargetVersion"
+    ],
+    "values": ["operationsApi", "product", "serviceApi", "workspace"]
+  },
+  "apps/web/src/features/admin/operations/index.ts": {
+    "types": [],
+    "values": [
+      "CustomerConfiguration",
+      "OperationFeedback",
+      "OperationReports",
+      "OperationResources",
+      "OperationServices",
+      "SchoolMarketing"
+    ]
+  },
+  "apps/web/src/features/admin/overview/api/index.ts": {
+    "types": [],
+    "values": ["getReadiness", "getSystemInfo"]
+  },
+  "apps/web/src/features/admin/overview/index.tsx": {
+    "types": [],
+    "values": ["Overview"]
+  },
+  "apps/web/src/features/admin/site-settings/index.ts": {
+    "types": [],
+    "values": ["SiteSettings"]
+  },
+  "apps/web/src/features/admin/source-access/api/index.ts": {
+    "types": [
+      "SchoolRouteSettings",
+      "SourceBinding",
+      "SourceCapabilitiesV2",
+      "SourceCheckV2",
+      "SourceConnection",
+      "SourceConnectionSettings",
+      "SourceDeliveryState",
+      "SourceDocument",
+      "SourceEventV2",
+      "SourceOutboxView",
+      "SourcePreparationView",
+      "SourceReceiptV2"
+    ],
+    "values": ["createSourceAccessClient", "sourceAccess"]
+  },
+  "apps/web/src/features/admin/source-access/index.tsx": {
+    "types": [],
+    "values": ["SourceBindings", "SourceConnections"]
+  },
+  "apps/web/src/features/admin/statistics/api/index.ts": {
+    "types": [
+      "Bucket",
+      "Change",
+      "Metrics",
+      "Period",
+      "SchoolRow",
+      "StatisticsQuery",
+      "StatisticsReport",
+      "StatisticsView"
+    ],
+    "values": ["statisticsApi", "statisticsPermissions"]
+  },
+  "apps/web/src/features/admin/statistics/index.tsx": {
+    "types": [],
+    "values": ["StatisticsPage"]
+  },
+  "apps/web/src/features/admin/workspace/api/index.ts": {
+    "types": [
+      "AdminSiteSettings",
+      "ApiError",
+      "Artwork",
+      "AuditMode",
+      "BlockedWord",
+      "BlockedWordCatalog",
+      "BlockedWordImport",
+      "BlockedWordInput",
+      "BusinessPreview",
+      "CaseKind",
+      "CaseManagementView",
+      "CaseRecord",
+      "CaseState",
+      "Comment",
+      "CommentVisibility",
+      "CommitPostImport",
+      "Confirmation",
+      "CopyrightEndMode",
+      "CreatePostInput",
+      "DecisionSource",
+      "Grant",
+      "HomeMenuImport",
+      "HomeMenuQuery",
+      "HomeMenuSettings",
+      "HomeMenuTag",
+      "ImageRef",
+      "Json",
+      "ManagementMember",
+      "MemberPermissions",
+      "PermissionDefinition",
+      "PermissionEffect",
+      "PermissionOverride",
+      "PinPostInput",
+      "Post",
+      "PostContentInput",
+      "PostImportPreview",
+      "PostImportResult",
+      "PostManagementFilter",
+      "PostManagementFilters",
+      "PostManagementPage",
+      "PostManagementView",
+      "PostOrderInput",
+      "PostReview",
+      "PostVisibility",
+      "PublicSiteSettings",
+      "PublishedResource",
+      "RecommendationPreview",
+      "RecommendationView",
+      "RecommendPostInput",
+      "ReorderPostsInput",
+      "ResolveCaseInput",
+      "Resource",
+      "ResourceAction",
+      "ResourceInput",
+      "Row",
+      "School",
+      "SchoolFilters",
+      "SchoolInput",
+      "SeedAuthor",
+      "SeedAuthorInput",
+      "SeedAvatar",
+      "SeedBatch",
+      "SeedBatchSummary",
+      "SeedCommit",
+      "SeedExistingAuthor",
+      "SeedItem",
+      "SeedPreviewInput",
+      "SeedRow",
+      "Session",
+      "SetCommentVisibility",
+      "SetPostStatusInput",
+      "SiteSettingsHistory",
+      "SiteSettingsInput",
+      "TagInput",
+      "UpdatePostInput",
+      "User"
+    ],
+    "values": [
+      "ApiError",
+      "browserClient",
+      "createBlockedWordsClient",
+      "createHomeMenuClient",
+      "createPostSeedClient",
+      "createProductClient",
+      "createSchoolPermissionsClient",
+      "identity",
+      "postManagement",
+      "postSeed",
+      "product",
+      "requestMultipart",
+      "scope",
+      "siteSettings",
+      "workspace"
+    ]
+  },
+  "apps/web/src/features/admin/workspace/index.tsx": {
+    "types": [],
+    "values": ["label", "SessionGate", "stateLabel", "Workspace"]
+  },
+  "apps/web/src/features/community/api/index.ts": {
+    "types": [
+      "AdminSiteSettings",
+      "ApiError",
+      "Artwork",
+      "AuditMode",
+      "BlockedWord",
+      "BlockedWordCatalog",
+      "BlockedWordImport",
+      "BlockedWordInput",
+      "BusinessPreview",
+      "CaseKind",
+      "CaseManagementView",
+      "CaseRecord",
+      "CaseState",
+      "Comment",
+      "CommentVisibility",
+      "CommitPostImport",
+      "Confirmation",
+      "CopyrightEndMode",
+      "CreatePostInput",
+      "DecisionSource",
+      "Grant",
+      "ImageRef",
+      "Json",
+      "PinPostInput",
+      "Post",
+      "PostContentInput",
+      "PostImportPreview",
+      "PostImportResult",
+      "PostManagementFilter",
+      "PostManagementFilters",
+      "PostManagementPage",
+      "PostManagementView",
+      "PostOrderInput",
+      "PostReview",
+      "PostVisibility",
+      "PublicSiteSettings",
+      "PublishedResource",
+      "RecommendationPreview",
+      "RecommendationView",
+      "RecommendPostInput",
+      "ReorderPostsInput",
+      "ResolveCaseInput",
+      "Resource",
+      "ResourceAction",
+      "ResourceInput",
+      "Row",
+      "School",
+      "SeedAuthor",
+      "SeedAuthorInput",
+      "SeedAvatar",
+      "SeedBatch",
+      "SeedBatchSummary",
+      "SeedCommit",
+      "SeedExistingAuthor",
+      "SeedItem",
+      "SeedPreviewInput",
+      "SeedRow",
+      "Session",
+      "SetCommentVisibility",
+      "SetPostStatusInput",
+      "SiteSettingsHistory",
+      "SiteSettingsInput",
+      "UpdatePostInput",
+      "User"
+    ],
+    "values": [
+      "ApiError",
+      "createBlockedWordsClient",
+      "createPostSeedClient",
+      "createProductClient",
+      "identity",
+      "postManagement",
+      "postSeed",
+      "product",
+      "scope",
+      "siteSettings",
+      "workspace"
+    ]
+  },
+  "apps/web/src/features/community/index.tsx": {
+    "types": [],
+    "values": ["default"]
+  },
+  "apps/web/src/features/identity/api/index.ts": {
+    "types": ["User"],
+    "values": ["identity", "subscribeUnauthorized"]
+  },
+  "apps/web/src/features/identity/index.tsx": {
+    "types": [],
+    "values": ["SessionGate"]
+  },
+  "apps/web/src/features/school-context/api/index.ts": {
+    "types": ["School"],
+    "values": ["schoolsApi"]
+  },
+  "apps/web/src/features/school-context/index.ts": {
+    "types": [],
+    "values": ["useSchoolDirectory", "useSchools"]
+  },
+  "apps/web/src/features/site/api/index.ts": {
+    "types": [
+      "AdminSiteSettings",
+      "CopyrightEndMode",
+      "PublicSiteSettings",
+      "SiteSettingsHistory",
+      "SiteSettingsInput"
+    ],
+    "values": ["siteSettings"]
+  },
+  "apps/web/src/features/site/index.ts": {
+    "types": [
+      "AdminSiteSettings",
+      "CopyrightEndMode",
+      "PublicSiteSettings",
+      "SiteSettingsHistory",
+      "SiteSettingsInput"
+    ],
+    "values": [
+      "copyrightYears",
+      "EMPTY_SITE_SETTINGS",
+      "entryTitle",
+      "pageTitle",
+      "publicFromAdmin",
+      "publicFromInput",
+      "shanghaiYear",
+      "SiteBrand",
+      "SiteFooter",
+      "siteSettings",
+      "SiteSettingsProvider",
+      "text",
+      "useSiteSettings",
+      "useSiteTitle"
+    ]
+  },
+  "apps/miniapp/src/features/community/api/index.ts": {
+    "types": [
+      "Cancellation",
+      "Comment",
+      "CommunityPost",
+      "FeedFilter",
+      "Follow",
+      "HomeMenu",
+      "HomeMenuTag",
+      "HotPostsMeta",
+      "HotPostsResult",
+      "HotPostSummary",
+      "Notification",
+      "Post",
+      "PostInput",
+      "PostInteractionState",
+      "Reaction",
+      "SchoolResource"
+    ],
+    "values": ["communityApi", "homeMenuApi"]
+  },
+  "apps/miniapp/src/features/feedback/api/index.ts": {
+    "types": ["FeedbackType"],
+    "values": ["feedbackApi"]
+  },
+  "apps/miniapp/src/features/identity/api/index.ts": {
+    "types": ["ApiError", "Cancellation", "Transport", "TransportRequest", "User"],
+    "values": ["ApiError", "client", "identityApi"]
+  },
+  "apps/miniapp/src/features/media/api/index.ts": {
+    "types": ["UploadPurpose"],
+    "values": ["mediaApi", "uploadKey"]
+  },
+  "apps/miniapp/src/features/miniapp-users/api/index.ts": {
+    "types": ["MiniappUser"],
+    "values": ["miniappUserApi"]
+  },
+  "apps/miniapp/src/features/operations/api/index.ts": {
+    "types": [
+      "ActionOutcome",
+      "Display",
+      "EffectiveChannel",
+      "EffectiveService",
+      "FeedbackType",
+      "MarketingSlot",
+      "OperationEvent",
+      "OperationOutcome",
+      "OperationResource",
+      "ServiceCatalog"
+    ],
+    "values": ["operationsApi", "serviceApi"]
+  },
+  "apps/miniapp/src/features/resources/api/index.ts": {
+    "types": ["SchoolResource"],
+    "values": ["homeMenuApi", "resourcesApi"]
+  },
+  "apps/miniapp/src/features/school-context/api/index.ts": {
+    "types": ["School", "SchoolDisplay"],
+    "values": ["schoolsApi"]
+  },
+  "apps/miniapp/src/features/statistics/api/index.ts": {
+    "types": ["ActivityInput"],
+    "values": ["statisticsApi"]
+  },
+  "packages/china-regions/src/index.ts": {
+    "types": ["RegionDataset", "RegionNode", "RegionValue"],
+    "values": [
+      "codesFromNames",
+      "emptyRegion",
+      "formatRegion",
+      "namesFromCodes",
+      "regionDataset",
+      "regionOptions"
+    ]
+  }
+}
