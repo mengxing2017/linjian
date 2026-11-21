@@ -58,10 +58,10 @@ export function login() {
     })
   return loggingIn
 }
-export async function refreshUser() {
+export async function refreshUser(current: () => boolean = () => true) {
   const revision = credentials.revision
   const value = await identityApi.session()
-  if (revision === credentials.revision) session.user = value.user
+  if (revision === credentials.revision && current()) session.user = value.user
 }
 export async function logout() {
   clearReturnTarget()

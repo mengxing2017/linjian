@@ -6,7 +6,7 @@ const api = vi.hoisted(() => ({
   profile: vi.fn(),
 }))
 vi.mock('../src/features/identity/api', () => ({ identityApi: api }))
-import { session, login, restoreSession, logout } from '../src/features/identity/session'
+import { session, login, restoreSession, logout, refreshUser } from '../src/features/identity/session'
 import { credentials } from '../src/app/credentials'
 const user = {
   id: 'u',
@@ -32,6 +32,14 @@ beforeEach(() => {
   api.logout.mockReset()
 })
 afterEach(() => vi.unstubAllGlobals())
+it('does not apply a session refresh when its page operation has expired', async () => {
+  session.user = user
+  api.session.mockResolvedValue({ user: { ...user, display_name: '过期昵称' } })
+  await refreshUser(() => false)
+  expect(session.user.display_name).toBe('成员')
+  await refreshUser(() => true)
+  expect(session.user.display_name).toBe('过期昵称')
+})
 it('coalesces concurrent interactive logins and persists only the resulting session', async () => {
   api.miniapp.mockResolvedValue({ token: 'new', user })
   await Promise.all([login(), login()])

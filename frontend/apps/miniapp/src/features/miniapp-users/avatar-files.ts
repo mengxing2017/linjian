@@ -10,6 +10,7 @@ onScopeChange(() => {
   files.clear()
 })
 export async function uploadAvatar(path: string) {
+  const scope = scopeKey()
   const bytes = await new Promise<ArrayBuffer>((resolve, reject) =>
     uni.getFileSystemManager().readFile({
       filePath: path,
@@ -19,6 +20,7 @@ export async function uploadAvatar(path: string) {
     }),
   )
   if (bytes.byteLength > 5 * 1024 * 1024) throw new Error('头像不能超过 5 MiB')
+  if (scope !== scopeKey()) throw new Error('登录状态已改变')
   return miniappUserApi.uploadAvatar(bytes)
 }
 export async function avatarFile(url: string) {

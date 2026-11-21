@@ -188,8 +188,15 @@ impl Repository {
         }
         sqlx::query("UPDATE miniapp_users SET nickname=$2,avatar_asset_id=$3,revision=revision+1,updated_at=now() WHERE account_id=$1").bind(a.id).bind(nickname).bind(v.avatar_asset_id).execute(&mut *tx).await?;
         audit(&mut tx, a, school, a.id, "miniapp_user.profile", json!({})).await?;
+        let value = sqlx::query_scalar(&format!(
+            "SELECT to_jsonb(v) FROM ({VIEW} WHERE u.account_id=$1) v"
+        ))
+        .bind(a.id)
+        .fetch_one(&mut *tx)
+        .await?;
+        let result = decode(value)?;
         tx.commit().await?;
-        self.own(a.id).await
+        Ok(result)
     }
     pub async fn mobile(
         &self,
