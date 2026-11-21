@@ -2,10 +2,15 @@
 import { recordPage } from '../statistics/activity'
 import HomeOperations from '../operations/HomeOperations.vue'
 import HomeShortcuts from '../operations/HomeShortcuts.vue'
+import HotPosts from './HotPosts.vue'
+import { isHotPostsHome } from './use-hot-posts'
+const hotPosts = shallowRef<InstanceType<typeof HotPosts>>()
+const pageVisible = ref(false)
+let pageTurn = 0
 const shortcuts = shallowRef<InstanceType<typeof HomeShortcuts>>()
 const operations = shallowRef<InstanceType<typeof HomeOperations>>()
 import { postVisibilityLabel } from './post-status'
-import { shallowRef, ref, computed, watch } from 'vue'
+import { shallowRef, ref, computed, watch, onUnmounted } from 'vue'
 import { communityApi, homeMenuApi, type HomeMenu, type CommunityPost, type FeedFilter } from './api'
 import { requireSchool, schoolContext, scopeKey } from '../school-context/context'
 import { invalidatedPosts, acknowledgePost, clearPostInvalidations } from './post-invalidations'
@@ -17,6 +22,7 @@ import SchoolHeader from '../school-context/SchoolHeader.vue'
 const props = defineProps<{
   initial?: 'feed' | 'following' | 'mine' | 'collect'
   searchPage?: boolean
+  homePage?: boolean
 }>()
 const mode = ref(props.initial ?? 'feed'),
   search = ref(''),
@@ -32,6 +38,7 @@ watch(
   },
 )
 const school = computed(() => schoolContext.schools.find((s) => s.id === schoolContext.id))
+const hotPostsActive = computed(() => pageVisible.value && !!session.user && !!school.value && isHotPostsHome(!!props.homePage, !!props.searchPage, mode.value, search.value, selectedTag.value))
 const { busy, error, run } = usePage(() => {
   clearPostInvalidations()
   posts.value = []
@@ -115,10 +122,15 @@ async function syncInvalidated(current: () => boolean) {
 function detail(post: CommunityPost) {
   navigate(`/pages/index/detail?school=${schoolContext.id}&id=${post.id}`)
 }
+onUnmounted(() => { pageTurn++; pageVisible.value = false; hotPosts.value?.hide() })
 defineExpose({
-  hide: () => { operations.value?.hide(); shortcuts.value?.hide() },
+  hide: () => { pageTurn++; pageVisible.value = false; hotPosts.value?.hide(); operations.value?.hide(); shortcuts.value?.hide() },
   show: async () => {
+    const turn = ++pageTurn
     if (!(await requireSchool())) return
+    if (turn !== pageTurn) return
+    pageVisible.value = true
+    void hotPosts.value?.show()
     void operations.value?.show()
     void shortcuts.value?.show()
     const activeSchool = schoolContext.id
@@ -130,7 +142,7 @@ defineExpose({
       : load())
     if (!error.value && activeSchool === schoolContext.id) recordPage('feed_open', activeSchool)
   },
-  refresh: async () => { await load(); await Promise.all([operations.value?.refresh(), shortcuts.value?.refresh()]) },
+  refresh: async () => { await Promise.all([load(), hotPosts.value?.refresh(), operations.value?.refresh(), shortcuts.value?.refresh()]) },
   loadMore: () => {
     if (more.value) return load(false)
   },
@@ -148,6 +160,7 @@ defineExpose({
       <text class="heading">{{ school?.name || '校园社区' }}</text>
       <button size="mini" @tap="navigate('/pages/plugin/index')">选校</button>
     </view>
+    <HotPosts v-if="homePage" ref="hotPosts" :active="hotPostsActive" />
     <view class="row tabs">
       <button
         size="mini"

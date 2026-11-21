@@ -11,7 +11,11 @@ export type {
   Notification,
   FeedFilter,
   SchoolResource,
+  HotPostSummary,
+  HotPostsMeta,
+  HotPostsResult,
 } from '@linjian/api-contract/community'
+export type { Cancellation } from '../../identity/api'
 export const communityApi = createCommunityClient(client)
 
 import { createHomeMenuClient } from '@linjian/api-contract/home-menu'

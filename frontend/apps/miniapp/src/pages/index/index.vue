@@ -5,5 +5,5 @@ const screen = useScreen()
 import Screen from '../../features/community/Feed.vue'
 </script>
 <template>
-  <view :style="schoolTheme"><Screen ref="screen" /></view>
+  <view :style="schoolTheme"><Screen ref="screen" home-page /></view>
 </template>
