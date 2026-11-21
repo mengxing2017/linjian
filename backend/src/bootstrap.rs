@@ -6,6 +6,7 @@ pub struct Options {
     pub insecure_local_auth: bool,
     pub statistics: crate::statistics::config::Config,
     pub files: crate::media::south::adapter::filesystem::Files,
+    pub school_changes: crate::school_changes::south::adapter::postgres::Settings,
 }
 impl Options {
     pub fn from_env(local: bool) -> Result<Self, String> {
@@ -23,6 +24,10 @@ impl Options {
             endpoints: crate::config::origins::PublicEndpoints::from_env(local)?,
             insecure_local_auth: local,
             statistics: crate::statistics::config::Config::from_env()?,
+            school_changes: crate::school_changes::south::adapter::postgres::Settings::from_env(
+                &files,
+            )
+            .map_err(|_| "换校策略或私有存储配置无效".to_owned())?,
             files,
         })
     }
@@ -30,16 +35,27 @@ impl Options {
         Self::local_with_files(Default::default())
     }
     pub(crate) fn local_with_files(files: crate::media::south::adapter::filesystem::Files) -> Self {
+        let school_changes =
+            crate::school_changes::south::adapter::postgres::Settings::defaults(&files)
+                .expect("test school change storage");
+        Self::local_with_storage(files, school_changes)
+    }
+    pub(crate) fn local_with_storage(
+        files: crate::media::south::adapter::filesystem::Files,
+        school_changes: crate::school_changes::south::adapter::postgres::Settings,
+    ) -> Self {
         Self {
             endpoints: crate::config::origins::PublicEndpoints::local_admin(),
             insecure_local_auth: true,
             statistics: Default::default(),
+            school_changes,
             files,
         }
     }
 }
 #[derive(Clone)]
 pub struct Application {
+    pub school_changes: crate::school_changes::north::local::Service,
     pub statistics: crate::statistics::north::local::Service,
     pub activity: crate::statistics::south::adapter::recorder::Recorder,
     pub system: SystemService<PostgresReadiness>,
@@ -58,6 +74,12 @@ pub struct Application {
 pub fn build_application(pool: PgPool, options: Options) -> Application {
     let files = options.files.clone();
     Application {
+        school_changes: crate::school_changes::north::local::Service(
+            crate::school_changes::south::adapter::postgres::Repository::new(
+                pool.clone(),
+                options.school_changes.clone(),
+            ),
+        ),
         statistics: crate::statistics::north::local::Service::new(
             crate::statistics::south::adapter::postgres::Repository(
                 pool.clone(),

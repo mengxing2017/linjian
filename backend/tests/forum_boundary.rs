@@ -165,6 +165,7 @@ async fn browser_login_and_miniapp_login_have_distinct_source_rules() {
             endpoints,
             insecure_local_auth: false,
             statistics: Default::default(),
+            school_changes: Default::default(),
             files: Default::default(),
         },
     ));

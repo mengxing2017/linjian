@@ -9,6 +9,7 @@ use serde_json::{Value, json};
 use sqlx::{PgPool, Postgres, Row, Transaction};
 use uuid::Uuid;
 pub mod registration;
+pub mod school_binding;
 #[derive(Clone)]
 pub struct Repository(pub PgPool);
 const VIEW: &str = "SELECT u.account_id AS id,CASE WHEN u.avatar_asset_id IS NULL THEN NULL ELSE '/api/v1/miniapp/avatar-assets/'||u.avatar_asset_id END AS avatar_url,u.avatar_asset_id,u.nickname,a.account_kind,u.mobile,a.bound_school_id AS school_id,s.name AS school_name,(SELECT count(*) FROM posts p WHERE p.author_id=u.account_id AND p.school_id=a.bound_school_id AND p.visibility<>'deleted') AS post_count,u.created_at,u.status,u.revision FROM miniapp_users u JOIN accounts a ON a.id=u.account_id LEFT JOIN schools s ON s.id=a.bound_school_id";
@@ -256,41 +257,18 @@ impl Repository {
         a.platform()?;
         let reason = reason(&v.reason)?;
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
+        school_binding::lock_accounts(&mut tx, a, id).await?;
+        school_binding::platform_session(&mut tx, a).await?;
         let (old, _, revision) = lock_user(&mut tx, id).await?;
         if revision != v.revision {
             return Err(Error::Conflict);
         }
-        let active: bool = sqlx::query_scalar("SELECT active FROM schools WHERE id=$1 FOR SHARE")
-            .bind(v.school_id)
-            .fetch_optional(&mut *tx)
-            .await?
-            .ok_or(Error::NotFound)?;
-        require(active, "学校已停用")?;
-        let conflict:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM school_memberships WHERE account_id=$1 AND school_id=ANY($2) AND role IN ('admin','operator'))").bind(id).bind(old.into_iter().chain([v.school_id]).collect::<Vec<_>>()).fetch_one(&mut *tx).await?;
-        require(!conflict, "存在学校管理角色，请先从学校权限入口处理")?;
+        school_binding::validate_target(&mut tx, id, old, v.school_id).await?;
         if old == Some(v.school_id) {
             tx.commit().await?;
             return Ok(());
         }
-        if let Some(old) = old {
-            sqlx::query("UPDATE school_memberships SET role='revoked' WHERE school_id=$1 AND account_id=$2 AND role='member'").bind(old).bind(id).execute(&mut *tx).await?;
-        }
-        sqlx::query("INSERT INTO school_memberships VALUES($1,$2,'member') ON CONFLICT(school_id,account_id) DO UPDATE SET role='member'").bind(v.school_id).bind(id).execute(&mut *tx).await?;
-        sqlx::query("UPDATE accounts SET bound_school_id=$2 WHERE id=$1")
-            .bind(id)
-            .bind(v.school_id)
-            .execute(&mut *tx)
-            .await?;
-        sqlx::query(
-            "UPDATE miniapp_users SET revision=revision+1,updated_at=now() WHERE account_id=$1",
-        )
-        .bind(id)
-        .execute(&mut *tx)
-        .await?;
-        sqlx::query("DELETE FROM sessions WHERE account_id=$1 AND kind='miniapp'")
-            .bind(id)
-            .execute(&mut *tx)
-            .await?;
+        school_binding::change(&mut tx, a, id, old, v.school_id).await?;
         audit(
             &mut tx,
             a,

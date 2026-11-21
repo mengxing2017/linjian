@@ -93,7 +93,31 @@ impl IntoResponse for Error {
             Self::Policy(code) => (
                 StatusCode::CONFLICT,
                 code,
-                "业务条件已变化，请刷新后重试".into(),
+                match code {
+                    "school_change_pending" => "已有待审换校申请，请先查询或撤回",
+                    "school_change_review_timeout" => {
+                        "申请已超过审核期限，由系统自动驳回，请刷新核对结果"
+                    }
+                    "school_change_relationship_required" => {
+                        "旧申请未声明在读或新生关系，请撤回后重新申请"
+                    }
+                    "school_change_unbound" => "尚未绑定学校，请先完成首次绑定",
+                    "school_change_conflict" => "换校申请已被处理或版本变化，请刷新核对结果",
+                    "school_change_idempotency_conflict" => {
+                        "本次提交标识已用于不同内容，请重新发起申请"
+                    }
+                    "school_change_document_unavailable" => {
+                        "证明材料已过期、已清理或不属于本次申请"
+                    }
+                    "school_change_target_unavailable" => "目标学校暂不可用，请重新选择或联系平台",
+                    "school_change_role_conflict" => "存在学校管理角色，请先从学校权限入口处理",
+                    "school_change_source_changed" => "学校归属已变化，请刷新核对结果",
+                    "school_change_account_unavailable" => "申请人账号不可用，不能批准换校",
+                    "school_change_target_member_revoked" => "目标学校成员已撤销，请先核实准入限制",
+                    "school_change_self_review" => "不能审核本人换校申请，请由其他平台审核员处理",
+                    _ => "业务条件已变化，请刷新后重试",
+                }
+                .into(),
             ),
             Self::Invalid(message) => (StatusCode::UNPROCESSABLE_ENTITY, "validation", message),
             Self::Unavailable | Self::Upstream(_) => (

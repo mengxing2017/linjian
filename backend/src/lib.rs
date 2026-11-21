@@ -13,6 +13,7 @@ pub mod migration;
 pub mod observability;
 pub mod outbox;
 pub mod runtime;
+pub mod school_changes;
 pub mod schools;
 pub mod site;
 pub mod system;

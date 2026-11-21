@@ -18,6 +18,8 @@ mod operation_services_tests;
 mod post_interactions_tests;
 #[path = "post_seed/mod.rs"]
 mod post_seed_tests;
+#[path = "school_changes/mod.rs"]
+mod school_changes_tests;
 use member_permissions_fixture::SchoolFixtures;
 async fn isolated(admin: &PgPool, name: &str) -> PgPool {
     sqlx::query(&format!("CREATE SCHEMA {name}"))

@@ -62,7 +62,8 @@ async fn serve_inner(
         .iter()
         .all(|key| std::env::var(key).is_err())
     {
-        bootstrap::Options::local_with_files(files)
+        let settings = crate::school_changes::south::adapter::postgres::Settings::from_env(&files)?;
+        bootstrap::Options::local_with_storage(files, settings)
     } else {
         bootstrap::Options::from_env_with_files(local, files).map_err(std::io::Error::other)?
     };
@@ -70,6 +71,11 @@ async fn serve_inner(
     let wrong_store:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM file_assets WHERE state IN ('ready','uploading') AND store_id<>$1)").bind(options.files.store_id).fetch_one(&pool).await?;
     if wrong_store {
         return Err("configured media volume does not match database store_id".into());
+    }
+    let wrong_private_store: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM miniapp_school_change_documents WHERE state IN ('ready','uploading','deleting') AND store_id<>$1)")
+        .bind(options.school_changes.files.store_id).fetch_one(&pool).await?;
+    if wrong_private_store {
+        return Err("configured school change storage does not match database store_id; retain the existing private volume and policy configuration".into());
     }
     crate::source_access::south::adapter::postgres::Repository(pool.clone())
         .publish_environment()
@@ -112,6 +118,20 @@ async fn serve_inner(
     let import_cleanup =
         crate::community::south::adapter::postgres::Repository(application.pool.clone());
     let media_cleanup = application.media.0.clone();
+    let school_change_cleanup = application.school_changes.clone();
+    let school_change_interval = application
+        .options
+        .school_changes
+        .policy
+        .cleanup_interval_seconds;
+    let school_change_task = tokio::spawn(async move {
+        loop {
+            if school_change_cleanup.cleanup().await.is_err() {
+                tracing::warn!("private school change cleanup failed; retrying later");
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(school_change_interval)).await;
+        }
+    });
     let artwork_worker = tokio::spawn(async move {
         loop {
             if media_cleanup.cleanup().await.is_err() {
@@ -181,6 +201,8 @@ async fn serve_inner(
     .with_graceful_shutdown(shutdown_signal())
     .await;
     statistics_task.abort();
+    school_change_task.abort();
+    let _ = school_change_task.await;
     let _ = statistics_task.await;
     outbox_task.abort();
     let _ = outbox_task.await;
