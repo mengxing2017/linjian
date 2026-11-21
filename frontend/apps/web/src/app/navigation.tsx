@@ -27,6 +27,11 @@ import {
   TeamOutlined,
   UserAddOutlined,
   UsergroupAddOutlined,
+  CompassOutlined,
+  LinkOutlined,
+  FundOutlined,
+  GiftOutlined,
+  NotificationOutlined,
 } from '@ant-design/icons'
 
 export type NavigationDomain = 'statistics' | 'forum' | 'operations' | 'school' | 'source' | 'administration'
@@ -97,6 +102,11 @@ export const navigation: NavigationItem[] = [
   { key: 'platform-blocked-words', icon: <GlobalOutlined />, label: '平台屏蔽词管理', description: '管理所有学校共用的屏蔽词。', domain: 'forum', scope: 'global', capability: 'global.manage' },
   { key: 'group-qrcodes', label: '群二维码', description: '管理群二维码及展示时机。', domain: 'operations', scope: 'selectable', capability: 'resources.read', icon: <QrcodeOutlined /> },
   { key: 'home-banners', label: '首页广告位', description: '管理首页广告及曝光点击统计。', domain: 'operations', scope: 'selectable', capability: 'resources.read', icon: <SlidersOutlined /> },
+  { key: 'home-shortcuts', label: '服务入口', description: '首页宫格、更多服务及学校覆盖。', domain: 'operations', scope: 'selectable', capability: 'resources.read', icon: <CompassOutlined /> },
+  { key: 'service-targets', label: '服务目标与合作', description: '平台目标审核、合作方与合作项目。', domain: 'operations', scope: 'global', capability: 'global.manage', icon: <LinkOutlined /> },
+  { key: 'operation-reports', label: '运营效果', description: '曝光、访问阶段及渠道效果报表。', domain: 'operations', scope: 'selectable', capability: 'resources.read', icon: <FundOutlined /> },
+  { key: 'marketing-slots', label: '官方营销', description: '独立配置官方营销单元。', domain: 'operations', scope: 'global', capability: 'global.manage', icon: <GiftOutlined /> },
+  { key: 'school-marketing', label: '本校营销', description: '管理本校官方营销启停。', domain: 'operations', scope: 'school', capability: 'resources.read', icon: <NotificationOutlined /> },
   { key: 'customer-config', label: '客户配置', description: '配置平台合作、加盟与客服二维码。', domain: 'operations', scope: 'global', capability: 'global.manage', icon: <CustomerServiceOutlined /> },
   { key: 'feedback', label: '投诉反馈', description: '查询与删除用户投诉反馈。', domain: 'operations', scope: 'school', capability: 'school.read', icon: <CommentOutlined /> },
   {
@@ -201,6 +211,8 @@ const navigationPermissions: Record<string, readonly string[]> = {
   'home-menu': ['school.home_menu.read'], cases: ['content.case.read'], resources: ['resource.school.read'],
   'blocked-words': ['school.blocked_word.read'], 'group-qrcodes': ['operation.qrcode.read'],
   'home-banners': ['operation.banner.read'], feedback: ['operation.feedback.read'],
+  'home-shortcuts': ['operation.shortcut.read'], 'operation-reports': ['operation.report.read'],
+  'school-marketing': ['operation.marketing.read'],
   'miniapp-users': ['school.user.read'], members: ['school.member.read'],
   settings: ['school.profile.read'],
   statistics: ['statistics.school.read'], 'statistics-content': ['statistics.school.read'],

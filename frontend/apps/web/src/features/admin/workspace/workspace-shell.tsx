@@ -10,7 +10,7 @@ import { StatisticsPage } from '../statistics'
 import { MiniappUsers } from '../miniapp-users'
 import { SourceBindings, SourceConnections } from '../source-access'
 import { Accounts, Schools } from './platform'
-import { OperationResources, CustomerConfiguration, OperationFeedback } from '../operations'
+import { OperationResources, CustomerConfiguration, OperationFeedback, OperationServices, OperationReports, SchoolMarketing } from '../operations'
 import { GlobalResources } from './global-resources'
 import { BlockedWords } from './blocked-words'
 import { SiteSettings } from '../site-settings'
@@ -113,6 +113,11 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
     }
     if (isStatistics) return <StatisticsPage key={tab} view={statisticsView as 'overview' | 'content' | 'registration' | 'activity' | 'schools'} user={user} schools={q.data ?? []} />
     if (tab === 'customer-config' && user.platform_admin) return <CustomerConfiguration />
+    if (tab === 'home-shortcuts') return <OperationServices key={school?.id ?? 'platform'} school={school?.id} />
+    if (tab === 'service-targets' && user.platform_admin) return <OperationServices mode="targets" />
+    if (tab === 'marketing-slots' && user.platform_admin) return <OperationServices mode="marketing" />
+    if (tab === 'operation-reports') return <OperationReports key={school?.id??'platform'} school={school?.id} />
+    if (tab === 'school-marketing' && school) return <SchoolMarketing key={school.id} school={school.id} />
     if (tab === 'group-qrcodes' || tab === 'home-banners') return <OperationResources key={`${school?.id}:${tab}`} module={tab} school={school?.id} platformAdmin={user.platform_admin} schoolAdmin={can('school.profile.update')} />
     if (tab === 'feedback' && school) return <OperationFeedback key={school.id} school={school.id} canDelete={can('operation.feedback.delete')} />
     if (tab === 'miniapp-users') {

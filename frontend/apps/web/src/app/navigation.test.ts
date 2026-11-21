@@ -34,7 +34,7 @@ it('exposes complete forum management without sending capabilities', () => {
   ).toEqual({
     statistics: ['statistics', 'statistics-content', 'statistics-registration', 'statistics-activity', 'statistics-schools'],
     forum: ['posts', 'home-menu', 'cases', 'resources', 'platform-resources', 'blocked-words', 'platform-blocked-words'],
-    operations: ['group-qrcodes','home-banners','customer-config','feedback'],
+    operations: ['group-qrcodes','home-banners','home-shortcuts','service-targets','operation-reports','marketing-slots','school-marketing','customer-config','feedback'],
     school: ['schools', 'miniapp-users', 'members', 'settings'],
     source: ['source-connections', 'source-bindings', 'source-outbox'],
     administration: ['administrators', 'accounts', 'site-settings', 'audit'],
