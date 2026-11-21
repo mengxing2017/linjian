@@ -12,6 +12,7 @@ RUN if [ -f /etc/apt/sources.list ]; then \
 WORKDIR /workspace/backend
 COPY backend/Cargo.toml backend/Cargo.lock ./
 COPY backend/src ./src
+COPY backend/assets ./assets
 COPY backend/migrations ./migrations
 COPY api-contract/fixtures/school-permission-catalog.json ../api-contract/fixtures/school-permission-catalog.json
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
