@@ -6,6 +6,14 @@ use crate::community::domain::{post_import::*, post_management::*};
 use serde_json::Value;
 use uuid::Uuid;
 pub trait Store: Clone + Send + Sync + 'static {
+    fn hot_posts(
+        &self,
+        school: Uuid,
+        query: crate::community::domain::hot_posts::HotPostsQuery,
+        policy: crate::community::domain::hot_posts::HotPostPolicy,
+    ) -> impl std::future::Future<
+        Output = Result<crate::community::domain::hot_posts::HotPostsResult>,
+    > + Send;
     fn interaction_state(
         &self,
         actor: &Actor,

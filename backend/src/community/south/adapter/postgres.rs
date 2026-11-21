@@ -2,6 +2,7 @@ use crate::community::domain::case::{CaseManagementView, ResolveCaseInput};
 use crate::community::domain::{post_import::*, post_management::*};
 mod cases;
 mod decisions;
+mod hot_posts;
 mod interaction;
 mod post_content;
 mod post_import;
@@ -405,6 +406,14 @@ impl Repository {
 }
 
 impl crate::community::south::port::Store for Repository {
+    async fn hot_posts(
+        &self,
+        school: Uuid,
+        query: crate::community::domain::hot_posts::HotPostsQuery,
+        policy: crate::community::domain::hot_posts::HotPostPolicy,
+    ) -> Result<crate::community::domain::hot_posts::HotPostsResult> {
+        Repository::hot_posts(self, school, query, policy).await
+    }
     async fn interaction_state(
         &self,
         actor: &Actor,

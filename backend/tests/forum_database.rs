@@ -7,6 +7,8 @@ use serde_json::{Value, json};
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use tower::ServiceExt;
 use uuid::Uuid;
+#[path = "hot_posts/mod.rs"]
+mod hot_posts_tests;
 mod member_permissions_fixture;
 #[path = "member_permissions/mod.rs"]
 mod member_permissions_tests;

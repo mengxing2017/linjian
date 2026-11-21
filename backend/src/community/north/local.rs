@@ -220,3 +220,4 @@ impl<R: Store> Service<R> {
         self.0.resolve(a, s, id, v).await
     }
 }
+mod hot_posts;

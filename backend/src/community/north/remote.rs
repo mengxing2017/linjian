@@ -316,6 +316,7 @@ async fn resolve(
 }
 pub fn router() -> Router<Application> {
     Router::new()
+        .merge(hot_posts::router())
         .route(
             "/api/v1/schools/{school}/posts/{id}/interaction-state",
             get(interaction_state),
@@ -371,3 +372,4 @@ pub fn router() -> Router<Application> {
         .route("/api/v1/schools/{school}/cases", get(cases).post(case))
         .route("/api/v1/schools/{school}/cases/{id}", put(resolve))
 }
+mod hot_posts;

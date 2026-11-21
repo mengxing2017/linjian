@@ -484,3 +484,31 @@ fn comment_visibility_contract_keeps_moderation_separate() {
         assert!(serde_json::from_value::<SetCommentVisibility>(invalid).is_err());
     }
 }
+#[tokio::test]
+async fn hot_posts_jsonapi_matches_shared_success_and_empty_fixtures() {
+    use axum::response::IntoResponse;
+    use linjian_api::community::domain::hot_posts::{HotPostSummary, HotPostsMeta};
+    for source in [
+        include_str!("../../api-contract/fixtures/hot-posts.json"),
+        include_str!("../../api-contract/fixtures/hot-posts-empty.json"),
+    ] {
+        let fixture: serde_json::Value = serde_json::from_str(source).unwrap();
+        let items: Vec<HotPostSummary> = fixture["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|item| {
+                let mut value = item["attributes"].clone();
+                value["id"] = item["id"].clone();
+                serde_json::from_value(value).unwrap()
+            })
+            .collect();
+        let meta: HotPostsMeta = serde_json::from_value(fixture["meta"].clone()).unwrap();
+        let response = linjian_api::http::jsonapi::resource("hot-posts", items)
+            .meta(serde_json::to_value(meta).unwrap())
+            .into_response();
+        let actual: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 100000).await.unwrap()).unwrap();
+        assert_eq!(actual, fixture);
+    }
+}
