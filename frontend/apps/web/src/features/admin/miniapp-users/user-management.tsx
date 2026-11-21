@@ -14,11 +14,13 @@ export function MiniappUsers({
   platformAdmin,
   schoolAdmin,
   schools,
+  onViewSchoolChanges,
 }: {
   school?: string
   platformAdmin: boolean
   schoolAdmin: boolean
   schools: Array<{ id: string; name: string }>
+  onViewSchoolChanges?: (accountId: string) => void
 }) {
   const [filters, setFilters] = useState<UserFilters>({}),
     [global, setGlobal] = useState(false),
@@ -278,6 +280,7 @@ export function MiniappUsers({
               )}
               {platformAdmin && (
                 <>
+                  {onViewSchoolChanges && <Button onClick={() => onViewSchoolChanges(detail.data!.id)}>查看换校申请</Button>}
                   <Button
                     onClick={() => {
                       setAction('mobile')
@@ -319,7 +322,7 @@ export function MiniappUsers({
                 )}
                 {action === 'school' && (
                   <>
-                    <p>不会搬迁历史内容；封禁状态保留，旧小程序会话撤销。</p>
+                    <p>不会搬迁历史内容；封禁状态保留，旧小程序会话撤销。实际变更学校会使已有待审换校申请失效，不代表学生证明审核通过。</p>
                     <Select
                       aria-label="新的所属学校"
                       showSearch

@@ -8,6 +8,7 @@ import { UnsavedChangesContext } from '../../../shared/unsaved-changes'
 import { useSchools } from '../../school-context'
 import { StatisticsPage } from '../statistics'
 import { MiniappUsers } from '../miniapp-users'
+import { SchoolChanges } from '../school-changes'
 import { SourceBindings, SourceConnections } from '../source-access'
 import { Accounts, Schools } from './platform'
 import { OperationResources, CustomerConfiguration, OperationFeedback, OperationServices, OperationReports, SchoolMarketing } from '../operations'
@@ -65,6 +66,7 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
         const next = new URLSearchParams(previous)
         next.set('view', key)
         next.delete('subview')
+        next.delete('school-change-account')
         return next
       }),
     )
@@ -123,6 +125,7 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
     if (tab === 'feedback' && school) return <OperationFeedback key={school.id} school={school.id} canDelete={can('operation.feedback.delete')} />
     if (tab === 'miniapp-users') {
       return <MiniappUsers key={school?.id ?? 'no-school'} school={school?.id}
+        onViewSchoolChanges={accountId => void guard(() => setParams({ view: 'school-changes', 'school-change-account': accountId }))}
         platformAdmin={user.platform_admin} schoolAdmin={can('school.user.status.update')} schools={q.data ?? []} />
     }
     if (tab === 'source-connections' && user.platform_admin) return <SourceConnections />
@@ -131,6 +134,8 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
     }
     if (user.platform_admin) {
       switch (tab) {
+        case 'school-changes':
+          return <SchoolChanges key={`${user.id}:${params.get('school-change-account') ?? ''}`} reviewerId={user.id} accountId={params.get('school-change-account') ?? undefined} />
         case 'accounts':
           return <Accounts key={tab} administrators={false} user={user} schools={q.data ?? []} />
         case 'administrators':

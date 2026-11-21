@@ -25,6 +25,7 @@ export const pageHelp: Record<string, string> = {
   'blocked-words': 'operator/moderation#blocked-words',
   'platform-blocked-words': 'platform-admin/audit-and-resources',
   'miniapp-users': 'school-admin/settings-and-members#miniapp-users',
+  'school-changes': 'miniapp-school-changes',
   members: 'school-admin/settings-and-members',
   settings: 'school-admin/settings-and-members',
   audit: 'platform-admin/audit-and-resources#audit',

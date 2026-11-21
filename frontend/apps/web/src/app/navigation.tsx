@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import {
   AlertOutlined,
+  SwapOutlined,
   ApartmentOutlined,
   ApiOutlined,
   AppstoreOutlined,
@@ -124,6 +125,7 @@ export const navigation: NavigationItem[] = [
     description: '管理微信小程序注册用户的资料、所属学校及正常或封禁状态。',
     domain: 'school', scope: 'school', capability: 'school.read',
   },
+  { key: 'school-changes', icon: <SwapOutlined />, label: '换校审核', description: '核验目标学校学生关系并审核换校申请。', domain: 'school', scope: 'global', capability: 'global.manage' },
   {
     key: 'members',
     icon: <UsergroupAddOutlined />,
