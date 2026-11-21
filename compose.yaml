@@ -21,6 +21,7 @@ services:
       dockerfile: backend/Dockerfile
     environment:
       LINJIAN_MEDIA_ROOT: /data/media
+      LINJIAN_SCHOOL_CHANGE_POLICY_FILE: ${LINJIAN_SCHOOL_CHANGE_POLICY_FILE:-}
       LINJIAN_MEDIA_MAX_IMAGE_BYTES: ${LINJIAN_MEDIA_MAX_IMAGE_BYTES:-5242880}
       LINJIAN_MEDIA_MAX_WIDTH: ${LINJIAN_MEDIA_MAX_WIDTH:-8192}
       LINJIAN_MEDIA_MAX_HEIGHT: ${LINJIAN_MEDIA_MAX_HEIGHT:-8192}
@@ -66,6 +67,7 @@ services:
       LINJIAN_WEKEEPER_SECRET: ${LINJIAN_WEKEEPER_SECRET:-}
     volumes:
       - media-data:/data/media
+      - school-change-data:/data/school-change-documents
     depends_on:
       postgres:
         condition: service_healthy
@@ -95,6 +97,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
 volumes:
+  school-change-data:
   media-data:
   postgres-data:
   caddy-data:
