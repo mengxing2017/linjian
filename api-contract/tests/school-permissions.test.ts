@@ -4,12 +4,12 @@ import { createClient } from '../src/http/client'
 import { createSchoolPermissionsClient } from '../src/modules/schools'
 
 const fixture = (name: string) => JSON.parse(readFileSync(new URL(`../fixtures/${name}.json`, import.meta.url), 'utf8'))
-it('provides all 46 leaves with valid dependencies and separate role defaults', () => {
+it('provides all 59 leaves with valid dependencies and separate role defaults', () => {
   const catalog = fixture('school-permission-catalog').data.attributes
   const keys = new Set(catalog.permissions.map((item: { key: string }) => item.key))
-  expect(keys.size).toBe(46)
+  expect(keys.size).toBe(59)
   for (const definition of catalog.permissions) {
-    expect(definition.default_by_role.admin).toBe(true)
+    expect(definition.default_by_role.admin).toBe(definition.key !== 'operation.report.export')
     for (const dependency of definition.requires) expect(keys.has(dependency)).toBe(true)
   }
   expect(catalog.permissions.find((item: { id: string }) => item.id === 'P43').applicable_roles).toEqual(['admin'])

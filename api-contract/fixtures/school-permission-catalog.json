@@ -3,7 +3,7 @@
     "type": "school-permission-catalogs",
     "id": "current",
     "attributes": {
-      "catalog_version": "2026-11-20.4",
+      "catalog_version": "2026-11-21.1",
       "permissions": [
         {
           "id": "P01",
@@ -854,6 +854,245 @@
             "content.post.read"
           ],
           "high_risk": true
+        },
+        {
+          "id": "P47",
+          "key": "operation.shortcut.read",
+          "name": "服务入口：查看",
+          "description": "仅限当前学校，不授予平台目标审核或合作凭据访问权限",
+          "group": "服务运营",
+          "applicable_roles": [
+            "admin",
+            "operator"
+          ],
+          "default_by_role": {
+            "admin": true,
+            "operator": true
+          },
+          "requires": [],
+          "high_risk": false
+        },
+        {
+          "id": "P48",
+          "key": "operation.shortcut.create",
+          "name": "服务入口：创建",
+          "description": "仅限当前学校，不授予平台目标审核或合作凭据访问权限",
+          "group": "服务运营",
+          "applicable_roles": [
+            "admin",
+            "operator"
+          ],
+          "default_by_role": {
+            "admin": true,
+            "operator": false
+          },
+          "requires": [
+            "operation.shortcut.read"
+          ],
+          "high_risk": false
+        },
+        {
+          "id": "P49",
+          "key": "operation.shortcut.update",
+          "name": "服务入口：更新",
+          "description": "仅限当前学校，不授予平台目标审核或合作凭据访问权限",
+          "group": "服务运营",
+          "applicable_roles": [
+            "admin",
+            "operator"
+          ],
+          "default_by_role": {
+            "admin": true,
+            "operator": false
+          },
+          "requires": [
+            "operation.shortcut.read"
+          ],
+          "high_risk": false
+        },
+        {
+          "id": "P50",
+          "key": "operation.shortcut.delete",
+          "name": "服务入口：删除",
+          "description": "仅限当前学校，不授予平台目标审核或合作凭据访问权限",
+          "group": "服务运营",
+          "applicable_roles": [
+            "admin",
+            "operator"
+          ],
+          "default_by_role": {
+            "admin": true,
+            "operator": false
+          },
+          "requires": [
+            "operation.shortcut.read"
+          ],
+          "high_risk": false
+        },
+        {
+          "id": "P51",
+          "key": "operation.shortcut.preview",
+          "name": "服务入口：预览",
+          "description": "仅限当前学校，不授予平台目标审核或合作凭据访问权限",
+          "group": "服务运营",
+          "applicable_roles": [
+            "admin",
+            "operator"
+          ],
+          "default_by_role": {
+            "admin": true,
+            "operator": false
+          },
+          "requires": [
+            "operation.shortcut.read"
+          ],
+          "high_risk": false
+        },
+        {
+          "id": "P52",
+          "key": "operation.category.read",
+          "name": "服务分类：查看",
+          "description": "仅限当前学校，不授予平台目标审核或合作凭据访问权限",
+          "group": "服务运营",
+          "applicable_roles": [
+            "admin",
+            "operator"
+          ],
+          "default_by_role": {
+            "admin": true,
+            "operator": true
+          },
+          "requires": [],
+          "high_risk": false
+        },
+        {
+          "id": "P53",
+          "key": "operation.category.create",
+          "name": "服务分类：创建",
+          "description": "仅限当前学校，不授予平台目标审核或合作凭据访问权限",
+          "group": "服务运营",
+          "applicable_roles": [
+            "admin",
+            "operator"
+          ],
+          "default_by_role": {
+            "admin": true,
+            "operator": false
+          },
+          "requires": [
+            "operation.category.read"
+          ],
+          "high_risk": false
+        },
+        {
+          "id": "P54",
+          "key": "operation.category.update",
+          "name": "服务分类：更新",
+          "description": "仅限当前学校，不授予平台目标审核或合作凭据访问权限",
+          "group": "服务运营",
+          "applicable_roles": [
+            "admin",
+            "operator"
+          ],
+          "default_by_role": {
+            "admin": true,
+            "operator": false
+          },
+          "requires": [
+            "operation.category.read"
+          ],
+          "high_risk": false
+        },
+        {
+          "id": "P55",
+          "key": "operation.category.delete",
+          "name": "服务分类：删除",
+          "description": "仅限当前学校，不授予平台目标审核或合作凭据访问权限",
+          "group": "服务运营",
+          "applicable_roles": [
+            "admin",
+            "operator"
+          ],
+          "default_by_role": {
+            "admin": true,
+            "operator": false
+          },
+          "requires": [
+            "operation.category.read"
+          ],
+          "high_risk": false
+        },
+        {
+          "id": "P56",
+          "key": "operation.report.read",
+          "name": "运营报表：查看",
+          "description": "仅限当前学校，不授予平台目标审核或合作凭据访问权限",
+          "group": "服务运营",
+          "applicable_roles": [
+            "admin",
+            "operator"
+          ],
+          "default_by_role": {
+            "admin": true,
+            "operator": true
+          },
+          "requires": [],
+          "high_risk": false
+        },
+        {
+          "id": "P57",
+          "key": "operation.report.export",
+          "name": "运营报表：导出",
+          "description": "仅限当前学校，不授予平台目标审核或合作凭据访问权限",
+          "group": "服务运营",
+          "applicable_roles": [
+            "admin",
+            "operator"
+          ],
+          "default_by_role": {
+            "admin": false,
+            "operator": false
+          },
+          "requires": [
+            "operation.report.read"
+          ],
+          "high_risk": true
+        },
+        {
+          "id": "P58",
+          "key": "operation.marketing.read",
+          "name": "官方营销：查看",
+          "description": "仅限当前学校，不授予平台目标审核或合作凭据访问权限",
+          "group": "服务运营",
+          "applicable_roles": [
+            "admin",
+            "operator"
+          ],
+          "default_by_role": {
+            "admin": true,
+            "operator": false
+          },
+          "requires": [],
+          "high_risk": false
+        },
+        {
+          "id": "P59",
+          "key": "operation.marketing.update",
+          "name": "官方营销：更新",
+          "description": "仅限当前学校，不授予平台目标审核或合作凭据访问权限",
+          "group": "服务运营",
+          "applicable_roles": [
+            "admin",
+            "operator"
+          ],
+          "default_by_role": {
+            "admin": true,
+            "operator": false
+          },
+          "requires": [
+            "operation.marketing.read"
+          ],
+          "high_risk": false
         }
       ]
     }

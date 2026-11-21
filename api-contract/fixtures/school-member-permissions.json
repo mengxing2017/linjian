@@ -10,7 +10,7 @@
       "active": true,
       "mode": "school",
       "revision": "9007199254740994",
-      "catalog_version": "2026-11-20.4",
+      "catalog_version": "2026-11-21.1",
       "overrides": [
         {
           "permission_key": "post.recommend",
