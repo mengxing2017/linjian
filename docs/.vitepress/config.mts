@@ -29,6 +29,7 @@ export default defineConfig({
           { text: '仿真发帖', link: '/guide/simulated-posts' },
           { text: '小程序内容来源推送', link: '/guide/miniapp-publication' },
           { text: '运营中心', link: '/guide/operations' },
+          { text: '服务入口、合作与官方营销', link: '/guide/operation-services' },
           { text: '统计概览', link: '/guide/business-statistics' },
           { text: '站点品牌与备案版权', link: '/guide/site-settings' },
         ],
