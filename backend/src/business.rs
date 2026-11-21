@@ -10,6 +10,7 @@ pub enum Error {
     Forbidden,
     NotFound,
     Conflict,
+    RateLimited,
     Policy(&'static str),
     Invalid(String),
     Unavailable,

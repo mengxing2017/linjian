@@ -80,6 +80,11 @@ impl IntoResponse for Error {
             ),
             Self::Forbidden => (StatusCode::FORBIDDEN, "forbidden", "没有操作权限".into()),
             Self::NotFound => (StatusCode::NOT_FOUND, "not_found", "记录不存在".into()),
+            Self::RateLimited => (
+                StatusCode::TOO_MANY_REQUESTS,
+                "rate_limited",
+                "请求过于频繁，请稍后重试".into(),
+            ),
             Self::Conflict => (
                 StatusCode::CONFLICT,
                 "conflict",
