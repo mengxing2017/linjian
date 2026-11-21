@@ -1,4 +1,4 @@
-import type { Transport, TransportRequest } from '../features/identity/api'
+import type { Transport, TransportRequest } from '../features/identity/api/contract'
 import { credentials } from './credentials'
 const active = new Set<{ abort(): void }>()
 export function cancelRequests() {
