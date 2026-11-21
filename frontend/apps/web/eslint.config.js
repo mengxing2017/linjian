@@ -9,10 +9,10 @@ export default tseslint.config(
     files: ['src/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': ['error', {
-        patterns: [{ group: ['@linjian/api-contract', '@linjian/api-contract/*'], message: '只在 feature/api/index.ts 引用接口包。' }],
+        patterns: [{ group: ['@linjian/api-contract', '@linjian/api-contract/*'], message: '只在 feature/api/index.ts、client.ts 或 contract.ts 引用接口包。' }],
       }],
       'no-restricted-globals': ['error', { name: 'fetch', message: '通过 feature/api 与共享接口包调用 API。' }],
     },
   },
-  { files: ['src/features/**/api/index.ts'], rules: { 'no-restricted-imports': 'off' } },
+  { files: ['src/features/**/api/{index,client,contract}.ts'], rules: { 'no-restricted-imports': 'off' } },
 )
