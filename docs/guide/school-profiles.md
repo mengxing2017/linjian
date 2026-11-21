@@ -25,7 +25,7 @@
 
 ## 迁移与接口
 
-新增 forward-only 迁移 `backend/migrations/202611090004_school_profiles.sql`，不改旧基线。API 启动沿用现有迁移机制；部署应同步更新 API、Web 和小程序，不需要旧学校数据或旧主题兼容配置。
+学校资料纳入空库基线 `backend/migrations/0001_identity_schools_settings.sql`。API 启动沿用现有迁移机制；部署应同步更新 API、Web 和小程序，不需要旧学校数据或旧主题兼容配置。
 
 管理查询 `GET /api/v1/platform/schools`；普通目录 `GET /api/v1/school-directory`；已有学校列表、创建及学校详情/更新路径保持 `/api/v1/schools` 和 `/api/v1/schools/{school}`。目录及普通成员输出只含展示字段，不暴露学校配置或资产 ID。浏览器写操作仍校验 Origin 和 CSRF，凭据不进入图片 URL。
 
