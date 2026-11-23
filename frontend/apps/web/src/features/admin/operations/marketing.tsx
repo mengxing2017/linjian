@@ -10,7 +10,7 @@ export function SchoolMarketing({school}:{school:string}) {
     {(error||query.error)&&<Alert type="error" title={error||query.error?.message}/>}
     <Table rowKey="id" dataSource={query.data?.items} pagination={false} columns={[
       {title:'营销位',dataIndex:'name'},{title:'形态',dataIndex:'format'},{title:'平台状态',render:(_,row)=>row.available?'可用':'已停用'},
-      {title:'本校启用',render:(_,row)=><Switch checked={row.enabled} disabled={!can('operation.marketing.update')||!row.available} onChange={enabled=>{void serviceApi.marketingSetting(school,row.id,row.revision,enabled).then(()=>query.refetch()).catch(cause=>setError(cause instanceof Error?cause.message:'保存失败'))}}/>},
+      {title:'本校启用',render:(_,row)=><Switch aria-label={`启用营销位：${row.name}`} checked={row.enabled} disabled={!can('operation.marketing.update')||!row.available} onChange={enabled=>{void serviceApi.marketingSetting(school,row.id,row.revision,enabled).then(()=>query.refetch()).catch(cause=>setError(cause instanceof Error?cause.message:'保存失败'))}}/>},
     ]}/><Space><Button onClick={()=>void query.refetch()}>刷新</Button></Space>
   </section>
 }

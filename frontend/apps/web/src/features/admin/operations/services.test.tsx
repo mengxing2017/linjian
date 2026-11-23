@@ -39,8 +39,42 @@ it('does not implicitly grant report export to ordinary school administration',(
 it('does not expose official ad unit editing to school managers',async()=>{
   show(<SchoolMarketing school="school"/>,'operator')
   await screen.findByText('学校官方单元')
-  expect(screen.getByRole('switch')).toHaveProperty('disabled',true)
+  const control = screen.getByRole('switch', { name: '启用营销位：学校官方单元' })
+  expect(control).toHaveProperty('disabled',true)
+  fireEvent.click(control)
+  expect(serviceApi.marketingSetting).not.toHaveBeenCalled()
   expect(screen.queryByLabelText('官方广告单元 ID')).toBeNull()
+})
+
+it('names each marketing switch and preserves immediate scoped updates and unavailable states', async () => {
+  const items = [
+    { id: 'first', name: '校园服务', format: 'custom', available: true, enabled: false, revision: 7 },
+    { id: 'second', name: '平台停用单元', format: 'custom', available: false, enabled: false, revision: 3 },
+  ]
+  vi.mocked(serviceApi.marketingSettings).mockResolvedValueOnce({ id: 'current', items })
+    .mockResolvedValue({ id: 'current', items: [{ ...items[0], enabled: true }, items[1]] })
+  vi.mocked(serviceApi.marketingSetting).mockResolvedValue({ id: 'first', revision: 8, enabled: true })
+  show(<SchoolMarketing school="school" />, 'admin')
+  const editable = await screen.findByRole('switch', { name: '启用营销位：校园服务' })
+  const unavailable = screen.getByRole('switch', { name: '启用营销位：平台停用单元' })
+  expect(editable.getAttribute('aria-checked')).toBe('false')
+  expect(unavailable).toHaveProperty('disabled', true)
+  fireEvent.click(unavailable)
+  expect(serviceApi.marketingSetting).not.toHaveBeenCalled()
+  fireEvent.click(editable)
+  await waitFor(() => expect(serviceApi.marketingSetting).toHaveBeenCalledExactlyOnceWith('school', 'first', 7, true))
+  await waitFor(() => expect(editable.getAttribute('aria-checked')).toBe('true'))
+})
+
+it('keeps a named marketing switch unchanged when an immediate update fails', async () => {
+  vi.mocked(serviceApi.marketingSetting).mockRejectedValueOnce(new Error('保存冲突'))
+  show(<SchoolMarketing school="school" />, 'admin')
+  const control = await screen.findByRole('switch', { name: '启用营销位：学校官方单元' })
+  fireEvent.click(control)
+  await screen.findByText('保存冲突')
+  expect(serviceApi.marketingSetting).toHaveBeenCalledExactlyOnceWith('school', 'slot', 0, true)
+  expect(control.getAttribute('aria-checked')).toBe('false')
+  expect(serviceApi.marketingSettings).toHaveBeenCalledOnce()
 })
 
 const entities = [
