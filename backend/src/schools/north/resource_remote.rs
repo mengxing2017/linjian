@@ -295,3 +295,53 @@ pub fn router() -> Router<Application> {
         )
         .layer(DefaultBodyLimit::max(5 * 1024 * 1024))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn artwork_query_parses_pagination() {
+        for path in [
+            "/api/v1/schools/01a201bc-0058-7006-9181-9e875955c7e4/resource-artwork",
+            "/api/v1/platform/resource-artwork",
+        ] {
+            let uri =
+                format!("{path}?page[number]=1&page[size]=30&context=operation.qrcode.create")
+                    .parse()
+                    .unwrap();
+            let Query(query) = Query::<ArtworkQuery>::try_from_uri(&uri).unwrap();
+            assert_eq!(query.context.as_deref(), Some("operation.qrcode.create"));
+            assert_eq!(query.page.page, Some(1));
+            assert_eq!(query.page.page_size, Some(30));
+            assert_eq!(query.page.bounds().unwrap(), (30, 0));
+        }
+    }
+
+    #[test]
+    fn artwork_query_defaults_pagination() {
+        for value in ["/", "/?context=operation.qrcode.create"] {
+            let uri = value.parse().unwrap();
+            let Query(query) = Query::<ArtworkQuery>::try_from_uri(&uri).unwrap();
+            assert_eq!(query.page.bounds().unwrap(), (30, 0));
+        }
+    }
+
+    #[test]
+    fn artwork_query_rejects_invalid_values() {
+        for query in [
+            "page[number]=abc",
+            "page[size]=1.5",
+            "mine=invalid",
+            "page[number]=1&page[number]=2",
+        ] {
+            let uri = format!("/?context=operation.qrcode.create&{query}")
+                .parse()
+                .unwrap();
+            assert!(
+                Query::<ArtworkQuery>::try_from_uri(&uri).is_err(),
+                "{query}"
+            );
+        }
+    }
+}

@@ -291,6 +291,7 @@ struct PostOptionsQuery {
     #[serde(flatten)]
     page: crate::business::Page,
 }
+
 async fn post_options(
     State(app): State<Application>,
     actor: Actor,
@@ -356,4 +357,23 @@ pub fn router() -> Router<Application> {
             "/api/v1/schools/{school}/feedback/{id}/images/{media}",
             get(feedback_media),
         )
+}
+
+#[cfg(test)]
+mod query_tests {
+    use super::*;
+
+    #[test]
+    fn post_options_query_parses_pagination_and_filters() {
+        let uri = "/?page%5Bnumber%5D=2&page%5Bsize%5D=10&context=operation.banner.create&mine=true&search=test"
+            .parse()
+            .unwrap();
+        let Params(query) = Params::<PostOptionsQuery>::try_from_uri(&uri).unwrap();
+        assert_eq!(query.context, "operation.banner.create");
+        assert_eq!(query.page.page, Some(2));
+        assert_eq!(query.page.page_size, Some(10));
+        assert_eq!(query.page.mine, Some(true));
+        assert_eq!(query.page.search.as_deref(), Some("test"));
+        assert_eq!(query.page.bounds().unwrap(), (10, 10));
+    }
 }

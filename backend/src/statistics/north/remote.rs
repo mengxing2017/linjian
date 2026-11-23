@@ -202,3 +202,38 @@ pub fn router() -> Router<Application> {
             },
         ))
 }
+
+#[cfg(test)]
+mod query_tests {
+    use super::*;
+
+    #[test]
+    fn school_comparison_query_accepts_plain_pagination_and_boolean_sort() {
+        for descending in [true, false] {
+            let uri = format!("/?page=2&size=10&sort=posts&descending={descending}")
+                .parse()
+                .unwrap();
+            let Query(query) = Query::<SchoolsQuery>::try_from_uri(&uri).unwrap();
+            assert_eq!(query.page, Some(2));
+            assert_eq!(query.size, Some(10));
+            assert_eq!(query.sort.as_deref(), Some("posts"));
+            assert_eq!(query.descending, Some(descending));
+        }
+        let Query(query) = Query::<SchoolsQuery>::try_from_uri(&"/".parse().unwrap()).unwrap();
+        assert_eq!(query.page, None);
+        for value in ["/?page=invalid", "/?descending=invalid"] {
+            assert!(Query::<SchoolsQuery>::try_from_uri(&value.parse().unwrap()).is_err());
+        }
+    }
+
+    #[test]
+    fn export_queries_accept_optional_kind() {
+        for kind in ["periods", "schools"] {
+            let uri = format!("/?kind={kind}").parse().unwrap();
+            let Query(query) = Query::<ExportQuery>::try_from_uri(&uri).unwrap();
+            assert_eq!(query.kind.as_deref(), Some(kind));
+        }
+        let Query(query) = Query::<ExportQuery>::try_from_uri(&"/".parse().unwrap()).unwrap();
+        assert_eq!(query.kind, None);
+    }
+}

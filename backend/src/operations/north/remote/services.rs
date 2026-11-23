@@ -744,3 +744,38 @@ pub(super) fn router() -> Router<Application> {
             axum::routing::patch(marketing_setting),
         )
 }
+
+#[cfg(test)]
+mod query_tests {
+    use super::*;
+
+    #[test]
+    fn service_resolve_and_media_queries_accept_version_and_channel() {
+        let uri = "/?version=01a201bc-0058-7006-9181-9e875955c7e4&channel=wechat"
+            .parse()
+            .unwrap();
+        let Params(resolve) = Params::<ResolveInput>::try_from_uri(&uri).unwrap();
+        let Params(media) = Params::<MediaQuery>::try_from_uri(&uri).unwrap();
+        assert!(resolve.version.is_some());
+        assert_eq!(resolve.version, media.version);
+        assert_eq!(resolve.channel.as_deref(), Some("wechat"));
+        assert_eq!(resolve.channel, media.channel);
+        let empty = "/".parse().unwrap();
+        assert!(Params::<ResolveInput>::try_from_uri(&empty).is_ok());
+        assert!(Params::<MediaQuery>::try_from_uri(&empty).is_ok());
+        let invalid = "/?version=invalid".parse().unwrap();
+        assert!(Params::<ResolveInput>::try_from_uri(&invalid).is_err());
+        assert!(Params::<MediaQuery>::try_from_uri(&invalid).is_err());
+    }
+
+    #[test]
+    fn report_list_queries_accept_pagination() {
+        let uri = "/?page%5Bnumber%5D=2&page%5Bsize%5D=10".parse().unwrap();
+        let Params(query) = Params::<ReportPage>::try_from_uri(&uri).unwrap();
+        assert_eq!(query.page().bounds().unwrap(), (10, 10));
+        let Params(query) = Params::<ReportPage>::try_from_uri(&"/".parse().unwrap()).unwrap();
+        assert_eq!(query.page().bounds().unwrap(), (30, 0));
+        let invalid = "/?page[number]=invalid".parse().unwrap();
+        assert!(Params::<ReportPage>::try_from_uri(&invalid).is_err());
+    }
+}

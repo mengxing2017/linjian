@@ -79,3 +79,24 @@ pub fn router() -> Router<Application> {
         .route("/api/v1/schools/{school}/media/{id}", get(download))
         .layer(DefaultBodyLimit::max(5 * 1024 * 1024))
 }
+
+#[cfg(test)]
+mod query_tests {
+    use super::*;
+
+    #[test]
+    fn media_upload_query_accepts_purpose_and_uuid_key() {
+        let uri = "/?purpose=post_image&key=01a201bc-0058-7006-9181-9e875955c7e4"
+            .parse()
+            .unwrap();
+        let Query(query) = Query::<Upload>::try_from_uri(&uri).unwrap();
+        assert_eq!(query.purpose, "post_image");
+        assert_eq!(
+            query.key.to_string(),
+            "01a201bc-0058-7006-9181-9e875955c7e4"
+        );
+        for value in ["/?purpose=post_image", "/?purpose=post_image&key=invalid"] {
+            assert!(Query::<Upload>::try_from_uri(&value.parse().unwrap()).is_err());
+        }
+    }
+}
