@@ -17,6 +17,7 @@ export interface PostInteractionState {
   author_followed: boolean
   can_interact: boolean
   can_share: boolean
+  phone_verification_required?: boolean
 }
 export type { CreatePostInput, UpdatePostInput } from './post-content'
 export interface Comment extends Row {

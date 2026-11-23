@@ -5,6 +5,7 @@ export interface MiniappUser {
   nickname: string
   account_kind: 'ordinary' | 'simulated'
   mobile: string | null
+  phone_status?: 'unverified' | 'verified' | 'revoked'
   school_id: string | null
   school_name: string | null
   post_count: number
@@ -19,6 +20,19 @@ export interface MiniappUser {
     from: string
     to: string
   }>
+}
+export interface PhoneBinding {
+  id: string
+  status: 'unverified' | 'verified' | 'revoked'
+  masked_phone: string | null
+  verified_at: string | null
+  revision: number
+}
+export interface BindPhoneInput {
+  code: string
+  request_id: string
+  revision: number
+  notice_version: 'linjian-phone-v1'
 }
 export interface UserFilters {
   account_kind?: 'ordinary' | 'simulated'

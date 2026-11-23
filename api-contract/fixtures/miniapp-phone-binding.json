@@ -1,0 +1,12 @@
+{
+  "data": {
+    "type": "miniapp-phone-bindings",
+    "id": "60000000-0000-0000-0000-000000000001",
+    "attributes": {
+      "status": "verified",
+      "masked_phone": "*******8000",
+      "verified_at": "2026-11-23T00:00:00Z",
+      "revision": 1
+    }
+  }
+}

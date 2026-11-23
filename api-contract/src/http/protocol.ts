@@ -145,6 +145,7 @@ export function resourceType(path: string): string {
   if(parts[2]==='miniapp') {
     if(parts[3]==='activity-events') return 'miniapp-activity-events';
     if(parts[3]==='profile' && parts[4]==='mobile') return 'miniapp-user-mobiles';
+    if(parts[3]==='profile' && ['phone-binding','phone-bindings'].includes(parts[4])) return 'miniapp-phone-bindings';
     if(parts[3]==='profile') return 'miniapp-profiles';
     if(parts[3]==='avatar-assets') return 'miniapp-avatar-assets';
   }

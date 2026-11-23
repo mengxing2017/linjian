@@ -1,6 +1,6 @@
 import type { Cancellation, Client } from '../../http/client'
 import { userQuery } from './query'
-import type { MiniappUser, UserFilters } from './types'
+import type { MiniappUser, UserFilters, PhoneBinding, BindPhoneInput } from './types'
 const part = encodeURIComponent
 export function createMiniappUsersClient(
   client: Pick<Client, 'requestResource' | 'requestCollection' | 'requestBinary'>,
@@ -45,6 +45,9 @@ export function createMiniappUsersClient(
         revision: user.revision,
       }),
     profile: () => client.requestResource<MiniappUser>('/api/v1/miniapp/profile'),
+    phoneBinding: () => client.requestResource<PhoneBinding>('/api/v1/miniapp/profile/phone-binding'),
+    bindPhone: (input: BindPhoneInput) => client.requestResource<PhoneBinding>('/api/v1/miniapp/profile/phone-bindings', 'POST', input),
+    revokePhone: (revision: number) => client.requestResource<PhoneBinding>(`/api/v1/miniapp/profile/phone-binding?revision=${revision}`, 'DELETE'),
     saveProfile: (nickname: string, avatar_asset_id: string | null, revision: number) =>
       client.requestResource<MiniappUser>('/api/v1/miniapp/profile', 'PUT', {
         nickname,

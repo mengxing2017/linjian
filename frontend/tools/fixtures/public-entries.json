@@ -387,7 +387,7 @@
     "values": ["mediaApi", "uploadKey"]
   },
   "apps/miniapp/src/features/miniapp-users/api/index.ts": {
-    "types": ["MiniappUser"],
+    "types": ["BindPhoneInput", "MiniappUser", "PhoneBinding"],
     "values": ["miniappUserApi"]
   },
   "apps/miniapp/src/features/operations/api/index.ts": {

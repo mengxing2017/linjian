@@ -32,6 +32,7 @@ export function readInteractionState(
     !count(value.comment_count) ||
     !['pending', 'approved', 'rejected'].includes(String(value.audit_status)) ||
     !['visible', 'hidden', 'offline', 'deleted'].includes(String(value.visibility)) ||
+    (value.phone_verification_required !== undefined && typeof value.phone_verification_required !== 'boolean') ||
     ['liked', 'collected', 'author_followed', 'can_interact', 'can_share'].some(
       (key) => typeof value[key] !== 'boolean',
     )

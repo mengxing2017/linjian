@@ -1,0 +1,7 @@
+{
+  "data": {
+    "type": "miniapp-phone-bindings",
+    "id": "60000000-0000-0000-0000-000000000001",
+    "attributes": { "status": "unverified", "masked_phone": null, "verified_at": null, "revision": 0 }
+  }
+}

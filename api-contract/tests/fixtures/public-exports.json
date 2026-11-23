@@ -284,7 +284,9 @@
   },
   "./miniapp-users": {
     "types": [
+      "BindPhoneInput",
       "MiniappUser",
+      "PhoneBinding",
       "UserFilters"
     ],
     "values": [

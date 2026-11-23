@@ -1,2 +1,2 @@
 export { createMiniappUsersClient } from './client'
-export type { MiniappUser, UserFilters } from './types'
+export type { MiniappUser, UserFilters, PhoneBinding, BindPhoneInput } from './types'

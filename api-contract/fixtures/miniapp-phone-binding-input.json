@@ -1,0 +1,11 @@
+{
+  "data": {
+    "type": "miniapp-phone-bindings",
+    "attributes": {
+      "code": "test-once-phone-code",
+      "request_id": "60000000-0000-0000-0000-000000000002",
+      "revision": 0,
+      "notice_version": "linjian-phone-v1"
+    }
+  }
+}

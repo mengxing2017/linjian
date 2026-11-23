@@ -12,7 +12,8 @@
       "collected": false,
       "author_followed": false,
       "can_interact": true,
-      "can_share": true
+      "can_share": true,
+      "phone_verification_required": false
     }
   }
 }
