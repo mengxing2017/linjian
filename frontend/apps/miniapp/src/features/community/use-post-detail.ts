@@ -11,6 +11,7 @@ interface Environment {
   failure: (error: unknown) => string
   notify: (message: string) => void
   confirm: (message: string) => Promise<boolean>
+  beforePublicAction?: () => Promise<boolean>
 }
 export function createPostDetail(env: Environment) {
   const post = shallowRef<CommunityPost>()
@@ -42,7 +43,7 @@ export function createPostDetail(env: Environment) {
   }
   function failure(cause: unknown, prefix = '') {
     const current = token()
-    validated.value = false
+    if (!(cause && typeof cause === 'object' && 'code' in cause && cause.code === 'phone_verification_required')) validated.value = false
     const message = env.failure(cause)
     if (current()) error.value = prefix + message
   }
@@ -116,7 +117,7 @@ export function createPostDetail(env: Environment) {
       }
     }
   }
-  async function write(kind: string, action: () => Promise<unknown>, after?: (result: unknown) => void, resetComments = false) {
+  async function write(kind: string, action: () => Promise<unknown>, after?: (result: unknown) => void, resetComments = false, publicAction = false) {
     if (busy.value || !canInteract.value) return
     const current = token()
     const turn = ++writeSequence
@@ -124,6 +125,8 @@ export function createPostDetail(env: Environment) {
     error.value = ''
     let committed = false
     try {
+      if (publicAction && env.beforePublicAction && !await env.beforePublicAction()) return
+      if (!current()) return
       const result = await action()
       if (!current()) return
       committed = true
@@ -151,7 +154,7 @@ export function createPostDetail(env: Environment) {
   }
   function react(kind: 'like' | 'collect') {
     const desired = !(kind === 'like' ? interaction.value?.liked : interaction.value?.collected)
-    return write('reaction', () => env.api.react(env.school(), env.id(), kind, desired))
+    return write('reaction', () => env.api.react(env.school(), env.id(), kind, desired), undefined, false, kind === 'like' && desired)
   }
   function follow() {
     if (!post.value) return Promise.resolve()
@@ -167,7 +170,7 @@ export function createPostDetail(env: Environment) {
     return write('comment', () => env.api.comment(env.school(), env.id(), draft.trim(), reply?.id), result => {
       if (content.value === draft && parent.value?.id === reply?.id) { content.value = ''; parent.value = undefined }
       if (visible.value) env.notify((result as Comment).audit_status === 'approved' ? '评论发布成功' : '已提交，等待审核')
-    }, true)
+    }, true, true)
   }
   async function removeComment(item: Comment) {
     if (item.school_id !== env.school() || item.post_id !== env.id()) return

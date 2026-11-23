@@ -8,16 +8,17 @@ import { usePage } from '../../shared/use-page'
 import { onUnmounted } from 'vue'
 import { onHide } from '@dcloudio/uni-app'
 import { uploadBatch } from './upload-batch'
-const props = defineProps<{ modelValue: string[]; purpose: UploadPurpose; disabled?: boolean }>()
-const emit = defineEmits<{ 'update:modelValue': [value: string[]]; busy: [value: boolean] }>()
+const props = defineProps<{ modelValue: string[]; purpose: UploadPurpose; disabled?: boolean; beforeUpload?: () => Promise<boolean> }>()
+const emit = defineEmits<{ 'update:modelValue': [value: string[]]; busy: [value: boolean]; pending: [value: number] }>()
 const failed = ref<{ path: string; key: string; message: string }[]>([])
+watch(() => failed.value.length, value => emit('pending', value), { immediate: true })
 const result = ref('')
 let lifetime = 0
 onHide(() => { lifetime++; result.value = '' })
 const { busy, error, run } = usePage(() => { failed.value = []; result.value = ''; emit('busy', false) })
 watch(busy, v => emit('busy', v))
 const stop = onScopeChange(() => { failed.value = []; result.value = '' })
-onUnmounted(() => { stop(); emit('busy', false) })
+onUnmounted(() => { stop(); emit('busy', false); emit('pending', 0) })
 async function send(item: { path: string; key: string }, current: () => boolean) {
   const scope = scopeKey(), school = schoolContext.id
   try {
@@ -36,6 +37,11 @@ async function send(item: { path: string; key: string }, current: () => boolean)
 }
 async function batch(items: { path: string; key: string }[], current: () => boolean) {
   result.value = ''
+  if (props.beforeUpload && !await props.beforeUpload()) {
+    if (current()) failed.value = [...failed.value.filter(item => !items.some(next => next.key === item.key)), ...items.map(item => ({ ...item, message: '图片尚未上传；完成手机号验证后请重试此图片。' }))]
+    return
+  }
+  if (!current()) return
   const summary = await uploadBatch(items, item => send(item, current), current)
   if (current()) result.value = summary ?? ''
 }

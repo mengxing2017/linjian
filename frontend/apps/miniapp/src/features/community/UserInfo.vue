@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { onUnmounted } from 'vue'
+import { onUnmounted, ref } from 'vue'
 import { restoreSession, refreshUser, session } from '../identity/session'
 import { miniappUserApi } from '../miniapp-users/api'
 import { uploadAvatar } from '../miniapp-users/avatar-files'
 import Avatar from '../miniapp-users/Avatar.vue'
+import PhoneBindingPanel from '../miniapp-users/PhoneBindingPanel.vue'
 import { confirm, handlePageError } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
 import { onScopeChange, scopeKey } from '../school-context/context'
 import { createUserInfo } from './use-user-info'
+const phone = ref<InstanceType<typeof PhoneBindingPanel>>()
 
 const info = createUserInfo({
   api: miniappUserApi,
@@ -19,13 +21,13 @@ const info = createUserInfo({
   confirm,
   notify: (title) => uni.showToast({ title }),
 })
-const { profile, name, mobile, avatar, uploadResult, busy, error, conflict, refreshWarning, writeUncertain, length, canSave } = info
+const { profile, name, avatar, uploadResult, busy, error, conflict, refreshWarning, writeUncertain, length, canSave } = info
 const stop = onScopeChange(info.reset)
 onUnmounted(() => { stop(); info.dispose() })
 function choose(event: { detail: { avatarUrl?: string } }) {
   void info.choose(event.detail.avatarUrl ?? '')
 }
-defineExpose({ show: info.show, hide: info.hide, refresh: info.reload })
+defineExpose({ show: info.show, hide: () => { info.hide(); phone.value?.close() }, refresh: info.reload })
 </script>
 <template>
   <view class="page">
@@ -44,10 +46,7 @@ defineExpose({ show: info.show, hide: info.hide, refresh: info.reload })
       <button class="primary" :disabled="!canSave" @tap="info.save">保存头像昵称</button>
       <text v-if="refreshWarning" class="error">{{ refreshWarning }}</text>
       <button v-if="refreshWarning" :disabled="busy" @tap="info.retryRefresh">重试刷新显示信息</button>
-      <text>手机号</text>
-      <input v-model="mobile" type="number" maxlength="11" class="input" placeholder="未填写" :disabled="busy || !!profile.mobile" />
-      <text class="muted">联系手机号为本人填写，未作验证；登记后需联系平台管理员纠正。</text>
-      <button v-if="!profile.mobile" :disabled="busy || !mobile || conflict || writeUncertain" @tap="info.registerMobile">登记手机号</button>
+      <PhoneBindingPanel ref="phone" manage />
       <text>所属学校：{{ profile.school_name || '未绑定学校' }}</text>
       <text>发帖数：{{ profile.post_count }}</text>
       <text>创建时间：{{ new Date(profile.created_at).toLocaleString() }}</text>

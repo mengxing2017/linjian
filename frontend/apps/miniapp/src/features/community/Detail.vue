@@ -12,15 +12,21 @@ import { postShare } from './sharing'
 import { invalidatePost, invalidatedPosts, clearPostInvalidations } from './post-invalidations'
 import PrivateImage from '../media/PrivateImage.vue'
 import PageStatus from '../../shared/PageStatus.vue'
+import PhoneBindingPanel from '../miniapp-users/PhoneBindingPanel.vue'
 
 const props = defineProps<{ id: string; school: string }>()
+const phone = ref<InstanceType<typeof PhoneBindingPanel>>()
 const invalidationScope = () => `${scopeKey()}:${session.user?.id ?? ''}`
 const key = () => `${invalidationScope()}:${props.school}:${props.id}`
 const notify = (title: string) => uni.showToast({ title, icon: 'none' })
 const detail = createPostDetail({
   api: communityApi, school: () => props.school, id: () => props.id, key,
   invalidate: kind => invalidatePost(invalidationScope(), props.school, props.id, false, kind === 'follow' ? post.value?.author_id : undefined),
-  failure: handlePageError, notify, confirm,
+  failure: cause => {
+    if (cause && typeof cause === 'object' && 'code' in cause && cause.code === 'phone_verification_required') void phone.value?.open()
+    return handlePageError(cause)
+  }, notify, confirm,
+  beforePublicAction: () => phone.value?.ensure() ?? Promise.resolve(false),
 })
 const { post, interaction, comments, content, parent, error, busy, loadingMore, operation, more, canInteract, canShare } = detail
 const focused = ref(false)
@@ -126,13 +132,14 @@ async function report() {
 }
 defineExpose({
   show: () => { visible = true; return load() },
-  hide: () => { visible = false; displayEpoch++; detail.hide(); hideMenu() },
+  hide: () => { visible = false; displayEpoch++; detail.hide(); hideMenu(); phone.value?.close() },
   refresh: () => load(true),
   loadMore: detail.next,
   share: () => postShare(interaction.value, props.school, props.id, canShare.value),
 })
 </script>
 <template>
+  <PhoneBindingPanel ref="phone" />
   <view class="page">
     <PageStatus :busy="busy" :error="error" @retry="load(true)" />
     <template v-if="post">

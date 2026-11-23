@@ -3,7 +3,7 @@ import { onScopeChange, clearScope, invalidateSchool } from '../features/school-
 export function handlePageError(error: unknown) {
   if (error && typeof error === 'object') {
     if ('code' in error && error.code === 'school_unavailable') invalidateSchool()
-    else if ('status' in error && error.status === 403) clearScope()
+    else if ('status' in error && error.status === 403 && !('code' in error && typeof error.code === 'string' && error.code.startsWith('phone_'))) clearScope()
   }
   return error instanceof Error ? error.message : '操作失败，请重试'
 }

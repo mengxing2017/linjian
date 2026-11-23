@@ -14,7 +14,7 @@ function deferred<T>() {
   const promise = new Promise<T>(done => { resolve = done })
   return { promise, resolve }
 }
-function setup() {
+function setup(beforePublicAction?: () => Promise<boolean>) {
   let key = 'account:school:post'
   const api = {
     post: vi.fn().mockResolvedValue(post), interactionState: vi.fn().mockResolvedValue(snapshot),
@@ -23,10 +23,26 @@ function setup() {
     comment: vi.fn().mockResolvedValue({ ...comment('new'), audit_status: 'pending' }), deleteComment: vi.fn().mockResolvedValue(null),
   }
   const invalidate = vi.fn(), notify = vi.fn(), confirm = vi.fn().mockResolvedValue(true)
-  const detail = createPostDetail({ api, school: () => school, id: () => id, key: () => key, invalidate, notify, confirm, failure: cause => cause instanceof Error ? cause.message : '失败' })
+  const detail = createPostDetail({ api, school: () => school, id: () => id, key: () => key, invalidate, notify, confirm, beforePublicAction, failure: cause => cause instanceof Error ? cause.message : '失败' })
   detail.show()
   return { api, detail, invalidate, notify, confirm, changeScope: () => { key = 'another'; detail.reset() } }
 }
+it('gates new public actions without losing reply drafts or blocking private collection', async () => {
+  const gate = vi.fn().mockResolvedValue(false)
+  const { detail, api } = setup(gate)
+  await detail.load()
+  detail.content.value = '保留评论草稿'
+  detail.reply(comment())
+  await detail.comment()
+  await detail.react('like')
+  expect(api.comment).not.toHaveBeenCalled()
+  expect(api.react).not.toHaveBeenCalled()
+  expect(detail.content.value).toBe('保留评论草稿')
+  expect(detail.parent.value?.id).toBe('comment')
+  await detail.react('collect')
+  expect(api.react).toHaveBeenCalledWith(school, id, 'collect', true)
+  expect(gate).toHaveBeenCalledTimes(2)
+})
 it('preserves a missing author title rather than copying the display label into it', async () => {
   const { api, detail } = setup()
   api.post.mockResolvedValue({ ...post, title: '', display_label: '正文' })

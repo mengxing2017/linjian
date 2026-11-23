@@ -10,8 +10,11 @@ import { uuid } from '../operations/policy'
 import ImageUploads from '../media/ImageUploads.vue'
 import { usePage, confirm, handlePageError } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
+import PhoneBindingPanel from '../miniapp-users/PhoneBindingPanel.vue'
 import { onUnmounted } from 'vue'
 const props = defineProps<{ id?: string; school?: string }>()
+const phone = ref<InstanceType<typeof PhoneBindingPanel>>()
+const ensurePhone = () => phone.value?.ensure() ?? Promise.resolve(false)
 const titleExpanded = ref(false)
 const title = ref(''),
   content = ref(''),
@@ -23,6 +26,7 @@ const title = ref(''),
   candidates = ref<HomeMenuTag[]>([]),
   selectedCandidates = ref<HomeMenuTag[]>([])
 const uploading = ref(false)
+const pendingImages = ref(0)
 const submitting = ref(false)
 const { busy, error, run } = usePage(() => {
   title.value = ''
@@ -146,6 +150,8 @@ async function submit() {
       key = scopeKey(),
       draft = draftKey()
     saveDraft()
+    if (!await ensurePhone() || key !== scopeKey()) return
+    if (pendingImages.value) throw new Error('还有未上传的图片，请重试或移除后再发布；正文已保存')
     const input = {
         ...normalized,
         images: [...images.value],
@@ -176,6 +182,7 @@ async function submit() {
       success: () => { if (key === scopeKey()) uni.redirectTo({ url: `/pages/index/detail?school=${s}&id=${result.id}` }) },
     })
   } catch (e) {
+    if (e && typeof e === 'object' && 'code' in e && e.code === 'phone_verification_required') void phone.value?.open()
     error.value = handlePageError(e)
     uni.showToast({ title: error.value.slice(0, 30), icon: 'none' })
   } finally {
@@ -195,7 +202,7 @@ function discard() {
   })
 }
 // Scope changes clear in-memory fields; drafts are explicitly saved under account + school.
-defineExpose({ show: load, hide: saveDraft })
+defineExpose({ show: load, hide: () => { saveDraft(); phone.value?.close() } })
 </script>
 <template>
   <view class="page">
@@ -219,7 +226,7 @@ defineExpose({ show: load, hide: saveDraft })
       <button v-if="!titleExpanded" size="mini" @tap="titleExpanded = true">{{ title ? '展开标题' : '添加标题（选填）' }}</button>
       <view class="row"><text>可选标签：</text><button v-for="tag in candidates" :key="tag.id" size="mini" @tap="addTag(tag)">{{ tag.name }}</button></view>
       <input v-model="tags" class="input" placeholder="标签，使用逗号分隔" />
-      <ImageUploads v-model="images" purpose="post_image" :disabled="busy" @busy="uploading = $event" />
+      <ImageUploads v-model="images" purpose="post_image" :before-upload="ensurePhone" :disabled="busy" @busy="uploading = $event" @pending="pendingImages = $event" />
       <text v-if="leaseMessage" class="muted">{{ leaseMessage }}</text>
       <view class="row">
         <button size="mini" :disabled="busy || uploading" @tap="saveDraft">保存本地草稿</button>
@@ -228,6 +235,8 @@ defineExpose({ show: load, hide: saveDraft })
       <text v-if="error" class="error">{{ error }}</text>
       <button class="primary" :disabled="submitting || uploading" :loading="submitting" @tap="submit">发布</button>
       <text class="muted">网络中断时请先在“我的发布”核对结果，再决定是否重新提交。</text>
+      <text class="muted">首次发布需通过微信验证手机号；暂不验证仍可浏览和保存正文草稿。</text>
     </view>
+    <PhoneBindingPanel ref="phone" />
   </view>
 </template>
