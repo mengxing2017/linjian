@@ -22,3 +22,6 @@ report/
 # Local private file storage.
 .linjian-media/
 .commandcode/
+
+# 微信开发者工具个人配置（appid、本地设置），由工具生成，不提交。
+project.private.config.json

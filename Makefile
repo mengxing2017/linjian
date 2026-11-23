@@ -21,6 +21,7 @@ check-web:
 	pnpm --dir frontend test
 	pnpm --dir frontend build
 check-miniapp:
+	node frontend/tools/check-miniapp-config.mjs
 	pnpm --dir frontend --filter @linjian/miniapp typecheck
 	pnpm --dir frontend --filter @linjian/miniapp lint
 	pnpm --dir frontend --filter @linjian/miniapp test
