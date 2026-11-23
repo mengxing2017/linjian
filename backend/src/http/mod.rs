@@ -43,6 +43,7 @@ pub fn app_router(application: Application) -> Router {
         .merge(crate::content_publication::north::remote::router())
         .merge(crate::miniapp_users::north::remote::router())
         .merge(crate::school_changes::north::remote::router())
+        .merge(crate::message_advertisements::north::remote::router())
         .fallback(not_found)
         .with_state(application)
         .layer(axum::middleware::from_fn(error::normalize_errors))

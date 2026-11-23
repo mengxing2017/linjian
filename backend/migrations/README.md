@@ -17,6 +17,7 @@ SQLx 按文件编号顺序执行，所有 SQL 文件保持在本目录，不移�
 | `0009_functions_triggers.sql` | 当前有效函数及触发器，函数按依赖顺序创建 |
 | `0010_initial_data.sql` | 安装元数据、站点与注册默认配置、来源配置及空库统计覆盖范围 |
 | `0011_miniapp_phone_bindings.sql` | 后续 forward-only 迁移：微信已核验手机号的加密绑定状态及一次性授权请求去重记录；不将历史手填号码升级为认证 |
+| `0012_school_message_advertisements.sql` | 学校消息尾部广告配置、封存修订、平台审核证据、冻结采用快照、管理员专属权限和新版消息拼接校验；离线快照格式升级至 7 |
 
 `0001` 至 `0010` 保持独立空库基线；新增功能通过后续 forward-only migration 演进，不改写已执行的基线文件。
 

@@ -12,6 +12,8 @@ mod hot_posts_tests;
 mod member_permissions_fixture;
 #[path = "member_permissions/mod.rs"]
 mod member_permissions_tests;
+#[path = "message_advertisements/mod.rs"]
+mod message_advertisements_tests;
 #[path = "operation_services/mod.rs"]
 mod operation_services_tests;
 #[path = "phone_bindings/mod.rs"]

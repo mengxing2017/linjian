@@ -9,6 +9,7 @@ pub mod identity;
 pub mod integrations;
 pub mod legacy;
 pub mod media;
+pub mod message_advertisements;
 pub mod migration;
 pub mod observability;
 pub mod outbox;

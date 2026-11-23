@@ -12,6 +12,9 @@ pub const TABLES: &[&str] = &[
     "school_memberships",
     "school_member_authorizations",
     "school_member_permission_overrides",
+    "school_message_advertisements",
+    "school_message_advertisement_revisions",
+    "school_message_advertisement_decisions",
     "file_assets",
     "miniapp_avatar_assets",
     "miniapp_users",
@@ -34,6 +37,7 @@ pub const TABLES: &[&str] = &[
     "miniapp_link_assets",
     "forum_outbox",
     "forum_publication_preparations",
+    "forum_message_advertisement_snapshots",
     "forum_post_recommendations",
     "forum_source_terminations",
     "cases",
@@ -134,7 +138,7 @@ pub async fn export(
     tx.commit().await?;
     lock.release().await?;
     Ok(Snapshot {
-        schema_version: 6,
+        schema_version: 7,
         digest: digest(&tables),
         tables,
         files: payloads,
@@ -147,7 +151,7 @@ pub async fn import(
     files: &crate::media::south::adapter::filesystem::Files,
 ) -> Result<Value> {
     require(
-        snapshot.schema_version == 6 && snapshot.digest == digest(&snapshot.tables),
+        snapshot.schema_version == 7 && snapshot.digest == digest(&snapshot.tables),
         "快照版本或摘要不匹配",
     )?;
     require(
