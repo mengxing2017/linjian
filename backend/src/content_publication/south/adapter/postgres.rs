@@ -42,7 +42,7 @@ impl Repository {
         Ok(())
     }
     pub async fn cached_link(&self, w: &Preparation) -> Result<Option<Link>> {
-        let key = w.policy.cache_key(w.school, w.post, &w.title);
+        let key = w.policy.cache_key(w.school, w.post, &w.title, &w.content);
         let row=sqlx::query("SELECT link,generated_at,expires_at FROM miniapp_link_assets WHERE cache_key=$1 AND (expires_at IS NULL OR expires_at>now()+make_interval(secs=>$2)) ORDER BY generated_at DESC,id DESC LIMIT 1")
             .bind(&key).bind(w.policy.min_remaining as f64).fetch_optional(&self.0).await?;
         Ok(row.map(|r| Link {
@@ -53,7 +53,7 @@ impl Repository {
     }
     pub async fn reserve_link(&self, w: &Preparation) -> Result<bool> {
         let result=sqlx::query("INSERT INTO miniapp_link_leases(cache_key,lease_token,lease_until) VALUES($1,$2,now()+interval '90 seconds') ON CONFLICT(cache_key) DO UPDATE SET lease_token=excluded.lease_token,lease_until=excluded.lease_until WHERE miniapp_link_leases.lease_until<now()")
-            .bind(w.policy.cache_key(w.school,w.post,&w.title)).bind(w.token).execute(&self.0).await?;
+            .bind(w.policy.cache_key(w.school,w.post,&w.title,&w.content)).bind(w.token).execute(&self.0).await?;
         Ok(result.rows_affected() > 0)
     }
 }
@@ -176,13 +176,13 @@ impl PreparationStore for Repository {
         match result {
             Ok((link, body)) => {
                 let asset = if w.needs_link {
-                    let cache_key = w.policy.cache_key(w.school, w.post, &w.title);
+                    let cache_key = w.policy.cache_key(w.school, w.post, &w.title, &w.content);
                     let existing:Option<Uuid>=sqlx::query_scalar("SELECT id FROM miniapp_link_assets WHERE cache_key=$1 AND link=$2 AND (expires_at IS NULL OR expires_at>now()+make_interval(secs=>$3)) ORDER BY generated_at DESC LIMIT 1")
                     .bind(&cache_key).bind(&link.value).bind(w.policy.min_remaining as f64).fetch_optional(&mut *tx).await?;
                     let asset = existing.unwrap_or_else(Uuid::now_v7);
                     if existing.is_none() {
                         sqlx::query("INSERT INTO miniapp_link_assets(id,cache_key,app_id,policy,page_path,canonical_query,page_title,link_type,permanent,link,generated_at,expires_at) VALUES($1,$2,$3,$4,'pages/index/detail',$5,$6,$7,$8,$9,$10,$11)")
-                        .bind(asset).bind(&cache_key).bind(&w.policy.app_id).bind(json!(w.policy)).bind(format!("school={}&id={}",w.school,w.post)).bind(w.title.chars().take(20).collect::<String>()).bind(&w.policy.link_type).bind(w.policy.permanent).bind(&link.value).bind(link.generated_at).bind(link.expires_at).execute(&mut *tx).await?;
+                        .bind(asset).bind(&cache_key).bind(&w.policy.app_id).bind(json!(w.policy)).bind(format!("school={}&id={}",w.school,w.post)).bind(crate::content_publication::domain::page_title(&w.title, &w.content)).bind(&w.policy.link_type).bind(w.policy.permanent).bind(&link.value).bind(link.generated_at).bind(link.expires_at).execute(&mut *tx).await?;
                     }
                     Some(asset)
                 } else {
@@ -207,7 +207,7 @@ impl PreparationStore for Repository {
             }
         }
         sqlx::query("DELETE FROM miniapp_link_leases WHERE cache_key=$1 AND lease_token=$2")
-            .bind(w.policy.cache_key(w.school, w.post, &w.title))
+            .bind(w.policy.cache_key(w.school, w.post, &w.title, &w.content))
             .bind(w.token)
             .execute(&mut *tx)
             .await?;

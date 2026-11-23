@@ -92,7 +92,11 @@ impl Repository {
             Some(event) => Some(record(&mut tx, s, id, event).await?),
             None => None,
         };
-        let result = json!({"id":id,"school_id":s,"school_name":row["school_name"],"title":row["title"],"summary":row["summary"],"revision":row["revision"],"content_revision":row["content_revision"],"publication_snapshot_id":row["approved_snapshot_id"],"authorized":allowed,"can_recommend":reason.is_none(),"unavailable_reason":reason,"next_eligible_at":next,"latest":latest});
+        let result = crate::community::domain::post_text::project(
+            json!({"id":id,"school_id":s,"school_name":row["school_name"],"title":row["title"],"summary":row["summary"],"revision":row["revision"],"content_revision":row["content_revision"],"publication_snapshot_id":row["approved_snapshot_id"],"authorized":allowed,"can_recommend":reason.is_none(),"unavailable_reason":reason,"next_eligible_at":next,"latest":latest,"content":row["content"]}),
+        );
+        let mut result = result;
+        result.as_object_mut().unwrap().remove("content");
         let typed: crate::community::domain::post_recommendation::RecommendationPreview =
             serde_json::from_value(result).map_err(|_| Error::Unavailable)?;
         tx.commit().await?;

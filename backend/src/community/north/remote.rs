@@ -3,7 +3,7 @@ pub mod post_seed;
 use crate::{
     bootstrap::Application,
     business::{Actor, Decision, Page, Result, Revision},
-    community::domain::{CommentInput, PostInput},
+    community::domain::{CommentInput, CreatePostInput, UpdatePostInput},
     http::jsonapi::{ApiResponse, Input, collection, completed, resource},
 };
 use axum::{
@@ -94,7 +94,7 @@ async fn create(
     Path(s): Path<Uuid>,
     input_document: Input,
 ) -> Result<ApiResponse> {
-    let v = input_document.decode::<PostInput>("posts")?;
+    let v = input_document.decode::<CreatePostInput>("posts")?.into();
     let result = a.community.post(&actor, s, None, v).await?;
     a.activity.event(
         &actor,
@@ -114,7 +114,9 @@ async fn update(
     Path((s, id)): Path<(Uuid, Uuid)>,
     input_document: Input,
 ) -> Result<ApiResponse> {
-    let v = input_document.decode::<PostInput>("posts")?;
+    let v = input_document
+        .decode::<UpdatePostInput>("posts")?
+        .try_into()?;
     Ok(resource(
         "posts",
         crate::community::domain::public_post::project(

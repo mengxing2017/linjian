@@ -32,6 +32,7 @@ impl<R: Store> Service<R> {
         if id.is_none() {
             a.platform()?;
         }
+        let v = v.normalized()?;
         v.validate(s)?;
         self.0.management_write(a, s, id, v).await
     }

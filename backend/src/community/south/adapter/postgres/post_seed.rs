@@ -42,7 +42,15 @@ fn payload(value: Value) -> Result<PreviewPayload> {
 async fn batch_view(tx: &mut Transaction<'_, Postgres>, school: Uuid, id: Uuid) -> Result<Value> {
     let value:Value=sqlx::query_scalar("SELECT (to_jsonb(b)-'commit_idempotency_key'-'commit_request_digest'-'policy_digest')||jsonb_build_object('post_count',(SELECT count(*) FROM post_seed_items WHERE batch_id=b.id),'interaction_count',(SELECT count(*) FROM comments WHERE post_id IN (SELECT post_id FROM post_seed_items WHERE batch_id=b.id))+(SELECT count(*) FROM post_reactions WHERE post_id IN (SELECT post_id FROM post_seed_items WHERE batch_id=b.id))+(SELECT count(*) FROM cases WHERE post_id IN (SELECT post_id FROM post_seed_items WHERE batch_id=b.id))) FROM post_seed_batches b WHERE school_id=$1 AND id=$2")
         .bind(school).bind(id).fetch_optional(&mut **tx).await?.ok_or(Error::NotFound)?;
-    let view: BatchView = serde_json::from_value(value).map_err(|_| Error::Unavailable)?;
+    let mut view: BatchView = serde_json::from_value(value).map_err(|_| Error::Unavailable)?;
+    view.row_labels = view
+        .preview_payload
+        .rows
+        .iter()
+        .map(|row| {
+            crate::community::domain::post_text::display_label(&row.title, &row.content, false)
+        })
+        .collect();
     serde_json::to_value(view).map_err(|_| Error::Unavailable)
 }
 async fn lock_batch(tx: &mut Transaction<'_, Postgres>, school: Uuid, id: Uuid) -> Result<Value> {
@@ -81,8 +89,14 @@ async fn validate_rows(
 }
 
 impl Store for Repository {
-    async fn preview(&self, actor: &Actor, school: Uuid, input: PreviewInput) -> Result<Value> {
+    async fn preview(&self, actor: &Actor, school: Uuid, mut input: PreviewInput) -> Result<Value> {
         input.validate()?;
+        for row in &mut input.rows {
+            if let Ok(post) = row.post().normalized() {
+                row.title = post.title;
+                row.content = post.content;
+            }
+        }
         let mut tx = lifecycle::begin(&self.0).await?;
         let policy = authorize(&mut tx, actor, school).await?;
         let mut authors = vec![];
@@ -321,8 +335,8 @@ impl Store for Repository {
                 .bind(school).bind(format!("%{}%",query.search.unwrap_or_default())).bind(limit).bind(offset).fetch_all(&mut *tx).await?),
             "items"=>{
                 let id=batch.ok_or(Error::NotFound)?; lock_batch(&mut tx,school,id).await?;
-                json!(sqlx::query_scalar::<_,Value>("SELECT jsonb_build_object('id',p.id,'row_number',i.row_number,'title',p.title,'author_id',p.author_id,'author_nickname',u.nickname,'audit_status',p.audit_status,'visibility',p.visibility,'created_at',p.created_at,'display_published_at',p.display_published_at) FROM post_seed_items i JOIN posts p ON p.id=i.post_id JOIN miniapp_users u ON u.account_id=p.author_id WHERE i.school_id=$1 AND i.batch_id=$2 ORDER BY i.row_number LIMIT $3 OFFSET $4")
-                    .bind(school).bind(id).bind(limit).bind(offset).fetch_all(&mut *tx).await?)
+                json!(sqlx::query_scalar::<_,Value>("SELECT jsonb_build_object('id',p.id,'row_number',i.row_number,'title',p.title,'content',p.content,'images',p.images,'author_id',p.author_id,'author_nickname',u.nickname,'audit_status',p.audit_status,'visibility',p.visibility,'created_at',p.created_at,'display_published_at',p.display_published_at) FROM post_seed_items i JOIN posts p ON p.id=i.post_id JOIN miniapp_users u ON u.account_id=p.author_id WHERE i.school_id=$1 AND i.batch_id=$2 ORDER BY i.row_number LIMIT $3 OFFSET $4")
+                    .bind(school).bind(id).bind(limit).bind(offset).fetch_all(&mut *tx).await?.into_iter().map(|row| { let mut row = crate::community::domain::post_text::project(row); row.as_object_mut().unwrap().remove("content"); row.as_object_mut().unwrap().remove("images"); row }).collect::<Vec<_>>())
             },
             _=>if let Some(id)=batch { batch_view(&mut tx,school,id).await? } else {
                 require(query.state.as_deref().is_none_or(|state|matches!(state,"preview"|"committed"|"revoked")),"批次状态无效")?;

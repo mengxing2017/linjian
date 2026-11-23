@@ -36,28 +36,33 @@ impl Repository {
         let time: DateTime<Utc> = sqlx::query_scalar("SELECT transaction_timestamp()")
             .fetch_one(&mut *transaction)
             .await?;
-        let rows = sqlx::query_as::<_, (Uuid, Uuid, i64, String, i64, i64)>(RANKING_SQL)
-            .bind(school)
-            .bind(time - policy.window)
-            .bind(time)
-            .bind(policy.comment_weight)
-            .bind(policy.offset_hours)
-            .bind(policy.exponent)
-            .bind(policy.minimum_engagement)
-            .bind(i64::from(query.limit))
-            .fetch_all(&mut *transaction)
-            .await?;
+        let rows =
+            sqlx::query_as::<_, (Uuid, Uuid, i64, String, String, bool, i64, i64)>(RANKING_SQL)
+                .bind(school)
+                .bind(time - policy.window)
+                .bind(time)
+                .bind(policy.comment_weight)
+                .bind(policy.offset_hours)
+                .bind(policy.exponent)
+                .bind(policy.minimum_engagement)
+                .bind(i64::from(query.limit))
+                .fetch_all(&mut *transaction)
+                .await?;
         transaction.commit().await?;
         let items = rows
             .into_iter()
             .map(
-                |(id, school_id, rank, title, like_count, comment_count)| HotPostSummary {
-                    id,
-                    school_id,
-                    rank,
-                    title,
-                    like_count,
-                    comment_count,
+                |(id, school_id, rank, title, content, has_images, like_count, comment_count)| {
+                    HotPostSummary {
+                        id,
+                        school_id,
+                        rank,
+                        display_label: crate::community::domain::post_text::display_label(
+                            &title, &content, has_images,
+                        ),
+                        like_count,
+                        comment_count,
+                    }
                 },
             )
             .collect();

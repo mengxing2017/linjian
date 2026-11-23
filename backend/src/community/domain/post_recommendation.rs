@@ -42,6 +42,7 @@ pub struct RecommendationPreview {
     pub school_id: Uuid,
     pub school_name: String,
     pub title: String,
+    pub display_label: String,
     pub summary: Option<String>,
     pub revision: i64,
     pub content_revision: i64,

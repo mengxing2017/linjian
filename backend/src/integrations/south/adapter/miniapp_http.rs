@@ -135,7 +135,7 @@ impl MiniappLinkProvider for Client {
             return Err(Failure::blocked("appid_mismatch"));
         }
         let query = format!("school={}&id={}", w.school, w.post);
-        let title = w.title.chars().take(20).collect::<String>();
+        let title = crate::content_publication::domain::page_title(&w.title, &w.content);
         for attempt in 0..2 {
             let (token, generation) = self.token().await?;
             let started = Utc::now();

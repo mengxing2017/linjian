@@ -1,5 +1,6 @@
 pub mod interaction;
 pub mod post_seed;
+pub mod post_text;
 pub mod public_post;
 use crate::business::{Result, require, text};
 use serde::Deserialize;
@@ -19,9 +20,15 @@ pub struct PostInput {
     pub revision: Option<i64>,
 }
 impl PostInput {
+    pub fn normalized(mut self) -> Result<Self> {
+        self.title = post_text::normalize_title(&self.title)?;
+        self.content = post_text::normalize_content(&self.content)?;
+        Ok(self)
+    }
+
     pub fn validate(&self, school: Uuid) -> Result<()> {
-        text(&self.title, 1, 200)?;
-        text(&self.content, 1, 20000)?;
+        post_text::normalize_title(&self.title)?;
+        post_text::normalize_content(&self.content)?;
         require(
             self.images.len() <= 9 && self.tags.len() <= 10 && self.candidate_tag_ids.len() <= 10,
             "图片或标签过多",
@@ -36,6 +43,58 @@ impl PostInput {
             text(tag, 1, 50)?;
         }
         Ok(())
+    }
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CreatePostInput {
+    #[serde(default)]
+    pub title: String,
+    pub content: String,
+    #[serde(default)]
+    pub images: Vec<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub candidate_tag_ids: Vec<Uuid>,
+}
+impl From<CreatePostInput> for PostInput {
+    fn from(input: CreatePostInput) -> Self {
+        Self {
+            title: input.title,
+            content: input.content,
+            images: input.images,
+            tags: input.tags,
+            candidate_tag_ids: input.candidate_tag_ids,
+            revision: None,
+        }
+    }
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UpdatePostInput {
+    pub title: String,
+    pub content: String,
+    #[serde(default)]
+    pub images: Vec<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub candidate_tag_ids: Vec<Uuid>,
+    pub revision: i64,
+}
+impl TryFrom<UpdatePostInput> for PostInput {
+    type Error = crate::business::Error;
+    fn try_from(input: UpdatePostInput) -> Result<Self> {
+        require(input.revision > 0, "版本号无效")?;
+        Ok(Self {
+            title: input.title,
+            content: input.content,
+            images: input.images,
+            tags: input.tags,
+            candidate_tag_ids: input.candidate_tag_ids,
+            revision: Some(input.revision),
+        })
     }
 }
 #[derive(Deserialize)]
@@ -76,3 +135,37 @@ pub mod post_management;
 
 pub mod hot_posts;
 pub mod post_recommendation;
+
+#[cfg(test)]
+mod post_input_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn create_defaults_title_but_complete_updates_require_title_and_revision() {
+        let create: CreatePostInput = serde_json::from_value(json!({"content":"正文"})).unwrap();
+        let input: PostInput = create.into();
+        assert_eq!(input.normalized().unwrap().title, "");
+        for value in [
+            json!({"content":"正文","revision":1}),
+            json!({"title":"","content":"正文"}),
+            json!({"title":null,"content":"正文","revision":1}),
+        ] {
+            assert!(serde_json::from_value::<UpdatePostInput>(value).is_err());
+        }
+        assert!(
+            serde_json::from_value::<CreatePostInput>(json!({"title":null,"content":"正文"}))
+                .is_err()
+        );
+        assert!(
+            serde_json::from_value::<CreatePostInput>(json!({"content":"正文","revision":1}))
+                .is_err()
+        );
+        let update: UpdatePostInput =
+            serde_json::from_value(json!({"title":"","content":"正文","revision":1})).unwrap();
+        assert!(PostInput::try_from(update).is_ok());
+        let update: UpdatePostInput =
+            serde_json::from_value(json!({"title":"","content":"正文","revision":0})).unwrap();
+        assert!(PostInput::try_from(update).is_err());
+    }
+}

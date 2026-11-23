@@ -54,6 +54,7 @@ pub(super) async fn create(
     s: Uuid,
     v: PostInput,
 ) -> Result<Value> {
+    let v = v.normalized()?;
     validate(tx, s, a, None, &v).await?;
     let policy = decisions::policy(tx, s, false).await?;
     let id = Uuid::now_v7();
@@ -79,6 +80,7 @@ pub(super) async fn update(
     id: Uuid,
     v: PostInput,
 ) -> Result<Value> {
+    let v = v.normalized()?;
     validate(tx, s, a, Some(id), &v).await?;
     let current:Value=sqlx::query_scalar("SELECT to_jsonb(p) FROM posts p WHERE school_id=$1 AND id=$2 AND revision=$3 AND visibility<>'deleted' AND (author_id=$4 OR $5) FOR UPDATE")
  .bind(s).bind(id).bind(v.revision.unwrap_or(0)).bind(a.id).bind(a.has_permission(s,"content.post.edit")).fetch_optional(&mut **tx).await?.ok_or(Error::Conflict)?;

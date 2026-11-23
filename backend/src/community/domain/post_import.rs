@@ -21,6 +21,8 @@ pub struct PostImportPreview {
     pub revision: i64,
     pub digest: String,
     pub rows: Vec<ImportRow>,
+    #[serde(default)]
+    pub row_labels: Vec<String>,
     pub errors: Vec<ImportRowError>,
     pub state: String,
     pub result: Vec<Uuid>,

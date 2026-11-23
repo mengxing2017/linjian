@@ -32,7 +32,7 @@ WITH candidates AS MATERIALIZED (
     SELECT * FROM scored
     ORDER BY score DESC, display_published_at DESC, id ASC LIMIT $8
 )
-SELECT id, school_id,
-    row_number() OVER (ORDER BY score DESC, display_published_at DESC, id ASC) AS rank,
-    title, like_count, comment_count
-FROM selected ORDER BY rank
+SELECT selected.id, selected.school_id,
+    row_number() OVER (ORDER BY score DESC, selected.display_published_at DESC, selected.id ASC) AS rank,
+    post.title, post.content, jsonb_array_length(post.images)>0 AS has_images, like_count, comment_count
+FROM selected JOIN posts post ON post.id=selected.id AND post.school_id=selected.school_id ORDER BY rank

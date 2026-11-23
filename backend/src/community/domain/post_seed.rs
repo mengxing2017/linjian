@@ -116,6 +116,8 @@ pub struct BatchView {
     pub revision: i64,
     pub preview_digest: String,
     pub preview_payload: PreviewPayload,
+    #[serde(default)]
+    pub row_labels: Vec<String>,
     pub expires_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
     pub committed_at: Option<DateTime<Utc>>,

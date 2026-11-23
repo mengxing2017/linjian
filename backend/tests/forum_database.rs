@@ -14,6 +14,8 @@ mod member_permissions_fixture;
 mod member_permissions_tests;
 #[path = "operation_services/mod.rs"]
 mod operation_services_tests;
+#[path = "post_content/mod.rs"]
+mod post_content_tests;
 #[path = "post_interactions/mod.rs"]
 mod post_interactions_tests;
 #[path = "post_seed/mod.rs"]
@@ -858,7 +860,7 @@ async fn reviewed_miniapp_publication_freezing_and_fencing() {
         .unwrap();
     let create = || {
         serde_json::from_value(
-            json!({"title":"审核标题","content":" 第一行\n 第二行 😀 ","images":[],"tags":[]}),
+            json!({"title":"","content":" 第一行\n 第二行 😀 ","images":[],"tags":[]}),
         )
         .unwrap()
     };
@@ -961,6 +963,11 @@ async fn reviewed_miniapp_publication_freezing_and_fencing() {
         .await
         .unwrap();
     let work = store.claim().await.unwrap().unwrap();
+    assert_eq!(work.title, "");
+    assert_eq!(
+        linjian_api::content_publication::domain::page_title(&work.title, &work.content),
+        "第一行 第二行 😀"
+    );
     assert!(
         store.claim().await.unwrap().is_none(),
         "one live preparation lease"
@@ -3478,7 +3485,7 @@ async fn post_management_order_status_import_and_live_permissions() {
             &actor,
             school,
             "posts.csv".into(),
-            "标题,正文\n,错误\n".as_bytes().to_vec(),
+            "标题,正文\n只有标题,\n".as_bytes().to_vec(),
         )
         .await
         .unwrap();

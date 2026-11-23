@@ -30,7 +30,8 @@ pub(super) async fn guard(
 }
 const VIEW: &str = "jsonb_build_object('id',p.id,'school_id',p.school_id,'school_name',s.name,'author_id',p.author_id,'author_nickname',coalesce(nullif(btrim(u.nickname),''),nullif(btrim(a.display_name),''),'未知用户'),'title',p.title,'content',p.content,'images',p.images,'tags',p.tags,'created_at',p.created_at,'audit_status',p.audit_status,'visibility',p.visibility,'top_sort',p.top_sort,'revision',p.revision,'content_revision',p.content_revision,'is_top',p.is_top,'cover_image',p.images->>0,'created_via',p.created_via,'author_kind',a.account_kind,'seed_batch_id',p.seed_batch_id,'created_by',(SELECT created_by FROM post_seed_batches WHERE id=p.seed_batch_id),'display_published_at',p.display_published_at,'source_summary',(SELECT jsonb_build_object('id',o.id,'state',CASE WHEN o.delivery_state='accepted' THEN 'accepted' WHEN o.delivery_state='cancelled' THEN 'cancelled' WHEN o.delivery_state IN ('blocked','waiting_binding','waiting_configuration','paused') OR prep.state='blocked' THEN 'blocked' WHEN o.request_body IS NULL THEN 'preparing' ELSE 'processing' END,'created_at',o.created_at) FROM forum_outbox o LEFT JOIN forum_publication_preparations prep ON prep.event_id=o.id WHERE o.school_id=p.school_id AND o.post_id=p.id ORDER BY o.created_at DESC,o.id DESC LIMIT 1))||forum_decision_details(p.school_id,p.id,'post',p.content_revision,p.audit_status)";
 const JOIN: &str = " FROM posts p JOIN schools s ON s.id=p.school_id LEFT JOIN accounts a ON a.id=p.author_id LEFT JOIN miniapp_users u ON u.account_id=p.author_id ";
-fn decode(mut row: Value) -> Result<PostManagementView> {
+fn decode(row: Value) -> Result<PostManagementView> {
+    let mut row = crate::community::domain::post_text::project(row);
     row["review_digest"] = review::digest(&row)?.into();
     let source_summary = row.get("source_summary").filter(|v| !v.is_null()).cloned();
     row.as_object_mut()

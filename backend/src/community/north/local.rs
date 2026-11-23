@@ -44,6 +44,7 @@ impl<R: Store> Service<R> {
     }
     pub async fn post(&self, a: &Actor, s: Uuid, id: Option<Uuid>, v: PostInput) -> Result<Value> {
         a.authorize(s, "member")?;
+        let v = v.normalized()?;
         v.validate(s)?;
         self.0.validate_media(s, &v.images).await?;
         self.0

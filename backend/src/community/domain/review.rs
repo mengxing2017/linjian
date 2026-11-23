@@ -12,6 +12,7 @@ pub struct PostReview {
     pub author_id: Uuid,
     pub author_nickname: String,
     pub title: String,
+    pub display_label: String,
     pub content: String,
     pub images: Vec<String>,
     pub tags: Vec<String>,
@@ -70,6 +71,9 @@ mod tests {
         }
         post["school_name"] = json!("显示名称修改");
         post["author_nickname"] = json!("昵称修改");
+        post["display_label"] = json!("展示算法调整");
         assert_eq!(original, digest(&post).unwrap());
+        post["title"] = json!("");
+        assert_ne!(original, digest(&post).unwrap());
     }
 }

@@ -6,7 +6,20 @@ use crate::{
 use serde_json::{Value, json};
 use uuid::Uuid;
 fn decode(row: Value) -> Result<PostImportPreview> {
-    serde_json::from_value(row).map_err(|_| Error::Unavailable)
+    let mut preview: PostImportPreview =
+        serde_json::from_value(row).map_err(|_| Error::Unavailable)?;
+    preview.row_labels = preview
+        .rows
+        .iter()
+        .map(|row| {
+            crate::community::domain::post_text::display_label(
+                &row.post.title,
+                &row.post.content,
+                !row.post.images.is_empty(),
+            )
+        })
+        .collect();
+    Ok(preview)
 }
 impl Repository {
     pub async fn check_post_import_access(&self, a: &Actor, s: Uuid) -> Result<()> {

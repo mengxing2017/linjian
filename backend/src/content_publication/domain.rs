@@ -6,6 +6,23 @@ use uuid::Uuid;
 
 pub const ALGORITHM: &str = "plain-v1";
 pub const MESSAGE_VERSION: &str = "summary-20-v1";
+pub fn page_title(title: &str, content: &str) -> String {
+    let source = if title.trim().is_empty() {
+        content
+    } else {
+        title
+    };
+    let cleaned = source
+        .chars()
+        .filter(|character| !character.is_control() || character.is_whitespace())
+        .collect::<String>();
+    let cleaned = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
+    if cleaned.is_empty() {
+        "校园动态".into()
+    } else {
+        cleaned.chars().take(20).collect()
+    }
+}
 /// Current editors and readers use plain text. Never guess HTML from angle brackets.
 pub fn summary(content: &str, title: &str) -> String {
     let clean = |s: &str| {
@@ -124,7 +141,7 @@ impl Policy {
                 min_remaining,
                 ALGORITHM,
                 "pages/index/detail",
-                "title-20-v1"
+                "page-title-v2"
             ])
             .to_string(),
         );
@@ -137,13 +154,14 @@ impl Policy {
             version,
         })
     }
-    pub fn cache_key(&self, school: Uuid, post: Uuid, title: &str) -> String {
+    pub fn cache_key(&self, school: Uuid, post: Uuid, title: &str, content: &str) -> String {
         hash(
             &json!([
                 self,
                 school,
                 post,
-                title.chars().take(20).collect::<String>()
+                "page-title-v2",
+                page_title(title, content)
             ])
             .to_string(),
         )
@@ -263,6 +281,24 @@ pub struct Retry {
 mod tests {
     use super::*;
     #[test]
+    fn empty_titles_use_snapshot_body_and_isolated_versioned_cache_keys() {
+        assert_eq!(page_title("", " 正文\n次行 "), "正文 次行");
+        assert_eq!(page_title("标题", "正文"), "标题");
+        assert_eq!(page_title("", ""), "校园动态");
+        assert_eq!(page_title("", &"😀".repeat(30)).chars().count(), 20);
+        let policy =
+            Policy::parse("app".into(), "short_link".into(), "false", "30", "86400").unwrap();
+        let school = Uuid::new_v4();
+        let post = Uuid::new_v4();
+        let original = policy.cache_key(school, post, "", "正文");
+        assert_ne!(original, policy.cache_key(school, post, "", "修改正文"));
+        assert_ne!(
+            original,
+            policy.cache_key(school, Uuid::new_v4(), "", "正文")
+        );
+        assert_ne!(original, policy.cache_key(Uuid::new_v4(), post, "", "正文"));
+    }
+    #[test]
     fn summary_is_stable_unicode_plain_text_and_bounded() {
         assert_eq!(summary(" a\r\n\t b\u{0000} ", "title"), "a b");
         assert_eq!(summary(" \t ", " 标题 "), "标题");
@@ -319,8 +355,8 @@ mod tests {
         let policy =
             Policy::parse("app".into(), "short_link".into(), "false", "30", "86400").unwrap();
         assert_ne!(
-            policy.cache_key(Uuid::nil(), Uuid::nil(), "标题"),
-            policy.cache_key(Uuid::nil(), Uuid::nil(), "新标题")
+            policy.cache_key(Uuid::nil(), Uuid::nil(), "标题", "正文"),
+            policy.cache_key(Uuid::nil(), Uuid::nil(), "新标题", "正文")
         );
     }
 }

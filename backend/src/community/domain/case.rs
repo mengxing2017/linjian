@@ -44,6 +44,7 @@ pub struct CaseManagementView {
     #[serde(flatten)]
     pub record: CaseRecord,
     pub title: String,
+    pub post_display_label: Option<String>,
     pub reporter_name: String,
     pub school_name: String,
     pub handled_at: Option<chrono::DateTime<chrono::Utc>>,

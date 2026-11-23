@@ -47,7 +47,7 @@ pub struct HotPostSummary {
     pub id: Uuid,
     pub school_id: Uuid,
     pub rank: i64,
-    pub title: String,
+    pub display_label: String,
     pub like_count: i64,
     pub comment_count: i64,
 }

@@ -161,7 +161,14 @@ impl Store for Repository {
                 }
                 auth(&mut tx, a, s, &context).await?;
                 let (limit, offset) = page.fetch_bounds()?;
-                let rows: Vec<Value> = sqlx::query_scalar("SELECT jsonb_build_object('id',id,'title',title) FROM posts WHERE school_id=$1 AND audit_status='approved' AND visibility='visible' AND title ILIKE $2 ORDER BY created_at DESC,id LIMIT $3 OFFSET $4").bind(school(s)?).bind(format!("%{}%",page.search.as_deref().unwrap_or(""))).bind(limit).bind(offset).fetch_all(&mut *tx).await?;
+                let rows: Vec<Value> = sqlx::query_scalar("SELECT jsonb_build_object('id',id,'title',title,'content',content,'images',images) FROM posts WHERE school_id=$1 AND audit_status='approved' AND visibility='visible' AND (title ILIKE $2 OR content ILIKE $2) ORDER BY created_at DESC,id LIMIT $3 OFFSET $4").bind(school(s)?).bind(format!("%{}%",page.search.as_deref().unwrap_or(""))).bind(limit).bind(offset).fetch_all(&mut *tx).await?;
+                let rows: Vec<Value> = rows
+                    .into_iter()
+                    .map(|row| {
+                        let post = crate::community::domain::post_text::project(row);
+                        json!({"id":post["id"],"display_label":post["display_label"]})
+                    })
+                    .collect();
                 json!(rows)
             }
             Command::List { kind, q } => {

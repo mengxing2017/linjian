@@ -1,7 +1,9 @@
 use crate::{
     bootstrap::Application,
     business::{Actor, Error, Result},
-    community::domain::{PostInput, post_import::CommitPostImport, post_management::*},
+    community::domain::{
+        CreatePostInput, UpdatePostInput, post_import::CommitPostImport, post_management::*,
+    },
     http::jsonapi::{ApiResponse, Input, collection, completed, resource, singleton},
 };
 use axum::{
@@ -67,7 +69,12 @@ async fn create(
     Ok(resource(
         "post-management",
         app.community
-            .management_write(&a, s, None, input.decode::<PostInput>("post-management")?)
+            .management_write(
+                &a,
+                s,
+                None,
+                input.decode::<CreatePostInput>("post-management")?.into(),
+            )
             .await?,
     ))
 }
@@ -84,7 +91,9 @@ async fn update(
                 &a,
                 s,
                 Some(id),
-                input.decode::<PostInput>("post-management")?,
+                input
+                    .decode::<UpdatePostInput>("post-management")?
+                    .try_into()?,
             )
             .await?,
     ))

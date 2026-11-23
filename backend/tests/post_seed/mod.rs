@@ -590,7 +590,27 @@ async fn seed_auto_review_revalidates_policy_content_and_permissions() {
     .await
     .unwrap();
     assert_eq!(count, 2);
-    bad.rows[1].title = String::new();
+    bad.rows[1].title = " \n ".into();
+    let expected_content = bad.rows[1].content.clone();
+    bad.rows[1].content = format!(" \n{expected_content}\n ");
+    let untitled = app
+        .post_seeds
+        .preview(&actor, school, bad.clone())
+        .await
+        .unwrap();
+    assert!(
+        untitled["preview_payload"]["errors"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(untitled["preview_payload"]["rows"][1]["title"], "");
+    assert_eq!(
+        untitled["preview_payload"]["rows"][1]["content"],
+        expected_content
+    );
+    assert_eq!(untitled["row_labels"][1], expected_content);
+    bad.rows[1].content = String::new();
     let invalid = app.post_seeds.preview(&actor, school, bad).await.unwrap();
     assert_eq!(invalid["preview_payload"]["errors"][0]["row"], 2);
     assert!(

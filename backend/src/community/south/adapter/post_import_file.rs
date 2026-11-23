@@ -269,10 +269,7 @@ pub fn parse(
             "表头只允许标题、正文、标签名称、图集，且不能重复",
         )?;
     }
-    require(
-        seen.contains("标题") && seen.contains("正文"),
-        "缺少标题或正文表头",
-    )?;
+    require(seen.contains("正文"), "缺少正文表头")?;
     let mut valid = Vec::new();
     let mut errors = Vec::new();
     for (index, row) in table.iter().enumerate().skip(1) {
@@ -306,14 +303,7 @@ pub fn parse(
                 candidate_tag_ids: Vec::new(),
                 revision: None,
             };
-            require(
-                (1..=200).contains(&post.title.chars().count()),
-                "标题须为 1 至 200 字",
-            )?;
-            require(
-                (1..=20000).contains(&post.content.chars().count()),
-                "正文须为 1 至 20000 字",
-            )?;
+            let post = post.normalized()?;
             post.validate(school)?;
             Ok(post)
         };
@@ -344,8 +334,13 @@ mod tests {
             Uuid::nil(),
         )
         .unwrap();
+        assert_eq!(rows.len(), 2);
+        assert!(rows[1].post.title.is_empty());
+        assert!(errors.is_empty());
+        let (rows, errors) =
+            parse("posts.csv", "正文\n只有正文\n".as_bytes(), Uuid::nil()).unwrap();
         assert_eq!(rows.len(), 1);
-        assert_eq!(errors[0].row, 3);
+        assert!(errors.is_empty());
         assert!(parse("posts.csv", "标题,正文,学校\na,b,c".as_bytes(), Uuid::nil()).is_err());
     }
     #[test]

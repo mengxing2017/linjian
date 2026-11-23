@@ -3,6 +3,7 @@ use chrono::{DateTime, FixedOffset};
 use serde_json::Value;
 
 pub fn project(value: Value) -> Result<Value> {
+    let value = super::post_text::project(value);
     let published_at = value["display_published_at"]
         .as_str()
         .ok_or(Error::Unavailable)?;
@@ -18,6 +19,7 @@ pub fn project(value: Value) -> Result<Value> {
         "school_id",
         "author_id",
         "title",
+        "display_label",
         "content",
         "images",
         "tags",
@@ -78,6 +80,18 @@ mod tests {
         for timestamp in [Value::Null, json!("invalid")] {
             assert!(project(json!({"display_published_at":timestamp})).is_err());
         }
+    }
+    #[test]
+    fn untitled_public_post_matches_the_shared_fixture() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../../api-contract/fixtures/post-untitled.json"
+        ))
+        .unwrap();
+        let mut expected = fixture["data"]["attributes"].clone();
+        expected["id"] = fixture["data"]["id"].clone();
+        assert_eq!(project(expected.clone()).unwrap(), expected);
+        assert_eq!(expected["title"], "");
+        assert_eq!(expected["display_label"], expected["content"]);
     }
     #[test]
     fn public_post_matches_the_shared_fixture_without_creation_metadata() {

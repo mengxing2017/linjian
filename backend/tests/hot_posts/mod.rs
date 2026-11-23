@@ -22,7 +22,7 @@ async fn ranking_at(
     school: Uuid,
     time: DateTime<Utc>,
     limit: i64,
-) -> Vec<(Uuid, Uuid, i64, String, i64, i64)> {
+) -> Vec<(Uuid, Uuid, i64, String, String, bool, i64, i64)> {
     let policy = HotPostPolicy::default();
     sqlx::query_as(include_str!(
         "../../src/community/south/adapter/postgres/hot_posts.sql"
@@ -181,7 +181,7 @@ async fn hot_posts_ranking_scope_counts_protocol_and_no_side_effects() {
         ranked.iter().map(|row| row.0).collect::<Vec<_>>(),
         vec![aggregate, fresh, tie, lower_boundary]
     );
-    assert_eq!((ranked[0].4, ranked[0].5), (2, 3));
+    assert_eq!((ranked[0].6, ranked[0].7), (2, 3));
     assert_eq!(
         ranked.iter().map(|row| row.2).collect::<Vec<_>>(),
         vec![1, 2, 3, 4]
@@ -200,7 +200,7 @@ async fn hot_posts_ranking_scope_counts_protocol_and_no_side_effects() {
             .unwrap();
     }
     let threshold = ranking_at(&pool, school, time, 20).await;
-    assert_eq!(threshold.iter().find(|row| row.0 == low).unwrap().4, 1);
+    assert_eq!(threshold.iter().find(|row| row.0 == low).unwrap().6, 1);
     app.community
         .react(&member, school, low, "like", false)
         .await
