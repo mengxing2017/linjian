@@ -14,6 +14,8 @@ mod member_permissions_fixture;
 mod member_permissions_tests;
 #[path = "operation_services/mod.rs"]
 mod operation_services_tests;
+#[path = "phone_bindings/mod.rs"]
+mod phone_bindings_tests;
 #[path = "post_content/mod.rs"]
 mod post_content_tests;
 #[path = "post_interactions/mod.rs"]
@@ -817,6 +819,7 @@ async fn reviewed_miniapp_publication_freezing_and_fencing() {
         .execute(&pool)
         .await
         .unwrap();
+    phone_bindings_tests::verify_fixture_phone(&pool, root).await;
     app.schools
         .grant(&actor, school, root, "member")
         .await
@@ -1464,6 +1467,7 @@ async fn miniapp_users_registration_school_scope_and_ban() {
         .await
         .unwrap();
     assert_eq!(sorted[0].post_count, 3);
+    phone_bindings_tests::verify_fixture_phone(&pool, id).await;
     let visible:Uuid=sqlx::query_scalar("SELECT id FROM posts WHERE author_id=$1 AND audit_status='approved' AND visibility='visible' LIMIT 1").bind(id).fetch_one(&pool).await.unwrap();
     let comment = app
         .community
@@ -2136,6 +2140,7 @@ async fn moderation_modes_preserve_policy_evidence_and_publication_boundaries() 
         .execute(&pool)
         .await
         .unwrap();
+    phone_bindings_tests::verify_fixture_phone(&pool, root).await;
     app.schools
         .grant(&actor, school, root, "member")
         .await

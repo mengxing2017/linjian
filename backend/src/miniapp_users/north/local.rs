@@ -10,6 +10,7 @@ use crate::{
     miniapp_users::south::port::RegistrationStore,
 };
 use uuid::Uuid;
+pub mod phone;
 
 #[derive(Clone)]
 pub struct RegistrationSettingsService<Store: RegistrationSettingsStore = Repository>(pub Store);

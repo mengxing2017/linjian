@@ -12,6 +12,7 @@ pub enum Error {
     Conflict,
     RateLimited,
     Policy(&'static str),
+    Phone(&'static str),
     Invalid(String),
     Unavailable,
     Upstream(i64),

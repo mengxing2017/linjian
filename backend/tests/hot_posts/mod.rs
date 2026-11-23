@@ -91,6 +91,7 @@ async fn hot_posts_ranking_scope_counts_protocol_and_no_side_effects() {
         .grant(&actor, school, user, "member")
         .await
         .unwrap();
+    phone_bindings_tests::verify_fixture_phone(&pool, user).await;
     let (token, member) = app
         .identity
         .0

@@ -4,7 +4,10 @@ use crate::{
     http::jsonapi::{ApiResponse, Input, completed, resource, singleton},
     miniapp_users::{
         domain::*,
-        south::{adapter::postgres::Repository, port::ProfileStore},
+        south::{
+            adapter::postgres::Repository,
+            port::{PhoneBindingStore, ProfileStore},
+        },
     },
 };
 use axum::{
@@ -144,11 +147,39 @@ async fn edit_profile(State(a): State<Application>, actor: Actor, v: Input) -> R
             .await?,
     ))
 }
-async fn mobile(State(a): State<Application>, actor: Actor, v: Input) -> Result<ApiResponse> {
+async fn mobile(_actor: Actor) -> Result<ApiResponse> {
+    Err(crate::business::Error::Phone(
+        "phone_client_upgrade_required",
+    ))
+}
+async fn phone_binding(State(a): State<Application>, actor: Actor) -> Result<ApiResponse> {
     Ok(resource(
-        "miniapp-profiles",
-        Repository(a.pool)
-            .mobile(&actor, actor.id, v.decode("miniapp-user-mobiles")?, false)
+        "miniapp-phone-bindings",
+        a.phone_bindings.store.phone_binding(&actor).await?,
+    ))
+}
+async fn bind_phone(
+    State(a): State<Application>,
+    actor: Actor,
+    input: Input,
+) -> Result<ApiResponse> {
+    Ok(resource(
+        "miniapp-phone-bindings",
+        a.phone_bindings
+            .bind(&actor, input.decode("miniapp-phone-bindings")?)
+            .await?,
+    ))
+}
+async fn revoke_phone(
+    State(a): State<Application>,
+    actor: Actor,
+    Params(input): Params<phone::RevokePhoneInput>,
+) -> Result<ApiResponse> {
+    Ok(resource(
+        "miniapp-phone-bindings",
+        a.phone_bindings
+            .store
+            .revoke_phone(&actor, input.revision)
             .await?,
     ))
 }
@@ -234,6 +265,11 @@ pub fn router() -> Router<Application> {
         .route("/api/v1/platform/miniapp-users/{id}/school", put(school))
         .route("/api/v1/miniapp/profile", get(profile).put(edit_profile))
         .route("/api/v1/miniapp/profile/mobile", put(mobile))
+        .route(
+            "/api/v1/miniapp/profile/phone-binding",
+            get(phone_binding).delete(revoke_phone),
+        )
+        .route("/api/v1/miniapp/profile/phone-bindings", post(bind_phone))
         .route("/api/v1/miniapp/avatar-assets", post(upload))
         .route("/api/v1/miniapp/avatar-assets/{id}", get(avatar))
         .layer(DefaultBodyLimit::max(5 * 1024 * 1024))

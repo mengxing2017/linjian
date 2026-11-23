@@ -8,11 +8,12 @@ use crate::{
 use serde_json::{Value, json};
 use sqlx::{PgPool, Postgres, Row, Transaction};
 use uuid::Uuid;
+pub mod phone;
 pub mod registration;
 pub mod school_binding;
 #[derive(Clone)]
 pub struct Repository(pub PgPool);
-const VIEW: &str = "SELECT u.account_id AS id,CASE WHEN u.avatar_asset_id IS NULL THEN NULL ELSE '/api/v1/miniapp/avatar-assets/'||u.avatar_asset_id END AS avatar_url,u.avatar_asset_id,u.nickname,a.account_kind,u.mobile,a.bound_school_id AS school_id,s.name AS school_name,(SELECT count(*) FROM posts p WHERE p.author_id=u.account_id AND p.school_id=a.bound_school_id AND p.visibility<>'deleted') AS post_count,u.created_at,u.status,u.revision FROM miniapp_users u JOIN accounts a ON a.id=u.account_id LEFT JOIN schools s ON s.id=a.bound_school_id";
+const VIEW: &str = "SELECT u.account_id AS id,CASE WHEN u.avatar_asset_id IS NULL THEN NULL ELSE '/api/v1/miniapp/avatar-assets/'||u.avatar_asset_id END AS avatar_url,u.avatar_asset_id,u.nickname,a.account_kind,u.mobile,coalesce((SELECT status FROM miniapp_phone_bindings WHERE account_id=u.account_id),'unverified') AS phone_status,a.bound_school_id AS school_id,s.name AS school_name,(SELECT count(*) FROM posts p WHERE p.author_id=u.account_id AND p.school_id=a.bound_school_id AND p.visibility<>'deleted') AS post_count,u.created_at,u.status,u.revision FROM miniapp_users u JOIN accounts a ON a.id=u.account_id LEFT JOIN schools s ON s.id=a.bound_school_id";
 fn decode(v: Value) -> Result<UserView> {
     serde_json::from_value(v).map_err(|_| Error::Unavailable)
 }
@@ -306,7 +307,13 @@ impl Repository {
             .await
     }
     pub async fn cleanup(&self) -> Result<()> {
-        // Unified media lifecycle worker owns physical deletion.
+        sqlx::query(
+            "DELETE FROM miniapp_phone_binding_requests WHERE created_at<now()-interval '24 hours'",
+        )
+        .execute(&self.0)
+        .await?;
+        sqlx::query("DELETE FROM audit_events WHERE action IN ('miniapp_user.phone_verified','miniapp_user.phone_revoked') AND created_at<now()-interval '180 days'")
+            .execute(&self.0).await?;
         Ok(())
     }
 }

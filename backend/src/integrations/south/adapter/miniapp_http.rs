@@ -203,6 +203,56 @@ impl MiniappLinkProvider for Client {
     }
 }
 
+impl crate::miniapp_users::south::port::PhoneProvider for Client {
+    fn app_id(&self) -> &str {
+        &self.app_id
+    }
+
+    async fn verify_phone(
+        &self,
+        code: &str,
+        openid: &str,
+    ) -> crate::business::Result<crate::miniapp_users::domain::phone::VerifiedPhone> {
+        use crate::business::Error;
+        if self.app_id.is_empty() || self.secret.is_empty() {
+            return Err(Error::Phone("phone_provider_unavailable"));
+        }
+        for attempt in 0..2 {
+            let (token, generation) = self
+                .token()
+                .await
+                .map_err(|_| Error::Phone("phone_provider_unavailable"))?;
+            let result = self
+                .json(
+                    self.http
+                        .post("https://api.weixin.qq.com/wxa/business/getuserphonenumber")
+                        .query(&[("access_token", token)])
+                        .json(&json!({"code":code,"openid":openid})),
+                )
+                .await;
+            match result {
+                Ok(value) => {
+                    return crate::miniapp_users::domain::phone::VerifiedPhone::from_wechat(
+                        &value,
+                        &self.app_id,
+                        Utc::now(),
+                    );
+                }
+                Err(error) if error.code == "token_invalid" && attempt == 0 => {
+                    self.invalidate(generation)
+                        .await
+                        .map_err(|_| Error::Phone("phone_provider_unavailable"))?;
+                }
+                Err(error) if error.code == "wechat_rejected" => {
+                    return Err(Error::Phone("phone_authorization_invalid"));
+                }
+                Err(_) => return Err(Error::Phone("phone_provider_unavailable")),
+            }
+        }
+        Err(Error::Phone("phone_provider_unavailable"))
+    }
+}
+
 fn valid_provider_link(field: &str, link: &str) -> bool {
     if link.chars().any(|c| c.is_control()) || link.chars().count() > 4096 {
         return false;

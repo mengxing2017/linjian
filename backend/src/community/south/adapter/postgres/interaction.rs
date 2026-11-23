@@ -37,6 +37,11 @@ impl Repository {
         let mut state: PostInteractionState =
             serde_json::from_value(value.clone()).map_err(|_| Error::Unavailable)?;
         state.set_capabilities(value["active_member"].as_bool().ok_or(Error::Unavailable)?);
+        if !actor.is_admin_browser() {
+            let verified: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM miniapp_phone_bindings WHERE account_id=$1 AND status='verified')")
+                .bind(actor.id).fetch_one(&self.0).await?;
+            state.phone_verification_required = !verified;
+        }
         Ok(state)
     }
 }

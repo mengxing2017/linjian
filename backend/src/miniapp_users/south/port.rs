@@ -25,3 +25,44 @@ pub trait RegistrationStore: Clone + Send + Sync {
 pub trait ProfileStore: Clone + Send + Sync {
     fn own(&self, id: Uuid) -> impl Future<Output = Result<UserView>> + Send;
 }
+
+pub enum PhoneReservation {
+    Completed(crate::miniapp_users::domain::phone::PhoneBinding),
+    Reserved { openid: String },
+}
+
+pub trait PhoneProvider: Clone + Send + Sync {
+    fn app_id(&self) -> &str;
+    fn verify_phone(
+        &self,
+        code: &str,
+        openid: &str,
+    ) -> impl Future<Output = Result<crate::miniapp_users::domain::phone::VerifiedPhone>> + Send;
+}
+
+pub trait PhoneBindingStore: Clone + Send + Sync {
+    fn phone_binding(
+        &self,
+        actor: &Actor,
+    ) -> impl Future<Output = Result<crate::miniapp_users::domain::phone::PhoneBinding>> + Send;
+    fn reserve_phone(
+        &self,
+        actor: &Actor,
+        app_id: &str,
+        input: &crate::miniapp_users::domain::phone::BindPhoneInput,
+    ) -> impl Future<Output = Result<PhoneReservation>> + Send;
+    fn finish_phone(
+        &self,
+        actor: &Actor,
+        input: &crate::miniapp_users::domain::phone::BindPhoneInput,
+        phone: &crate::miniapp_users::domain::phone::VerifiedPhone,
+        ciphertext: &[u8],
+        key_version: &str,
+    ) -> impl Future<Output = Result<crate::miniapp_users::domain::phone::PhoneBinding>> + Send;
+    fn fail_phone(&self, actor: &Actor, request: Uuid) -> impl Future<Output = Result<()>> + Send;
+    fn revoke_phone(
+        &self,
+        actor: &Actor,
+        revision: i64,
+    ) -> impl Future<Output = Result<crate::miniapp_users::domain::phone::PhoneBinding>> + Send;
+}

@@ -2,6 +2,7 @@ use crate::business::{Error, Result, require, text};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+pub mod phone;
 pub mod registration;
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
@@ -12,6 +13,8 @@ pub struct UserView {
     pub nickname: String,
     pub account_kind: String,
     pub mobile: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phone_status: Option<String>,
     pub school_id: Option<Uuid>,
     pub school_name: Option<String>,
     pub post_count: i64,

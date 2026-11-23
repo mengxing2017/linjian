@@ -5,6 +5,20 @@ use axum::{
 use linjian_api::{bootstrap, http};
 use tower::ServiceExt;
 #[tokio::test]
+async fn phone_verification_error_matches_the_shared_fixture() {
+    use axum::response::IntoResponse;
+    let response =
+        linjian_api::business::Error::Phone("phone_verification_required").into_response();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let actual: serde_json::Value =
+        serde_json::from_slice(&to_bytes(response.into_body(), 8192).await.unwrap()).unwrap();
+    let expected: serde_json::Value = serde_json::from_str(include_str!(
+        "../../api-contract/fixtures/phone-verification-required.json"
+    ))
+    .unwrap();
+    assert_eq!(actual, expected);
+}
+#[tokio::test]
 async fn registration_settings_jsonapi_matches_shared_fixtures() {
     use axum::response::IntoResponse;
     use linjian_api::miniapp_users::domain::registration::{

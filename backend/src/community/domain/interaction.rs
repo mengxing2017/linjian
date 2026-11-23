@@ -14,6 +14,8 @@ pub struct PostInteractionState {
     pub author_followed: bool,
     pub can_interact: bool,
     pub can_share: bool,
+    #[serde(default)]
+    pub phone_verification_required: bool,
 }
 
 impl PostInteractionState {
@@ -55,6 +57,7 @@ mod tests {
             author_followed: false,
             can_interact: false,
             can_share: false,
+            phone_verification_required: false,
         };
         state.set_capabilities(true);
         assert!(state.can_interact && state.can_share);

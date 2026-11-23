@@ -40,6 +40,7 @@ async fn ordinary_own_posts_expose_only_server_formatted_publication_time() {
         .execute(&pool)
         .await
         .unwrap();
+    phone_bindings_tests::verify_fixture_phone(&pool, member_id).await;
     let (token, _) = app
         .identity
         .0

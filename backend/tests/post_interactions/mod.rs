@@ -52,6 +52,7 @@ async fn snapshots_enforce_school_scope_and_are_read_only_with_idempotent_reacti
         .grant(&actor, school, user, "member")
         .await
         .unwrap();
+    phone_bindings_tests::verify_fixture_phone(&pool, user).await;
     let (token, member) = app
         .identity
         .0

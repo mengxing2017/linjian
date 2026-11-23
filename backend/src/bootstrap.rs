@@ -66,6 +66,7 @@ pub struct Application {
     pub schools: crate::schools::north::local::Service,
     pub site: crate::site::north::local::Service,
     pub registration_settings: crate::miniapp_users::north::local::RegistrationSettingsService,
+    pub phone_bindings: crate::miniapp_users::north::local::phone::Service,
     pub community: crate::community::north::local::Service,
     pub post_seeds: crate::community::north::local::post_seed::Service,
     pub integrations: crate::integrations::north::local::Service,
@@ -105,6 +106,15 @@ pub fn build_application(pool: PgPool, options: Options) -> Application {
         registration_settings: crate::miniapp_users::north::local::RegistrationSettingsService(
             crate::miniapp_users::south::adapter::postgres::Repository(pool.clone()),
         ),
+        phone_bindings: crate::miniapp_users::north::local::phone::Service {
+            store: crate::miniapp_users::south::adapter::postgres::Repository(pool.clone()),
+            provider: crate::integrations::south::adapter::miniapp_http::Client::from_env(
+                pool.clone(),
+            )
+            .expect("phone HTTP client"),
+            cipher: crate::miniapp_users::south::adapter::phone_cipher::PhoneCipher::from_env()
+                .ok(),
+        },
         post_seeds: crate::community::north::local::post_seed::Service(
             crate::community::south::adapter::postgres::post_seed::Repository(
                 pool.clone(),

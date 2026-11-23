@@ -430,6 +430,7 @@ async fn statistics_scope_registration_snapshot_and_activity_are_isolated() {
         .session(user, SessionKind::Miniapp, None)
         .await
         .unwrap();
+    phone_bindings_tests::verify_fixture_phone(&pool, user).await;
     let own_post = app
         .community
         .post(&mini_actor, s, None, input())

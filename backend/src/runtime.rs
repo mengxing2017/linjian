@@ -141,7 +141,7 @@ async fn serve_inner(
                 tracing::warn!("expired post import preview cleanup failed");
             }
             if avatar_cleanup.cleanup().await.is_err() {
-                tracing::warn!("unused miniapp avatar cleanup failed");
+                tracing::warn!("miniapp private data retention cleanup failed");
             }
             if operation_metrics.cleanup_metrics().await.is_err() {
                 tracing::warn!("operation metric retention cleanup failed");

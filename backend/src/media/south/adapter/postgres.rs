@@ -32,6 +32,12 @@ impl Repository {
             && let Some(s) = school
         {
             crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, actor, s).await?;
+            if purpose == "post_image" {
+                crate::miniapp_users::south::adapter::postgres::phone::require_verified(
+                    &mut tx, actor,
+                )
+                .await?;
+            }
         }
         match purpose {
             "avatar" => {
@@ -112,6 +118,10 @@ impl Repository {
             && let Some(s) = school
         {
             crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
+            if purpose == "post_image" {
+                crate::miniapp_users::south::adapter::postgres::phone::require_verified(&mut tx, a)
+                    .await?;
+            }
         }
         if purpose == "avatar" {
             crate::miniapp_users::south::adapter::postgres::guard_session(&mut tx, a).await?;

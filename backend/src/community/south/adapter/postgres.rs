@@ -79,6 +79,7 @@ impl Repository {
         } else {
             crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
         }
+        crate::miniapp_users::south::adapter::postgres::phone::require_verified(&mut tx, a).await?;
         let item = post_content::create(&mut tx, a, s, v).await?;
         tx.commit().await?;
         Ok(item)
@@ -97,6 +98,7 @@ impl Repository {
         } else {
             crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
         }
+        crate::miniapp_users::south::adapter::postgres::phone::require_verified(&mut tx, a).await?;
         let item = post_content::update(&mut tx, a, s, id, v).await?;
         tx.commit().await?;
         Ok(item)
@@ -202,6 +204,10 @@ impl Repository {
     pub async fn react(&self, a: &Actor, s: Uuid, id: Uuid, kind: &str, add: bool) -> Result<()> {
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
+        if add && kind == "like" {
+            crate::miniapp_users::south::adapter::postgres::phone::require_verified(&mut tx, a)
+                .await?;
+        }
         let exists:Option<bool>=sqlx::query_scalar("SELECT true FROM posts WHERE school_id=$1 AND id=$2 AND audit_status='approved' AND visibility='visible' FOR SHARE").bind(s).bind(id).fetch_optional(&mut *tx).await?;
         if exists.is_none() {
             return Err(Error::NotFound);
@@ -247,6 +253,7 @@ impl Repository {
     pub async fn comment(&self, a: &Actor, s: Uuid, id: Uuid, v: CommentInput) -> Result<Value> {
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
         crate::miniapp_users::south::adapter::postgres::guard_write(&mut tx, a, s).await?;
+        crate::miniapp_users::south::adapter::postgres::phone::require_verified(&mut tx, a).await?;
         let post=sqlx::query("SELECT p.author_id FROM posts p WHERE p.id=$1 AND p.school_id=$2 AND p.audit_status='approved' AND p.visibility='visible' FOR SHARE OF p").bind(id).bind(s).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
         if let Some(parent) = v.parent_id {
             let valid:Option<bool>=sqlx::query_scalar("SELECT true FROM comments WHERE id=$1 AND post_id=$2 AND school_id=$3 AND audit_status='approved' AND visibility='visible' AND NOT deleted FOR SHARE").bind(parent).bind(id).bind(s).fetch_optional(&mut *tx).await?;

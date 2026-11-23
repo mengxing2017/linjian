@@ -90,6 +90,36 @@ impl IntoResponse for Error {
                 "conflict",
                 "内容已变化，请刷新后重试".into(),
             ),
+            Self::Phone(code) => (
+                match code {
+                    "phone_verification_required" => StatusCode::FORBIDDEN,
+                    "phone_binding_conflict" | "phone_binding_result_uncertain" => {
+                        StatusCode::CONFLICT
+                    }
+                    "phone_binding_rate_limited" => StatusCode::TOO_MANY_REQUESTS,
+                    "phone_provider_unavailable" => StatusCode::SERVICE_UNAVAILABLE,
+                    "phone_client_upgrade_required" => StatusCode::GONE,
+                    _ => StatusCode::UNPROCESSABLE_ENTITY,
+                },
+                code,
+                match code {
+                    "phone_verification_required" => {
+                        "发布、评论和点赞前需验证手机号，暂不验证仍可浏览"
+                    }
+                    "phone_binding_conflict" => "绑定状态已变化，请重新读取",
+                    "phone_binding_result_uncertain" => {
+                        "验证结果待确认，请重新读取状态；仍未绑定时请重新授权"
+                    }
+                    "phone_binding_rate_limited" => "验证过于频繁，请稍后重试",
+                    "phone_provider_unavailable" => {
+                        "微信手机号验证暂不可用，请稍后重试，仍可继续浏览"
+                    }
+                    "phone_region_unsupported" => "当前仅支持中国大陆手机号，仍可继续浏览",
+                    "phone_client_upgrade_required" => "请更新小程序，通过微信授权验证手机号",
+                    _ => "微信授权凭证无效，请重新授权",
+                }
+                .into(),
+            ),
             Self::Policy(code) => (
                 StatusCode::CONFLICT,
                 code,
