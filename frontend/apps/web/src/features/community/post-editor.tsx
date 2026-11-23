@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Button, Alert, Form, Input, Select, Upload } from 'antd'
 import { Field } from '../../shared/field'
 import { workspace, normalizePostContent, postFieldError, type Post } from './api'
 import type { CommunityAction } from './actions'
+import { useOperationScope } from '../../shared/use-operation-scope'
 
 export function PostEditor({
   school: s,
@@ -24,8 +25,40 @@ export function PostEditor({
   error?: string
 }) {
   const [failed, setFailed] = useState<File[]>([])
+  const [result, setResult] = useState<{ success: number; failure: number }>()
+  const pending = useRef(false)
+  const capture = useOperationScope(`${s}:${editing?.id ?? 'new'}`)
   const [form] = Form.useForm()
   const [titleExpanded, setTitleExpanded] = useState(!!editing?.title)
+  async function uploadFiles(files: File[]) {
+    if (pending.current || busy || !files.length) return
+    pending.current = true
+    setResult(undefined)
+    const active = capture()
+    try {
+      await run(async () => {
+        if (images.length + files.length > 9) throw new Error('最多9张图片')
+        const uploaded = [...images]
+        let success = 0, failure = 0
+        for (const file of files) {
+          if (!active()) return
+          try {
+            const picture = await workspace.upload(s, file)
+            if (!active()) return
+            uploaded.push(picture.url)
+            setImages([...uploaded])
+            setFailed(items => items.filter(item => item !== file))
+            success++
+          } catch {
+            if (!active()) return
+            setFailed(items => items.includes(file) ? items : [...items, file])
+            failure++
+          }
+        }
+        if (active()) setResult({ success, failure })
+      })
+    } finally { pending.current = false }
+  }
   return (
     <Form
       layout="vertical"
@@ -65,15 +98,7 @@ export function PostEditor({
           disabled={busy}
           showUploadList={false}
           beforeUpload={(_, files) => {
-            if (_ === files[0])
-              void run(async () => {
-                if (images.length + files.length > 9) throw new Error('最多9张图片')
-                const uploaded = [...images]
-                for (const file of files) {
-                  try { uploaded.push((await workspace.upload(s, file)).url); setImages([...uploaded]) }
-                  catch { setFailed(v => [...v, file]) }
-                }
-              })
+            if (_ === files[0]) void uploadFiles(files)
             return false
           }}
         >
@@ -83,7 +108,8 @@ export function PostEditor({
         </Upload>
       </div>
       <p>PNG/JPEG/GIF/WebP，单张最大 5 MiB。上传后提交生效。</p>
-      {failed.map((file, i) => <div key={i}>{file.name} 上传失败<Button disabled={busy} onClick={() => void run(async () => { if (images.length >= 9) throw new Error('最多9张图片'); const v = await workspace.upload(s, file); setImages([...images, v.url]); setFailed(items => items.filter((_, n) => n !== i)) })}>重试此图片</Button><Button disabled={busy} onClick={() => setFailed(items => items.filter((_, n) => n !== i))}>移除失败项</Button></div>)}
+      {result && <Alert type={result.failure ? 'warning' : 'success'} title={`本次已上传 ${result.success} 张${result.failure ? `，失败 ${result.failure} 张` : ''}${result.success ? '，提交帖子后生效' : '，请重试失败图片'}`} />}
+      {failed.map((file, i) => <div key={i}>{file.name} 上传失败<Button disabled={busy} onClick={() => void uploadFiles([file])}>重试此图片</Button><Button disabled={busy} onClick={() => { setResult(undefined); setFailed(items => items.filter((_, n) => n !== i)) }}>移除失败项</Button></div>)}
       {images.map((src, index) => (
         <div key={src}>
           <img src={src} alt="上传预览" width={100} />

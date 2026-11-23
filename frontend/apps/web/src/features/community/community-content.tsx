@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert, Button, ConfigProvider, Form, Input, Select } from 'antd'
-import { useLocation, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSchools, useSchoolDirectory } from '../school-context'
 import { PaginationControls } from '../../shared/pagination-controls'
@@ -14,16 +14,18 @@ import { ProfilePanel } from './profile-panel'
 import { Notifications } from './notifications'
 import { FeedbackForm } from './feedback-form'
 import { useSiteTitle } from '../site'
+import { useOperationScope } from '../../shared/use-operation-scope'
 
 export function CommunityContent({ user }: { user: User }) {
   const [commentForm] = Form.useForm()
   const params = useParams()
   useSiteTitle(params.id ? '帖子详情' : '校园社区')
   const location = useLocation()
+  const navigate = useNavigate()
   const cache = useQueryClient()
   const schools = useSchools()
   const directory = useSchoolDirectory()
-  const [selected, setSelected] = useState('')
+  const [selected, setSelected] = useState(() => new URLSearchParams(location.search).get('school') ?? '')
   const school = schools.data?.find(
     (v) => v.id === (params.school || selected || user.bound_school_id || schools.data[0]?.id),
   )
@@ -37,6 +39,8 @@ export function CommunityContent({ user }: { user: User }) {
     [busy, setBusy] = useState(false),
     [images, setImages] = useState<string[]>([]),
     [editing, setEditing] = useState<Post>()
+  const pending = useRef(false)
+  const capture = useOperationScope(`${s}:${view}:${params.id ?? ''}`)
   useEffect(() => {
     setView(new URLSearchParams(location.search).get('service') ?? 'feed')
     setPage(1)
@@ -83,15 +87,24 @@ export function CommunityContent({ user }: { user: User }) {
     queryFn: () => workspace.list(s, 'follows'),
     enabled: !!s,
   })
-  async function run(action: () => Promise<unknown>) {
+  async function run(action: () => Promise<unknown>, options?: { refreshFailure: string }) {
+    if (pending.current) return
+    const active = capture()
+    pending.current = true
     setBusy(true)
     setError('')
     try {
       await action()
-      await cache.invalidateQueries({ queryKey: ['business'] })
+      try {
+        await cache.invalidateQueries({ queryKey: ['business'] }, { throwOnError: !!options })
+      } catch (cause) {
+        if (!options) throw cause
+        if (active()) setError(options.refreshFailure)
+      }
     } catch (e) {
-      setError((e as Error).message)
+      if (active()) setError((e as Error).message)
     } finally {
+      pending.current = false
       setBusy(false)
     }
   }
@@ -255,6 +268,7 @@ export function CommunityContent({ user }: { user: User }) {
         )}
         {view === 'publish' && (
           <PostEditor
+            key={`${s}:${editing?.id ?? 'new'}`}
             school={s}
             editing={editing}
             images={images}
@@ -294,6 +308,7 @@ export function CommunityContent({ user }: { user: User }) {
             ))}
         {view === 'profile' && (
           <ProfilePanel
+            key={s}
             school={s}
             user={user}
             follows={follows.data?.items ?? []}
@@ -302,7 +317,14 @@ export function CommunityContent({ user }: { user: User }) {
             error={error}
           />
         )}
-        {view === 'feedback' && <FeedbackForm school={s} busy={busy} run={run} error={error} />}
+        {view === 'feedback' && <FeedbackForm key={s} school={s} busy={busy} run={run} error={error} onReturn={() => {
+          setError(''); setSelected(s); setView('feed')
+          navigate(`/community?school=${encodeURIComponent(s)}`)
+        }} onContinue={() => setError('')} />}
+        {error.includes('刷新失败') && <Button disabled={busy} onClick={() => void run(async () => {
+          await cache.invalidateQueries({ queryKey: ['session'] }, { throwOnError: true })
+          await cache.invalidateQueries({ queryKey: ['business'] }, { throwOnError: true })
+        })}>重试刷新</Button>}
       </div>
     </ConfigProvider>
   )

@@ -5,6 +5,8 @@ import { label } from '../../shared/label'
 import { useDialogs } from '../../shared/use-dialogs'
 import { workspace, type Row, type User } from './api'
 import type { CommunityAction } from './actions'
+import { notifySuccess } from '../../shared/notify'
+import { useOperationScope } from '../../shared/use-operation-scope'
 
 export function PostComments({
   form: commentForm,
@@ -34,6 +36,14 @@ export function PostComments({
   error?: string
 }) {
   const dialogs = useDialogs()
+  const capture = useOperationScope(`${s}:${postId}`)
+  async function comment(content: string, parent?: string) {
+    const active = capture()
+    const result = await workspace.mutate(s, `posts/${postId}/comments`, { content, ...(parent ? { parent_id: parent } : {}) })
+    if (!active()) return
+    notifySuccess(result.audit_status === 'approved' ? '评论已发布' : result.audit_status === 'pending' ? '评论已提交，等待审核' : '评论已提交')
+    if (!parent) commentForm.resetFields()
+  }
   return (
     <>
       {dialogs.contextHolder}
@@ -45,10 +55,7 @@ export function PostComments({
           className="business-form"
           disabled={busy}
           onFinish={({ content }: { content: string }) =>
-            run(async () => {
-              await workspace.mutate(s, `posts/${postId}/comments`, { content })
-              commentForm.resetFields()
-            })
+            run(() => comment(content), { refreshFailure: '评论已提交，列表刷新失败，请刷新查看' })
           }
         >
           <Field name="content" required label="评论内容">
@@ -69,11 +76,10 @@ export function PostComments({
             <Button
               disabled={busy}
               onClick={async () => {
+                const active = capture()
                 const content = await dialogs.prompt('回复内容')
-                if (content)
-                  void run(() =>
-                    workspace.mutate(s, `posts/${postId}/comments`, { content, parent_id: c.id }),
-                  )
+                if (active() && content?.trim())
+                  void run(() => comment(content, c.id), { refreshFailure: '评论已提交，列表刷新失败，请刷新查看' })
               }}
             >
               回复

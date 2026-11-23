@@ -4,6 +4,8 @@ import { Field } from '../../shared/field'
 import { label } from '../../shared/label'
 import { identity, workspace, type Row, type User } from './api'
 import type { CommunityAction } from './actions'
+import { notifySuccess } from '../../shared/notify'
+import { useOperationScope } from '../../shared/use-operation-scope'
 
 export function ProfilePanel({
   school: s,
@@ -21,6 +23,7 @@ export function ProfilePanel({
   error?: string
 }) {
   const cache = useQueryClient()
+  const capture = useOperationScope(s)
   return (
     <Form
       layout="vertical"
@@ -29,9 +32,16 @@ export function ProfilePanel({
       disabled={busy}
       onFinish={({ name }: { name: string }) =>
         run(async () => {
+          const active = capture()
           await identity.profile(name)
-          await cache.invalidateQueries({ queryKey: ['session'] })
-        })
+          if (!active()) return
+          notifySuccess('昵称已更新')
+          try {
+            await cache.invalidateQueries({ queryKey: ['session'] }, { throwOnError: true })
+          } catch {
+            throw new Error('昵称已更新，显示信息刷新失败，请刷新查看')
+          }
+        }, { refreshFailure: '昵称已更新，列表刷新失败，请刷新查看' })
       }
     >
       <Field name="name" required label="昵称">

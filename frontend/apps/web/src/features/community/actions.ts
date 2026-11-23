@@ -1,1 +1,1 @@
-export type CommunityAction = (action: () => Promise<unknown>) => Promise<void>
+export type CommunityAction = (action: () => Promise<unknown>, options?: { refreshFailure: string }) => Promise<void>

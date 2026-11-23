@@ -1,11 +1,11 @@
 import { schoolDefaults } from '../../test/school'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Community from './index'
-import { product, workspace } from './api'
+import { identity, product, workspace } from './api'
 
 vi.mock('../school-context/api', async () => ({ schoolsApi: (await import('./api')).workspace }))
 vi.mock('../identity', () => ({
@@ -57,6 +57,7 @@ function show(path = '/community') {
       </MemoryRouter>
     </QueryClientProvider>,
   )
+  return client
 }
 it('submits body-only posts without opening the optional title field', async () => {
   show()
@@ -166,6 +167,124 @@ it('validates feedback before sending and preserves an empty optional contact', 
       contact: '',
     }),
   )
+  await screen.findByText('反馈已提交')
+  expect(screen.queryByLabelText('意见反馈')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: '继续反馈' }))
+  expect(screen.getByLabelText('意见反馈')).toHaveProperty('value', '')
+  expect(workspace.mutate).toHaveBeenCalledTimes(1)
+})
+
+it('keeps feedback drafts on failure and offers a return only after submission succeeds', async () => {
+  vi.mocked(workspace.mutate).mockRejectedValueOnce(new Error('提交失败'))
+  show()
+  fireEvent.click(await screen.findByRole('button', { name: /^反\s*馈$/ }))
+  fireEvent.change(screen.getByLabelText('意见反馈'), { target: { value: '反馈草稿' } })
+  fireEvent.change(screen.getByLabelText('联系方式'), { target: { value: '联系信息' } })
+  fireEvent.click(screen.getByRole('button', { name: '提交反馈' }))
+  await waitFor(() => expect(screen.getAllByText('提交失败').length).toBeGreaterThan(0))
+  expect(screen.getByLabelText('意见反馈')).toHaveProperty('value', '反馈草稿')
+  expect(screen.getByLabelText('联系方式')).toHaveProperty('value', '联系信息')
+  expect(screen.queryByText('反馈已提交')).toBeNull()
+  vi.mocked(workspace.mutate).mockResolvedValueOnce({})
+  fireEvent.click(screen.getByRole('button', { name: '提交反馈' }))
+  await screen.findByText('反馈已提交')
+  await waitFor(() => expect(screen.getByRole('button', { name: '返回社区' })).toHaveProperty('disabled', false))
+  fireEvent.click(screen.getByRole('button', { name: '返回社区' }))
+  expect(screen.queryByText('反馈已提交')).toBeNull()
+  expect(screen.getByRole('button', { name: /^发\s*现$/ }).getAttribute('aria-current')).toBe('page')
+})
+
+it('keeps feedback completion when refresh fails and retries reads without a second write', async () => {
+  const client = show()
+  fireEvent.click(await screen.findByRole('button', { name: /^反\s*馈$/ }))
+  vi.spyOn(client, 'invalidateQueries').mockRejectedValueOnce(new Error('读取失败'))
+  fireEvent.change(screen.getByLabelText('意见反馈'), { target: { value: '已提交的反馈' } })
+  fireEvent.click(screen.getByRole('button', { name: '提交反馈' }))
+  await screen.findByText('反馈已提交')
+  await waitFor(() => expect(screen.getAllByText('反馈已提交，列表刷新失败，请刷新查看').length).toBeGreaterThan(0))
+  fireEvent.click(screen.getByRole('button', { name: '重试刷新' }))
+  await waitFor(() => expect(screen.queryByRole('button', { name: '重试刷新' })).toBeNull())
+  expect(workspace.mutate).toHaveBeenCalledTimes(1)
+})
+
+it('returns from detail feedback to the current school community list', async () => {
+  vi.mocked(workspace.getPost).mockResolvedValue({ id: 'post', school_id: 's', author_id: 'other', title: '详情', display_label: '详情', content: '正文', images: [], tags: [], audit_status: 'approved', visibility: 'visible', revision: 1, display_published_at: '2026-11-23T00:00:00Z', published_at_text: '2026-11-23 08:00' })
+  show('/community/s/posts/post')
+  fireEvent.click(await screen.findByRole('button', { name: /^反\s*馈$/ }))
+  fireEvent.change(screen.getByLabelText('意见反馈'), { target: { value: '详情反馈' } })
+  fireEvent.click(screen.getByRole('button', { name: '提交反馈' }))
+  await screen.findByText('反馈已提交')
+  await waitFor(() => expect(screen.getByRole('button', { name: '返回社区' })).toHaveProperty('disabled', false))
+  fireEvent.click(screen.getByRole('button', { name: '返回社区' }))
+  await screen.findByRole('button', { name: '上一页' })
+  expect(screen.queryByLabelText('评论内容')).toBeNull()
+  expect(screen.queryByText('反馈已提交')).toBeNull()
+})
+
+it('confirms nickname writes without leaving the profile page', async () => {
+  vi.mocked(identity.profile).mockResolvedValue({} as Awaited<ReturnType<typeof identity.profile>>)
+  show()
+  fireEvent.click(await screen.findByRole('button', { name: '个人信息' }))
+  fireEvent.change(screen.getByLabelText('昵称'), { target: { value: '新昵称' } })
+  fireEvent.click(screen.getByRole('button', { name: '更新昵称' }))
+  await screen.findByText('昵称已更新')
+  expect(identity.profile).toHaveBeenCalledWith('新昵称')
+  expect(screen.getByLabelText('昵称')).toHaveProperty('value', '新昵称')
+})
+
+it('keeps nickname input and never confirms a rejected save', async () => {
+  vi.mocked(identity.profile).mockRejectedValueOnce(new Error('昵称保存失败'))
+  show()
+  fireEvent.click(await screen.findByRole('button', { name: '个人信息' }))
+  fireEvent.change(screen.getByLabelText('昵称'), { target: { value: '保留昵称' } })
+  fireEvent.click(screen.getByRole('button', { name: '更新昵称' }))
+  await waitFor(() => expect(screen.getAllByText('昵称保存失败').length).toBeGreaterThan(0))
+  expect(screen.getByLabelText('昵称')).toHaveProperty('value', '保留昵称')
+  expect(screen.queryByText('昵称已更新')).toBeNull()
+})
+
+it('keeps nickname write confirmation when session refresh fails and retries only reads', async () => {
+  vi.mocked(identity.profile).mockResolvedValue({} as Awaited<ReturnType<typeof identity.profile>>)
+  const client = show()
+  fireEvent.click(await screen.findByRole('button', { name: '个人信息' }))
+  vi.spyOn(client, 'invalidateQueries').mockRejectedValueOnce(new Error('会话读取失败'))
+  fireEvent.change(screen.getByLabelText('昵称'), { target: { value: '已保存昵称' } })
+  fireEvent.click(screen.getByRole('button', { name: '更新昵称' }))
+  await screen.findByText('昵称已更新')
+  await waitFor(() => expect(screen.getAllByText('昵称已更新，显示信息刷新失败，请刷新查看').length).toBeGreaterThan(0))
+  fireEvent.click(screen.getByRole('button', { name: '重试刷新' }))
+  await waitFor(() => expect(screen.queryByRole('button', { name: '重试刷新' })).toBeNull())
+  expect(identity.profile).toHaveBeenCalledTimes(1)
+})
+
+it('summarizes partial image uploads and retries only the failed image', async () => {
+  vi.mocked(workspace.upload).mockResolvedValueOnce({ url: '/first.png' }).mockRejectedValueOnce(new Error('上传失败')).mockResolvedValueOnce({ url: '/retried.png' })
+  show()
+  fireEvent.click(await screen.findByRole('button', { name: /^发\s*布$/ }))
+  const files = ['first.png', 'retry.png'].map(name => new File(['image'], name, { type: 'image/png' }))
+  fireEvent.change(document.querySelector('input[type=file]')!, { target: { files } })
+  await screen.findByText('本次已上传 1 张，失败 1 张，提交帖子后生效')
+  await waitFor(() => expect(screen.getByRole('button', { name: '重试此图片' })).toHaveProperty('disabled', false))
+  fireEvent.click(screen.getByRole('button', { name: '重试此图片' }))
+  await screen.findByText('本次已上传 1 张，提交帖子后生效')
+  expect(screen.getAllByAltText('上传预览')).toHaveLength(2)
+  expect(workspace.upload).toHaveBeenCalledTimes(3)
+  expect(vi.mocked(workspace.upload).mock.calls[2]?.[1]).toBe(files[1])
+  expect(workspace.mutate).not.toHaveBeenCalled()
+})
+
+it('ignores an upload result after leaving the editor', async () => {
+  let resolve!: (value: { url: string }) => void
+  vi.mocked(workspace.upload).mockReturnValueOnce(new Promise(finish => { resolve = finish }))
+  show()
+  fireEvent.click(await screen.findByRole('button', { name: /^发\s*布$/ }))
+  fireEvent.change(document.querySelector('input[type=file]')!, { target: { files: [new File(['image'], 'late.png', { type: 'image/png' })] } })
+  await waitFor(() => expect(workspace.upload).toHaveBeenCalledTimes(1))
+  fireEvent.click(screen.getByRole('button', { name: /^发\s*现$/ }))
+  await act(async () => { resolve({ url: '/late.png' }) })
+  fireEvent.click(screen.getByRole('button', { name: /^发\s*布$/ }))
+  expect(screen.queryByAltText('上传预览')).toBeNull()
+  expect(screen.queryByText('本次已上传 1 张，提交帖子后生效')).toBeNull()
 })
 
 it('preserves comment input across service switches and clears it after submission', async () => {
