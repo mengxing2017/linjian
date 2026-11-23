@@ -19,7 +19,7 @@ const info = createUserInfo({
   confirm,
   notify: (title) => uni.showToast({ title }),
 })
-const { profile, name, mobile, avatar, busy, error, conflict, refreshWarning, writeUncertain, length, canSave } = info
+const { profile, name, mobile, avatar, uploadResult, busy, error, conflict, refreshWarning, writeUncertain, length, canSave } = info
 const stop = onScopeChange(info.reset)
 onUnmounted(() => { stop(); info.dispose() })
 function choose(event: { detail: { avatarUrl?: string } }) {
@@ -35,6 +35,7 @@ defineExpose({ show: info.show, hide: info.hide, refresh: info.reload })
       <Avatar :source="avatar" />
       <button open-type="chooseAvatar" :disabled="busy" @chooseavatar="choose">上传头像</button>
       <text class="muted">可选择自己的图片，上传后点击保存生效。</text>
+      <text v-if="uploadResult">{{ uploadResult }}</text>
       <text>昵称</text>
       <input v-model="name" type="nickname" :maxlength="-1" :disabled="busy" class="input" placeholder="昵称" />
       <text class="muted">{{ length }}/100 个字符，昵称允许重名。</text>

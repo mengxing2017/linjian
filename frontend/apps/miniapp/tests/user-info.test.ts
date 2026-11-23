@@ -24,6 +24,7 @@ it('uploads personal images as candidates and saves them only on explicit submis
   await info.choose('/personal-photo.png')
   expect(env.upload).toHaveBeenCalledWith('/personal-photo.png')
   expect(info.avatar.value).toBe('/new')
+  expect(info.uploadResult.value).toBe('头像已上传，保存后生效')
   expect(api.saveProfile).not.toHaveBeenCalled()
   await info.save()
   expect(api.saveProfile).toHaveBeenCalledWith('我的昵称', 'new', 0)
@@ -39,6 +40,8 @@ it('retains the previous draft on upload failure and ignores cancellation', asyn
   expect(info.name.value).toBe('草稿')
   expect(info.asset.value).toBe('old')
   expect(info.error.value).toBe('上传失败')
+  expect(info.uploadResult.value).toBe('')
+  expect(env.notify).not.toHaveBeenCalled()
 })
 
 it('blocks saves while uploads run and snapshots the submitted draft', async () => {
@@ -145,4 +148,19 @@ it.each(['hide', 'dispose', 'scope'])('rejects late results after %s', async (ki
   expect(env.notify).not.toHaveBeenCalled()
   expect(env.refreshUser).not.toHaveBeenCalled()
   expect(info.busy.value).toBe(false)
+})
+
+it.each(['hide', 'dispose', 'scope'])('does not announce stale avatar uploads after %s', async kind => {
+  const { info, env } = await setup()
+  const pending = deferred<{ id: string; url: string }>()
+  env.upload.mockReturnValueOnce(pending.promise)
+  const uploading = info.choose('/photo')
+  if (kind === 'hide') info.hide()
+  else if (kind === 'dispose') info.dispose()
+  else { env.key.mockReturnValue('other'); info.reset() }
+  pending.resolve({ id: 'late', url: '/late' })
+  await uploading
+  expect(info.uploadResult.value).toBe('')
+  expect(info.asset.value).not.toBe('late')
+  expect(env.notify).not.toHaveBeenCalled()
 })

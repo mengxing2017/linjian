@@ -22,6 +22,7 @@ export function createUserInfo(env: Environment) {
   const mobile = ref('')
   const asset = ref<string | null>(null)
   const avatar = ref<string | null>(null)
+  const uploadResult = ref('')
   const operation = ref('')
   const error = ref('')
   const conflict = ref(false)
@@ -44,6 +45,7 @@ export function createUserInfo(env: Environment) {
     profile.value = value
     mobile.value = value.mobile ?? ''
     if (replaceDraft) {
+      uploadResult.value = ''
       name.value = value.nickname
       asset.value = value.avatar_asset_id
       avatar.value = value.avatar_url
@@ -87,12 +89,14 @@ export function createUserInfo(env: Environment) {
   }
 
   function hide() {
+    uploadResult.value = ''
     visible = false
     generation++
     operation.value = ''
   }
 
   function reset() {
+    uploadResult.value = ''
     generation++
     operation.value = ''
     profile.value = undefined
@@ -109,10 +113,12 @@ export function createUserInfo(env: Environment) {
   function choose(path: string) {
     if (!path) return Promise.resolve()
     return run('uploading', async (current) => {
+      uploadResult.value = ''
       const value = await env.upload(path)
       if (!current()) return
       asset.value = value.id
       avatar.value = value.url
+      uploadResult.value = '头像已上传，保存后生效'
     })
   }
 
@@ -183,7 +189,7 @@ export function createUserInfo(env: Environment) {
   }
 
   return {
-    profile, name, mobile, asset, avatar, busy, operation, error, conflict,
+    profile, name, mobile, asset, avatar, uploadResult, busy, operation, error, conflict,
     refreshWarning, writeUncertain, length, canSave,
     show, hide, reset, choose, save, reload, retryRefresh, registerMobile,
     dispose() { hide(); disposed = true },
