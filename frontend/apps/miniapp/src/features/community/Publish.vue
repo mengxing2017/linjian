@@ -7,7 +7,7 @@ import { session } from '../identity/session'
 import { keepDraftImages } from '../media/files'
 import { uuid } from '../operations/policy'
 import ImageUploads from '../media/ImageUploads.vue'
-import { usePage, confirm } from '../../shared/use-page'
+import { usePage, confirm, handlePageError } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
 import { onUnmounted } from 'vue'
 const props = defineProps<{ id?: string; school?: string }>()
@@ -21,6 +21,7 @@ const title = ref(''),
   candidates = ref<HomeMenuTag[]>([]),
   selectedCandidates = ref<HomeMenuTag[]>([])
 const uploading = ref(false)
+const submitting = ref(false)
 const { busy, error, run } = usePage(() => {
   title.value = ''
   content.value = ''
@@ -57,17 +58,17 @@ const stop = onScopeChange(() => {
   loaded.value = ''
 })
 onUnmounted(stop)
-function load() {
-  return run(async () => {
-    if (!(await requireSchool(props.school))) return
+function loadData() {
+  return (async () => {
+    if (!(await requireSchool(props.school))) return false
     const key = scopeKey()
-    if (loaded.value === key) return
+    if (loaded.value === key) return true
     const menu = await homeMenuApi.public(schoolContext.id)
-    if (key !== scopeKey()) return
+    if (key !== scopeKey()) return false
     candidates.value = menu.tags
     let post: Post | undefined
     if (props.id) post = await communityApi.post(schoolContext.id, props.id)
-    if (key !== scopeKey()) return
+    if (key !== scopeKey()) return false
     if (post) {
       if (post.author_id !== session.user?.id) throw new Error('只能编辑自己的动态')
       title.value = post.title
@@ -82,7 +83,7 @@ function load() {
       typeof draft === 'object' &&
       (await confirm('发现当前账号在本校的草稿，是否恢复？'))
     ) {
-      if (key !== scopeKey()) return
+      if (key !== scopeKey()) return false
       const v = draft as Record<string, unknown>
       if (typeof v.draft_id === 'string') draftId.value = v.draft_id
       title.value = typeof v.title === 'string' ? v.title : ''
@@ -105,6 +106,18 @@ function load() {
       catch { leaseMessage.value = '部分草稿图片已失效，请移除失效图片并重新上传。' }
     }
     loaded.value = key
+    return true
+  })()
+}
+let loading: Promise<boolean> | undefined
+function ensureLoaded() {
+  if (loaded.value && loaded.value === scopeKey()) return Promise.resolve(true)
+  if (!loading) loading = loadData().finally(() => { loading = undefined })
+  return loading
+}
+function load() {
+  return run(async () => {
+    await ensureLoaded()
   })
 }
 
@@ -114,10 +127,16 @@ function addTag(tag: HomeMenuTag) {
   if (!current.includes(name) && current.length < 10) { tags.value = [...current, name].join(','); selectedCandidates.value = [...selectedCandidates.value, tag] }
 }
 
-function submit() {
-  void run(async () => {
+async function submit() {
+  if (submitting.value || uploading.value) {
+    uni.showToast({ title: '正在处理，请稍候', icon: 'none' })
+    return
+  }
+  submitting.value = true
+  error.value = ''
+  try {
     if (!title.value.trim() || !content.value.trim()) throw new Error('请填写标题和正文')
-    if (!loaded.value || loaded.value !== scopeKey()) throw new Error('请先加载当前学校的编辑页面')
+    if (!(await ensureLoaded())) throw new Error('请先选择学校并加载编辑页面')
     const s = schoolContext.id,
       key = scopeKey(),
       draft = draftKey()
@@ -152,7 +171,12 @@ function submit() {
       showCancel: false,
       success: () => { if (key === scopeKey()) uni.redirectTo({ url: `/pages/index/detail?school=${s}&id=${result.id}` }) },
     })
-  })
+  } catch (e) {
+    error.value = handlePageError(e)
+    uni.showToast({ title: error.value.slice(0, 30), icon: 'none' })
+  } finally {
+    submitting.value = false
+  }
 }
 function discard() {
   void run(async () => {
@@ -192,7 +216,7 @@ defineExpose({ show: load, hide: saveDraft })
         <button size="mini" :disabled="busy || uploading" @tap="discard">丢弃草稿</button>
       </view>
       <text v-if="error" class="error">{{ error }}</text>
-      <button class="primary" :disabled="busy || uploading" :loading="busy" @tap="submit">发布</button>
+      <button class="primary" :disabled="submitting || uploading" :loading="submitting" @tap="submit">发布</button>
       <text class="muted">网络中断时请先在“我的发布”核对结果，再决定是否重新提交。</text>
     </view>
   </view>
