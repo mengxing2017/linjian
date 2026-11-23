@@ -190,6 +190,7 @@ export function MiniappUsers({
             { title: '昵称', width: 160, dataIndex: 'nickname' },
             { title: '账号类型', width: 110, render: (_, row) => row.account_kind === 'simulated' ? <Tag>模拟作者</Tag> : '普通账号' },
             { title: '手机号', width: 160, dataIndex: 'mobile', render: (v) => v || '未填写' },
+            { title: '微信手机号认证', width: 150, dataIndex: 'phone_status', render: (value) => value === 'verified' ? '已验证' : value === 'revoked' ? '已撤回' : '未验证' },
             { title: '所属学校', width: 200, dataIndex: 'school_name', render: (v) => v || '未绑定学校' },
             { title: '发帖数', width: 110, dataIndex: 'post_count', sorter: true },
             {
@@ -259,6 +260,7 @@ export function MiniappUsers({
                   ['用户 ID', detail.data.id],
                   ['昵称', detail.data.nickname],
                   ['手机号', detail.data.mobile || '未填写'],
+                  ['微信手机号认证', detail.data.phone_status === 'verified' ? '已验证' : detail.data.phone_status === 'revoked' ? '已撤回' : '未验证'],
                   ['所属学校', detail.data.school_name || '未绑定学校'],
                   ['发帖数', String(detail.data.post_count)],
                   ['创建时间', formatDate(detail.data.created_at)],
@@ -312,6 +314,7 @@ export function MiniappUsers({
             {action && (
               <Card size="small" title={titles[action]} className="user-action-panel">
                 {action === 'status' && <p>解封后须重新登录；封禁不会自动下架用户的历史内容。</p>}
+                {action === 'mobile' && <p>这里只纠正历史联系号码，不改变微信手机号认证状态，也不授予普通用户发布资格。</p>}
                 {action === 'mobile' && (
                   <Input
                     aria-label="新手机号"

@@ -38,8 +38,8 @@ function mount(admin: boolean) {
 it('shows all seven attributes and keeps school operators read-only', async () => {
   mount(false)
   await screen.findByText('校园注册用户')
-  for (const title of ['头像', '昵称', '手机号', '所属学校', '发帖数', '创建时间', '状态'])
-    expect(screen.getByRole('columnheader', { name: new RegExp(title) })).toBeTruthy()
+  for (const title of ['头像', '昵称', '手机号', '微信手机号认证', '所属学校', '发帖数', '创建时间', '状态'])
+    expect(screen.getByRole('columnheader', { name: title === '手机号' ? /^手机号$/ : new RegExp(title) })).toBeTruthy()
   expect(screen.getByText('13800138000')).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: /详\s*情/ }))
   await screen.findByText('用户 ID', {}, { timeout: 5000 })
