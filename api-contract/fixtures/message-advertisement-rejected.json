@@ -1,0 +1,31 @@
+{
+  "data": {
+    "type": "school-message-advertisement-revisions",
+    "id": "00000000-0000-4000-8000-000000000003",
+    "attributes": {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "advertisement_id": "00000000-0000-4000-8000-000000000002",
+      "school_id": "00000000-0000-4000-8000-000000000001",
+      "school_name": "测试学校",
+      "number": "1",
+      "version": "3",
+      "config_version": "3",
+      "content": "【广告】本校打印服务",
+      "status": "rejected",
+      "review_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "current_revision_id": null,
+      "config_deleted_at": null,
+      "created_by": "00000000-0000-4000-8000-000000000004",
+      "created_at": "2026-11-24T00:00:00Z",
+      "submitted_by": "00000000-0000-4000-8000-000000000004",
+      "submitted_at": "2026-11-24T00:00:00Z",
+      "decision": {
+        "id": "00000000-0000-4000-8000-000000000005",
+        "decision": "reject",
+        "reason": "请补充明确广告标识",
+        "reviewer_id": "00000000-0000-4000-8000-000000000006",
+        "reviewed_at": "2026-11-24T00:00:00Z"
+      }
+    }
+  }
+}

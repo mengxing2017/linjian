@@ -5,6 +5,7 @@
   "type": "module",
   "packageManager": "pnpm@11.22.0",
   "exports": {
+    "./message-advertisements": "./src/modules/message-advertisements/index.ts",
     "./school-changes": "./src/modules/school-changes/index.ts",
     "./http": "./src/http/index.ts",
     "./system": "./src/modules/system/index.ts",

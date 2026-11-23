@@ -1,4 +1,8 @@
 {
+  "./message-advertisements": {
+    "types": ["AdvertisementDecision", "AdvertisementFilters", "AdvertisementRevision", "AdvertisementStatus", "AdvertisementUsage", "AdvertisementUsageResult", "MessageAdvertisement"],
+    "values": ["advertisementContentError", "advertisementStatusLabels", "createMessageAdvertisementsClient", "normalizeAdvertisement"]
+  },
   "./http": {
     "types": [
       "ApiError",
