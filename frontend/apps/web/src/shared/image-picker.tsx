@@ -1,16 +1,30 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Button, Select, Space, Upload } from 'antd'
+import { notifySuccess } from './notify'
+import { useOperationScope } from './use-operation-scope'
 export interface Picture { id: string; url?: string; width?: number; height?: number; size_bytes?: number }
-export function ImagePicker({ scope, label, value, onChange, onBusyChange, load, upload, source }: {
+interface ImagePickerProps {
   scope: string; label: string; value: string | null; onChange: (id: string | null) => void
   onBusyChange?: (busy: boolean) => void
   load: (page: number) => Promise<{ items: Picture[]; page?: { has_more: boolean } }>
   upload: (file: File) => Promise<Picture>; source: (id: string) => string
-}) {
+}
+export function ImagePicker(props: ImagePickerProps) {
+  return <ScopedImagePicker key={props.scope} {...props} />
+}
+function ScopedImagePicker({ scope, label, value, onChange, onBusyChange, load, upload, source }: ImagePickerProps) {
   const [page, setPage] = useState(1), [busy, setBusy] = useState(false), [error, setError] = useState('')
-  const [retry, setRetry] = useState<File>(), pending = useRef(false), current = useRef(scope)
-  current.current = scope
+  const [retry, setRetry] = useState<File>(), pending = useRef(false)
+  const busyCallback = useRef(onBusyChange)
+  busyCallback.current = onBusyChange
+  useEffect(() => () => {
+    if (pending.current) {
+      pending.current = false
+      busyCallback.current?.(false)
+    }
+  }, [])
+  const capture = useOperationScope(scope)
   const q = useQuery({ queryKey: ['linjian', 'image-picker', scope, page], queryFn: () => load(page) })
   const loaded = q.data !== undefined
   const hasPrev = page > 1
@@ -18,14 +32,20 @@ export function ImagePicker({ scope, label, value, onChange, onBusyChange, load,
   const hasPages = loaded && (hasPrev || hasNext)
   async function send(file: File) {
     if (pending.current) return
-    const turn = scope
+    const active = capture()
     pending.current = true; setBusy(true); onBusyChange?.(true); setError('')
     try {
       const picture = await upload(file)
-      if (current.current !== turn) return
-      onChange(picture.id); setRetry(undefined); await q.refetch()
-    } catch (e) { if (current.current === turn) { setRetry(file); setError(e instanceof Error ? e.message : '上传失败') } }
-    finally { pending.current = false; setBusy(false); onBusyChange?.(false) }
+      if (!active()) return
+      onChange(picture.id); setRetry(undefined)
+      notifySuccess(`${label}已上传，保存表单后生效`)
+      try {
+        await q.refetch({ throwOnError: true })
+      } catch {
+        if (active()) setError('图片已上传，素材列表刷新失败，请重新加载素材列表')
+      }
+    } catch (e) { if (active()) { setRetry(file); setError(e instanceof Error ? e.message : '上传失败') } }
+    finally { if (active()) { pending.current = false; setBusy(false); onBusyChange?.(false) } }
   }
   return <Space orientation="vertical" className="full-width">
     <Select aria-label={label} allowClear value={value ?? undefined} disabled={busy} placeholder="选择图片或上传本地文件"
@@ -58,6 +78,7 @@ export function ImagePicker({ scope, label, value, onChange, onBusyChange, load,
     <Upload accept="image/png,image/jpeg,image/gif,image/webp" showUploadList={false} disabled={busy} beforeUpload={file => { void send(file); return false }}><Button loading={busy}>上传{label}</Button></Upload>
     <span>PNG / JPEG / GIF / WebP，最大 5 MiB。上传后保存表单生效。</span>
     {retry && <Button disabled={busy} onClick={() => void send(retry)}>重试上传</Button>}
+    {error.includes('素材列表刷新失败') && <Button disabled={q.isFetching} onClick={() => { setError(''); void q.refetch() }}>重新加载素材列表</Button>}
     {value && <img alt={label} src={source(value)} style={{ maxWidth: 220, maxHeight: 180 }} />}
     {(error || q.error) && <Alert type="error" title={error || q.error?.message} />}
   </Space>
