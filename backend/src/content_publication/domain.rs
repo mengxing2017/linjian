@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 use uuid::Uuid;
 
 pub const ALGORITHM: &str = "plain-v1";
-pub const MESSAGE_VERSION: &str = "summary-20-v1";
+pub const MESSAGE_VERSION: &str = crate::message_advertisements::domain::COMPOSITION_VERSION;
 pub fn page_title(title: &str, content: &str) -> String {
     let source = if title.trim().is_empty() {
         content

@@ -141,6 +141,12 @@ impl PreparationStore for Repository {
         if !owned {
             return Ok(());
         }
+        let advertisement = if result.is_ok() {
+            crate::message_advertisements::south::adapter::postgres::candidate(&mut tx, w.school)
+                .await?
+        } else {
+            None
+        };
         let result = result.and_then(|link| {
             if w.needs_link
                 && (link.value.is_empty()
@@ -154,13 +160,17 @@ impl PreparationStore for Repository {
                 &w.title,
                 w.needs_link.then_some(link.value.as_str()),
             )?;
+            let composition = crate::message_advertisements::domain::append(
+                &content,
+                advertisement.as_ref().map(|value| value.content.as_str()),
+            );
             let event = crate::source_access::domain::Event {
                 event_id: w.id,
                 schema_version: 2,
                 route_id: w.route_id.clone(),
                 event_type: "content.upsert".into(),
                 occurred_at: w.occurred_at,
-                content,
+                content: composition.content.clone(),
             };
             event.validate().map_err(|e| Failure::blocked(e.0))?;
             let body = serde_json::to_string(&crate::source_access::domain::Document {
@@ -171,10 +181,10 @@ impl PreparationStore for Repository {
                 },
             })
             .map_err(|_| Failure::blocked("invalid_request"))?;
-            Ok((link, body))
+            Ok((link, body, composition))
         });
         match result {
-            Ok((link, body)) => {
+            Ok((link, body, composition)) => {
                 let asset = if w.needs_link {
                     let cache_key = w.policy.cache_key(w.school, w.post, &w.title, &w.content);
                     let existing:Option<Uuid>=sqlx::query_scalar("SELECT id FROM miniapp_link_assets WHERE cache_key=$1 AND link=$2 AND (expires_at IS NULL OR expires_at>now()+make_interval(secs=>$3)) ORDER BY generated_at DESC LIMIT 1")
@@ -188,14 +198,25 @@ impl PreparationStore for Repository {
                 } else {
                     None
                 };
-                sqlx::query("SELECT forum_finalize_prepared_source($1,$2,$3,$4,$5)")
-                    .bind(w.id)
-                    .bind(w.token)
-                    .bind(asset)
-                    .bind(body)
-                    .bind(crate::content_publication::domain::MESSAGE_VERSION)
-                    .execute(&mut *tx)
+                let frozen: bool =
+                    sqlx::query_scalar("SELECT forum_finalize_prepared_source($1,$2,$3,$4,$5)")
+                        .bind(w.id)
+                        .bind(w.token)
+                        .bind(asset)
+                        .bind(body)
+                        .bind(crate::content_publication::domain::MESSAGE_VERSION)
+                        .fetch_one(&mut *tx)
+                        .await?;
+                if frozen {
+                    crate::message_advertisements::south::adapter::postgres::save_snapshot(
+                        &mut tx,
+                        w.id,
+                        w.school,
+                        advertisement.as_ref(),
+                        &composition,
+                    )
                     .await?;
+                }
             }
             Err(error) => {
                 let retry =
