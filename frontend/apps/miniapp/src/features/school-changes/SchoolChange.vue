@@ -8,6 +8,7 @@ import { miniappUserApi } from '../miniapp-users/api'
 import { credentials } from '../../app/credentials'
 import { confirm, usePage } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
+import { acceptDocumentUpload } from './document-upload'
 
 const policy = shallowRef<SchoolChangePolicy>()
 const request = shallowRef<SchoolChangeRequest | null>(null)
@@ -18,6 +19,7 @@ const studentName = ref(''), studentNumber = ref(''), reason = ref(''), consent 
 const relationship = ref<'enrolled' | 'new_student' | ''>('')
 const documents = shallowRef<Array<SchoolChangeDocument & { size_bytes: number }>>([])
 const previews = ref<Record<string, string>>({})
+const uploadResult = ref('')
 const temporary = new Set<string>()
 let submissionKey = createSubmissionKeys()
 let visible = true, lifetime = 0
@@ -28,6 +30,7 @@ function clearFiles() {
   previews.value = {}
 }
 function clear() {
+  uploadResult.value = ''
   clearFiles()
   policy.value = undefined
   request.value = null
@@ -71,6 +74,7 @@ async function readFile(path: string) {
 }
 function upload() {
   void run(async current => {
+    uploadResult.value = ''
     const turn = lifetime
     if (!policy.value || documents.value.length >= policy.value.max_documents) throw new Error('材料数量已达上限')
     const chosen = await uni.chooseImage({ count: 1 })
@@ -83,9 +87,10 @@ function upload() {
     if (bytes.byteLength > policy.value.max_file_bytes) throw new Error('材料超过单张大小限制')
     const result = await schoolChangesApi.upload(bytes)
     if (current() && visible && turn === lifetime) {
-      if (documents.value.reduce((sum, item) => sum + item.size_bytes, result.size_bytes) > policy.value.max_total_bytes) throw new Error('材料总大小超过限制')
-      documents.value = [...documents.value, result]
+      const accepted = acceptDocumentUpload(documents.value, result, policy.value.max_total_bytes)
+      documents.value = accepted.documents
       previews.value = { ...previews.value, [result.id]: path }
+      uploadResult.value = accepted.message
     }
   })
 }
@@ -99,7 +104,7 @@ function submit() {
     const payload = { to_school_id: target.value, student_relationship: studentRelationship, declared_student_name: studentName.value.trim(), declared_student_number: studentNumber.value.trim() || null,
       reason: reason.value.trim(), document_ids: documents.value.map(document => document.id).sort(), consent_version: policy.value.version! }
     const result = await schoolChangesApi.submit({ ...payload, submission_key: submissionKey(payload) })
-    if (current()) { request.value = result; documents.value = []; studentName.value = studentNumber.value = reason.value = relationship.value = ''; consent.value = false; clearFiles() }
+    if (current()) { request.value = result; documents.value = []; uploadResult.value = ''; studentName.value = studentNumber.value = reason.value = relationship.value = ''; consent.value = false; clearFiles() }
   })
 }
 function cancel() {
@@ -122,7 +127,7 @@ function preview(id: string) {
     uni.previewImage({ urls: [path] })
   })
 }
-function hide() { visible = false; lifetime++; clearFiles() }
+function hide() { visible = false; lifetime++; uploadResult.value = ''; clearFiles() }
 onUnmounted(hide)
 defineExpose({ show: load, refresh: load, hide })
 </script>
@@ -165,9 +170,10 @@ defineExpose({ show: load, refresh: load, hide })
       <text>材料仅用于本次审核，审核通过后自动删除。请提供能证明目标学校在读或新生关系的材料，具体要求见处理告知，可遮盖无关信息。格式 JPEG/PNG/WebP，单张 {{ Math.floor(policy.max_file_bytes / 1024) }} KiB，最多 {{ policy.max_documents }} 张。</text>
       <view v-for="document in documents" :key="document.id">
         <image v-if="previews[document.id]" :src="previews[document.id]" mode="widthFix" style="width: 200rpx" />
-        <button :disabled="busy" @tap="documents = documents.filter(item => item.id !== document.id)">移除此材料</button>
+        <button :disabled="busy" @tap="documents = documents.filter(item => item.id !== document.id); uploadResult = ''">移除此材料</button>
       </view>
       <button :disabled="busy || documents.length >= policy.max_documents" @tap="upload">上传证明</button>
+      <text v-if="uploadResult">{{ uploadResult }}</text>
       <text>{{ policy.notice }}</text>
       <button :disabled="busy" @tap="consent = !consent">{{ consent ? '✓ 已阅读并确认' : '阅读后点击确认处理告知' }}</button>
       <button class="primary" :disabled="busy || !consent" @tap="submit">提交换校申请</button>

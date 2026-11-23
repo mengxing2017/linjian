@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import { createSubmissionKeys, newSubmissionKey } from '../src/features/school-changes/submission'
+import { acceptDocumentUpload } from '../src/features/school-changes/document-upload'
 
 it('keeps retries on the same submission and replaces the key after an edit', () => {
   const key = createSubmissionKeys()
@@ -17,4 +18,18 @@ it('creates a new submission key when the declared student relationship changes'
   const key = createSubmissionKeys()
   const payload = { to_school_id: 'target', student_relationship: 'enrolled', document_ids: ['document'] }
   expect(key({ ...payload, student_relationship: 'new_student' })).not.toBe(key(payload))
+})
+
+it('confirms accepted evidence without claiming the application has been submitted', () => {
+  const document = { id: 'document', mime: 'image/png', available: true, size_bytes: 10 }
+  const result = acceptDocumentUpload([], document, 10)
+  expect(result.documents).toEqual([document])
+  expect(result.message).toBe('证明材料已上传，提交申请后生效')
+})
+
+it('rejects oversized uploaded evidence without changing the existing draft or returning success', () => {
+  const document = { id: 'previous', mime: 'image/png', available: true, size_bytes: 6 }
+  const documents = [document]
+  expect(() => acceptDocumentUpload(documents, { ...document, id: 'rejected', size_bytes: 5 }, 10)).toThrow('材料总大小超过限制')
+  expect(documents).toEqual([document])
 })
