@@ -35,7 +35,7 @@ it('exposes complete forum management without sending capabilities', () => {
     statistics: ['statistics', 'statistics-content', 'statistics-registration', 'statistics-activity', 'statistics-schools'],
     forum: ['posts', 'home-menu', 'cases', 'resources', 'platform-resources', 'blocked-words', 'platform-blocked-words'],
     operations: ['group-qrcodes','home-banners','home-shortcuts','service-targets','operation-reports','marketing-slots','school-marketing','customer-config','feedback'],
-    school: ['schools', 'miniapp-users', 'school-changes', 'members', 'settings'],
+    school: ['message-advertisements', 'message-advertisement-reviews', 'schools', 'miniapp-users', 'school-changes', 'members', 'settings'],
     source: ['source-connections', 'source-bindings', 'source-outbox'],
     administration: ['administrators', 'accounts', 'site-settings', 'miniapp-registration-settings', 'audit'],
   })
@@ -74,4 +74,11 @@ it('keeps school routing and audits platform-only even with arbitrary school per
     expect(visible).not.toContain('audit')
   }
   expect(visibleNavigationKeys(true)).toEqual(expect.arrayContaining(['source-bindings', 'audit']))
+})
+
+it('separates school message advertisement management from platform review and banner displays', () => {
+  expect(visibleNavigationKeys(false, 'admin', rolePermissions('admin'))).toContain('message-advertisements')
+  expect(visibleNavigationKeys(false, 'operator', rolePermissions('admin'))).not.toContain('message-advertisements')
+  expect(visibleNavigationKeys(false, 'admin', rolePermissions('admin'))).not.toContain('message-advertisement-reviews')
+  expect(visibleNavigationKeys(true)).toContain('message-advertisement-reviews')
 })

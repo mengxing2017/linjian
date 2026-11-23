@@ -1,5 +1,7 @@
 // Static help URLs contain no business identifiers or credentials.
 export const pageHelp: Record<string, string> = {
+  'message-advertisements': 'message-advertisements',
+  'message-advertisement-reviews': 'message-advertisements',
   'source-connections': 'platform-admin/source-access',
   'source-bindings': 'platform-admin/source-access',
 

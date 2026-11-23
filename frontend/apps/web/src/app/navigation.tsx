@@ -34,6 +34,8 @@ import {
   FundOutlined,
   GiftOutlined,
   NotificationOutlined,
+  MessageOutlined,
+  FileProtectOutlined,
 } from '@ant-design/icons'
 
 export type NavigationDomain = 'statistics' | 'forum' | 'operations' | 'school' | 'source' | 'administration'
@@ -109,6 +111,8 @@ export const navigation: NavigationItem[] = [
   { key: 'operation-reports', label: '运营效果', description: '曝光、访问阶段及渠道效果报表。', domain: 'operations', scope: 'selectable', capability: 'resources.read', icon: <FundOutlined /> },
   { key: 'marketing-slots', label: '官方营销', description: '独立配置官方营销单元。', domain: 'operations', scope: 'global', capability: 'global.manage', icon: <GiftOutlined /> },
   { key: 'school-marketing', label: '本校营销', description: '管理本校官方营销启停。', domain: 'operations', scope: 'school', capability: 'resources.read', icon: <NotificationOutlined /> },
+  { key: 'message-advertisements', label: '本校消息广告', description: '维护本校消息末尾文案，新增及修改须平台审核。', domain: 'school', scope: 'school', capability: 'school.admin', icon: <MessageOutlined /> },
+  { key: 'message-advertisement-reviews', label: '学校广告审核', description: '平台审核学校消息尾部广告与强制下架。', domain: 'school', scope: 'global', capability: 'global.manage', icon: <FileProtectOutlined /> },
   { key: 'customer-config', label: '客户配置', description: '配置平台合作、加盟与客服二维码。', domain: 'operations', scope: 'global', capability: 'global.manage', icon: <CustomerServiceOutlined /> },
   { key: 'feedback', label: '投诉反馈', description: '查询与删除用户投诉反馈。', domain: 'operations', scope: 'school', capability: 'school.read', icon: <CommentOutlined /> },
   {
@@ -225,6 +229,7 @@ const navigationPermissions: Record<string, readonly string[]> = {
   'home-banners': ['operation.banner.read'], feedback: ['operation.feedback.read'],
   'home-shortcuts': ['operation.shortcut.read'], 'operation-reports': ['operation.report.read'],
   'school-marketing': ['operation.marketing.read'],
+  'message-advertisements': ['school.message_advertisement.read'],
   'miniapp-users': ['school.user.read'], members: ['school.member.read'],
   settings: ['school.profile.read'],
   statistics: ['statistics.school.read'], 'statistics-content': ['statistics.school.read'],
@@ -233,6 +238,7 @@ const navigationPermissions: Record<string, readonly string[]> = {
 export function canNavigate(item: NavigationItem, platformAdmin: boolean, schoolRole?: string, permissions: readonly string[] = []): boolean {
   if (platformAdmin) return true
   if (!schoolRole || item.scope === 'global' || item.capability === 'global.manage') return false
+  if (item.key === 'message-advertisements' && schoolRole !== 'admin') return false
   return (navigationPermissions[item.key] ?? []).some(key => permissions.includes(key))
 }
 export function visibleNavigationKeys(platformAdmin: boolean, schoolRole?: string, permissions: readonly string[] = []) {

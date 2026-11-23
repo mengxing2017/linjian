@@ -10,9 +10,10 @@ import { SchoolForm } from './school-profile'
 import { HomeMenu } from './home-menu'
 import { SchoolResources } from './school-resources'
 import { BlockedWords } from './blocked-words'
+import { SchoolMessageAdvertisement } from '../message-advertisements'
 
 /** Authorized school page dispatch. Access checks and school selection live in WorkspaceShell. */
-export function SchoolWorkspacePage({ view, school, platformAdmin, publisher, publisherId, refresh }: {
+export function SchoolWorkspacePage({ view, school, platformAdmin, schoolAdmin, publisher, publisherId, refresh }: {
   publisherId?: string
   publisher?: string
   view: string
@@ -23,6 +24,7 @@ export function SchoolWorkspacePage({ view, school, platformAdmin, publisher, pu
 }) {
   const can = useSchoolPermission()
   switch (view) {
+    case 'message-advertisements': return <SchoolMessageAdvertisement school={school.id} canManage={schoolAdmin && can('school.message_advertisement.manage')} />
     case 'posts': return <ContentModeration publisherId={publisherId} publisher={publisher} platformAdmin={platformAdmin} school={school} canEditModes={can('school.review_settings.update')} refresh={refresh} />
     case 'home-menu': return <HomeMenu key={school.id} school={school.id} canEdit={can('school.home_menu.write')} />
     case 'cases': return <Cases school={school.id} refresh={refresh} />

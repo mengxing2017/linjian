@@ -9,6 +9,7 @@ import { useSchools } from '../../school-context'
 import { StatisticsPage } from '../statistics'
 import { MiniappUsers } from '../miniapp-users'
 import { SchoolChanges } from '../school-changes'
+import { PlatformMessageAdvertisementReviews } from '../message-advertisements'
 import { SourceBindings, SourceConnections } from '../source-access'
 import { Accounts, Schools } from './platform'
 import { OperationResources, CustomerConfiguration, OperationFeedback, OperationServices, OperationReports, SchoolMarketing } from '../operations'
@@ -134,6 +135,8 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
     }
     if (user.platform_admin) {
       switch (tab) {
+        case 'message-advertisement-reviews':
+          return <PlatformMessageAdvertisementReviews key={user.id} />
         case 'school-changes':
           return <SchoolChanges key={`${user.id}:${params.get('school-change-account') ?? ''}`} reviewerId={user.id} accountId={params.get('school-change-account') ?? undefined} />
         case 'accounts':
@@ -164,7 +167,7 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
     }
     return <div className="business-panel" key={`${school.id}-${tab}`}>
       <SchoolWorkspacePage publisherId={user.id} publisher={user.display_name} view={tab} school={school} platformAdmin={user.platform_admin}
-        schoolAdmin={can('school.profile.update')} refresh={refresh} />
+        schoolAdmin={role === 'admin'} refresh={refresh} />
     </div>
   }
   return (
