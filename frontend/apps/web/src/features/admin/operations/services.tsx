@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Button, Drawer, Input, InputNumber, Select, Space, Switch, Table, Tabs } from 'antd'
 import { serviceApi, type ServiceEntity, type EntityInputs, type TargetVersion, type TargetChannel, type ShortcutInput, type ServiceOptions, type EffectiveService, type Presentation } from './api'
@@ -8,6 +8,8 @@ import { LocalDateTimePicker } from '../../../shared/date-picker'
 import { useSchools } from '../../school-context'
 import { useUnsavedChanges } from '../../../shared/unsaved-changes'
 import { useEffect } from 'react'
+import { notifySuccess } from '../../../shared/notify'
+import { useOperationScope } from '../../../shared/use-operation-scope'
 type RecordValue = Record<string, unknown> & { id?: string; revision?: number }
 const names: Record<ServiceEntity, string> = { 'home-shortcuts': '服务入口', 'operation-service-categories': '服务分类', 'operation-service-targets': '服务目标', 'operation-partners': '合作方', 'operation-cooperations': '合作项目', 'marketing-slots': '官方营销位' }
 const message = (error: unknown) => error instanceof Error ? error.message : '操作失败'
@@ -19,6 +21,7 @@ export function OperationServices({ school, mode = 'shortcuts' }: { school?: str
   const writable = platformEntity || can(`operation.${group}.${editing?.id ? 'update' : 'create'}`)
   const query = useQuery({ queryKey: ['linjian', 'operation-services', school, entity, page, search], queryFn: ({ signal }) => serviceApi.list(school, entity, { page, size: 20, search }, signal) })
   const rows = (query.data?.items ?? []) as unknown as RecordValue[]
+  const capture = useOperationScope(`${school}:${entity}`)
   async function decide(row: RecordValue,version: TargetVersion, decision: 'submit' | 'approve' | 'reject' | 'withdraw') {
     try { const reason = globalThis.prompt('填写审核或撤回理由'); if (!reason?.trim() || !row.id || row.revision===undefined) return; await serviceApi.decision(row.id, row.revision, version.id, version.revision, decision, reason); await query.refetch() } catch (cause) { setError(message(cause)) }
   }
@@ -26,7 +29,7 @@ export function OperationServices({ school, mode = 'shortcuts' }: { school?: str
     <Tabs activeKey={entity} items={entities.map(key => ({ key, label: names[key] }))} onChange={key => { setEntity(key as ServiceEntity); setPage(1); setSearch('') }} />
     <Space wrap><Input.Search aria-label="搜索服务配置" placeholder="搜索" value={search} onChange={event => { setSearch(event.target.value); setPage(1) }} />
       {(platformEntity || can(`operation.${group}.create`)) && <Button type="primary" onClick={() => { setEditing(undefined); setOpen(true) }}>新增{names[entity]}</Button>}
-      <Button onClick={() => void query.refetch()}>刷新</Button>
+      <Button onClick={() => { setError(''); void query.refetch() }}>刷新</Button>
     </Space>
     {(error || query.error) && <Alert type="error" title={error || query.error?.message} />}
     <Table<RecordValue> rowKey={row => String(row.id)} dataSource={rows.slice(0, 20)} loading={query.isFetching} pagination={false} expandable={entity==='operation-service-targets'?{expandedRowRender:row=><TargetHistory versions={row.versions as TargetVersion[]}/>} : undefined} columns={[
@@ -44,7 +47,7 @@ export function OperationServices({ school, mode = 'shortcuts' }: { school?: str
     ]} />
     <Space><Button disabled={page === 1} onClick={() => setPage(page - 1)}>上一页</Button><span>第 {page} 页</span><Button disabled={rows.length <= 20} onClick={() => setPage(page + 1)}>下一页</Button></Space>
     {school && mode === 'shortcuts' && can('operation.shortcut.preview') && <SchoolServices school={school} />}
-    {open && <Drawer open size="large" title={names[entity]} onClose={() => setOpen(false)}><ServiceEditor key={`${entity}:${editing?.id ?? 'new'}`} school={school} entity={entity} item={editing} readOnly={!writable} saved={async () => { setOpen(false); await query.refetch() }} /></Drawer>}
+    {open && <Drawer open size="large" title={names[entity]} onClose={() => setOpen(false)}><ServiceEditor key={`${school}:${entity}:${editing?.id ?? 'new'}`} school={school} entity={entity} item={editing} readOnly={!writable} saved={async () => { const active = capture(); setOpen(false); const result = await query.refetch(); if (active() && result.error) setError('操作已完成，列表刷新失败，请刷新查看') }} /></Drawer>}
     {mode === 'marketing' && <Alert type="info" title="官方单元只使用官方组件，不配置第三方链接。学校需单独启用；资格材料不能代替真实接入验收。" />}
   </section>
 }
@@ -73,13 +76,27 @@ function ServiceEditor({ school, entity, item, readOnly, saved }: { school?: str
   const [form, setForm] = useState<RecordValue>(() => initial(entity, item)), [busy, setBusy] = useState(false), [error, setError] = useState('')
   const [previewSchool,setPreviewSchool]=useState(school??''),[previewAt,setPreviewAt]=useState(''),[previewRows,setPreviewRows]=useState<EffectiveService[]>(),[uploading,setUploading]=useState(false)
   const schools=useSchools(), setDirty=useUnsavedChanges()
+  const pending = useRef(false)
+  const capture = useOperationScope(`${school}:${entity}:${item?.id ?? 'new'}`)
   useEffect(()=>{setDirty(false);return()=>setDirty(false)},[setDirty])
   const options = useQuery({ queryKey: ['linjian','operation-service-target-options',school], queryFn: () => serviceApi.options(school), enabled: entity === 'home-shortcuts' })
   const partners = useQuery({ queryKey: ['linjian','service-partner-options'], queryFn: () => serviceApi.list(undefined, 'operation-partners', { size: 100 }), enabled: entity === 'operation-cooperations' || entity === 'operation-service-targets' })
   const cooperations = useQuery({queryKey:['linjian','target-cooperation-options'],queryFn:()=>serviceApi.list(undefined,'operation-cooperations',{size:100}),enabled:entity==='operation-service-targets'})
   const patch = (value: Record<string, unknown>) => { setDirty(true); setPreviewRows(undefined); setForm(previous => ({ ...previous, ...value })) }
   const text = (key: string, label: string, multiline = false) => <label key={key}>{label}{multiline ? <Input.TextArea aria-label={label} value={String(form[key] ?? '')} maxLength={2000} onChange={event => patch({ [key]: event.target.value })} /> : <Input aria-label={label} value={String(form[key] ?? '')} maxLength={2000} onChange={event => patch({ [key]: event.target.value })} />}</label>
-  async function save() { setBusy(true); setError(''); try { await serviceApi.save(school, entity, form as unknown as EntityInputs[ServiceEntity], item?.id); setDirty(false); await saved() } catch (cause) { setError(message(cause)) } finally { setBusy(false) } }
+  async function save() {
+    if (pending.current || readOnly || busy || uploading) return
+    const active = capture()
+    pending.current = true; setBusy(true); setError('')
+    try {
+      await serviceApi.save(school, entity, form as unknown as EntityInputs[ServiceEntity], item?.id)
+      if (!active()) return
+      setDirty(false)
+      notifySuccess(entity === 'operation-service-targets' && item?.id ? '服务目标新版本已保存' : `${names[entity]}${item?.id ? '已保存' : '已创建'}`)
+      await saved()
+    } catch (cause) { if (active()) setError(message(cause)) }
+    finally { if (active()) { pending.current = false; setBusy(false) } }
+  }
   async function preview() {if(!previewSchool)return;setBusy(true);setError('');try{const config=await serviceApi.preview(previewSchool);const result=await serviceApi.draftPreview(previewSchool,{token:config.token,at:previewAt?new Date(previewAt).toISOString():new Date().toISOString(),resource_id:item?.id??null,platform_default:!school,draft:form as unknown as ShortcutInput});setPreviewRows(result.items)}catch(cause){setError(message(cause))}finally{setBusy(false)}}
   return <Space orientation="vertical" className="full-width"><fieldset disabled={readOnly || busy || uploading} style={{ border: 0 }}><div className="form-grid">
     {entity === 'home-shortcuts' ? <>
@@ -141,6 +158,10 @@ function TargetChannels({ channels,change,onBusyChange }: { channels:TargetChann
 }
 function SchoolServices({school}:{school:string}) {
   const can=useSchoolPermission(), [at,setAt]=useState(''), [error,setError]=useState(''), [editing,setEditing]=useState<EffectiveService>(), [presentation,setPresentation]=useState<Presentation>({}), [dragged,setDragged]=useState(''), [selected,setSelected]=useState<string[]>([])
+  const [saving, setSaving] = useState(false), [uploading, setUploading] = useState(false)
+  const pending = useRef(false)
+  const capture = useOperationScope(`${school}:${editing?.id ?? ''}`)
+  const captureSchool = useOperationScope(school)
   const query=useQuery({queryKey:['linjian','effective-service-preview',school,at],queryFn:async()=>{
     let page=1;const result=await serviceApi.preview(school,{page,size:100,at:at?new Date(at).toISOString():undefined});const items=[...result.items];let more=result.has_more
     while(more){const next=await serviceApi.preview(school,{page:++page,size:100,at:at?new Date(at).toISOString():undefined});if(next.token!==result.token)throw new Error('配置已变化，请刷新');items.push(...next.items);more=next.has_more;if(items.length>1000)throw new Error('排序集合超过一千项，请缩减配置')}
@@ -149,10 +170,25 @@ function SchoolServices({school}:{school:string}) {
   async function run(action:()=>Promise<unknown>){try{await action();await query.refetch()}catch(cause){setError(message(cause))}}
   const options=useQuery({queryKey:['linjian','school-override-options',school],queryFn:()=>serviceApi.options(school)})
   const rows=query.data?.items??[]
+  async function saveOverride() {
+    if (!editing || !query.data || pending.current || uploading) return
+    const active = capture(), activeSchool = captureSchool()
+    pending.current = true; setSaving(true); setError('')
+    try {
+      await serviceApi.override(school, editing.id, editing.override_revision, query.data.token, presentation)
+      if (!active()) return
+      notifySuccess('本校覆盖已保存')
+      setEditing(undefined)
+      const result = await query.refetch()
+      if (activeSchool() && result.error) setError('本校覆盖已保存，列表刷新失败，请刷新查看')
+    } catch (cause) { if (active()) setError(message(cause)) }
+    finally { pending.current = false; if (activeSchool()) setSaving(false) }
+  }
   function batch(active:boolean){const items=rows.filter(row=>selected.includes(row.id)).map(row=>({id:row.id,revision:row.school_id?row.revision:row.override_revision,active}));if(!items.length||!query.data)return;void run(async()=>{await serviceApi.batch(school,'batch-status',query.data!.token,items);setSelected([])})}
   function reorder(target:string){if(!dragged||dragged===target||!query.data)return;const ordered=[...rows],from=ordered.findIndex(row=>row.id===dragged),to=ordered.findIndex(row=>row.id===target);if(from<0||to<0)return;const [item]=ordered.splice(from,1);ordered.splice(to,0,item);void run(()=>serviceApi.batch(school,'order',query.data!.token,ordered.map(row=>({id:row.id,revision:row.school_id?row.revision:row.override_revision}))));setDragged('')}
   return <section><h3>学校混排、覆盖与预览</h3><LocalDateTimePicker value={at} onChange={setAt} /><p>拖动行提交完整混排集合；学校覆盖不改变服务目标和强制披露。预览不产生曝光。</p>
     {(error||query.error)&&<Alert type="error" title={error||query.error?.message} />}
+    {error.includes('刷新失败') && <Button onClick={() => { setError(''); void query.refetch() }}>重试刷新</Button>}
     {can('operation.shortcut.update')&&<Space><Button disabled={!selected.length} onClick={()=>batch(true)}>批量启用</Button><Button disabled={!selected.length} onClick={()=>batch(false)}>批量隐藏</Button></Space>}
     <Table<EffectiveService> rowKey="id" dataSource={rows} pagination={false} rowSelection={can('operation.shortcut.update')?{selectedRowKeys:selected,onChange:keys=>setSelected(keys.map(String))}:undefined} onRow={row=>({draggable:can('operation.shortcut.update'),onDragStart:()=>setDragged(row.id),onDragOver:event=>event.preventDefault(),onDrop:()=>reorder(row.id)})} columns={[
       {title:'入口',dataIndex:'title'},{title:'来源',render:(_,row)=>row.school_id?'本校':'平台默认'},{title:'预览状态',render:(_,row)=>row.hidden_reason??'有效'},
@@ -162,12 +198,12 @@ function SchoolServices({school}:{school:string}) {
         {!row.school_id&&row.override_revision>0&&<Button onClick={()=>void run(()=>serviceApi.reset(school,row.id,row.override_revision))}>恢复默认</Button>}
       </Space>},
     ]}/>
-    {editing&&<Drawer open title="学校展示覆盖" onClose={()=>setEditing(undefined)}><p>未填写的字段继承平台值；副标题和角标可显式清空。</p><Space orientation="vertical" className="full-width">
+    {editing&&<Drawer open title="学校展示覆盖" onClose={()=>setEditing(undefined)}><p>未填写的字段继承平台值；副标题和角标可显式清空。</p><fieldset disabled={saving} style={{ border: 0 }}><Space orientation="vertical" className="full-width">
       {(['title','subtitle','badge'] as const).map(key=><label key={key}>{key}<Input value={presentation[key]??''} placeholder={`继承：${editing[key]}`} onChange={event=>setPresentation({...presentation,[key]:event.target.value})}/><Button size="small" onClick={()=>setPresentation(previous=>{const next={...previous};delete next[key];return next})}>继承</Button></label>)}
-      <MediaPicker school={school} context="operation.shortcut.update" label="本校图标" value={presentation.image_ref?.id??null} onChange={id=>setPresentation(previous=>{const next={...previous};if(id)next.image_ref={kind:'asset',id};else delete next.image_ref;return next})}/>
+      <MediaPicker school={school} context="operation.shortcut.update" label="本校图标" value={presentation.image_ref?.id??null} onBusyChange={setUploading} onChange={id=>setPresentation(previous=>{const next={...previous};if(id)next.image_ref={kind:'asset',id};else delete next.image_ref;return next})}/>
       <label>分类覆盖<Select allowClear placeholder="继承" value={presentation.category_id===undefined?undefined:presentation.category_id??'none'} options={[{value:'none',label:'不分类'},...(options.data?.categories.map(value=>({value:value.id,label:value.name}))??[])]} onChange={value=>setPresentation(previous=>{const next={...previous};if(value===undefined)delete next.category_id;else next.category_id=value==='none'?null:value;return next})}/></label>
       <label>首页精选<Select allowClear placeholder="继承" value={presentation.featured===undefined?undefined:String(presentation.featured)} options={[{value:'true',label:'精选'},{value:'false',label:'非精选'}]} onChange={value=>setPresentation(previous=>{const next={...previous};if(value===undefined)delete next.featured;else next.featured=value==='true';return next})}/></label>
-      <Button type="primary" onClick={()=>void run(async()=>{await serviceApi.override(school,editing.id,editing.override_revision,query.data!.token,presentation);setEditing(undefined)})}>保存覆盖</Button>
-    </Space></Drawer>}
+      <Button type="primary" loading={saving} disabled={saving || uploading} onClick={()=>void saveOverride()}>保存覆盖</Button>
+    </Space></fieldset></Drawer>}
   </section>
 }

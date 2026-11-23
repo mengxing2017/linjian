@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { PermissionFixture } from '../../../test/permissions'
 import { OperationServices } from './services'
 import { OperationReports } from './reports'
 import { SchoolMarketing } from './marketing'
 import { serviceApi } from './api'
-vi.mock('./api',()=>({serviceApi:{list:vi.fn(),options:vi.fn(),preview:vi.fn(),save:vi.fn(),marketingSettings:vi.fn(),marketingSetting:vi.fn()}}))
-vi.mock('./media-picker',()=>({MediaPicker:()=> <div>本校服务素材</div>}))
+vi.mock('./api',()=>({serviceApi:{list:vi.fn(),options:vi.fn(),preview:vi.fn(),save:vi.fn(),override:vi.fn(),marketingSettings:vi.fn(),marketingSetting:vi.fn()}}))
+vi.mock('./media-picker',()=>({MediaPicker:({onBusyChange}:{onBusyChange?:(busy:boolean)=>void})=> <div>本校服务素材<button onClick={()=>onBusyChange?.(true)}>模拟图片上传</button></div>}))
 vi.mock('../../school-context',()=>({useSchools:()=>({data:[{id:'school',name:'学校'}]})}))
 class Resize { observe(){} unobserve(){} disconnect(){} }
 vi.stubGlobal('ResizeObserver',Resize)
@@ -41,4 +41,108 @@ it('does not expose official ad unit editing to school managers',async()=>{
   await screen.findByText('学校官方单元')
   expect(screen.getByRole('switch')).toHaveProperty('disabled',true)
   expect(screen.queryByLabelText('官方广告单元 ID')).toBeNull()
+})
+
+const entities = [
+  ['shortcuts', 'home-shortcuts', '服务入口'],
+  ['shortcuts', 'operation-service-categories', '服务分类'],
+  ['targets', 'operation-service-targets', '服务目标'],
+  ['targets', 'operation-partners', '合作方'],
+  ['targets', 'operation-cooperations', '合作项目'],
+  ['marketing', 'marketing-slots', '官方营销位'],
+] as const
+
+it.each(entities)('confirms newly created %s / %s and closes its editor', async (mode, entity, name) => {
+  vi.mocked(serviceApi.list).mockResolvedValue({ id: 'current', token: '1:0', items: [] })
+  show(<OperationServices mode={mode} />, 'admin')
+  if (name !== entities.find(row => row[0] === mode)?.[2]) fireEvent.click(screen.getByRole('tab', { name }))
+  fireEvent.click(screen.getByRole('button', { name: `新增${name}` }))
+  fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: /^保\s*存$/ }))
+  await screen.findByText(`${name}已创建`)
+  expect(serviceApi.save).toHaveBeenCalledWith(undefined, entity, expect.any(Object), undefined)
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+})
+
+it.each(entities)('confirms edits to %s / %s without claiming approval', async (mode, entity, name) => {
+  const entry = { id: 'entry', revision: 1, name: '配置', title: '配置', active: true, sort_order: 0, image_ref: { kind: 'asset', id: 'image' }, action: { kind: 'none' }, channels: [], versions: [{ id: 'version', revision: 1, state: 'draft', config: { name: '配置', channels: [] } }] }
+  vi.mocked(serviceApi.list).mockResolvedValue({ id: 'current', token: '1:0', items: [entry] } as Awaited<ReturnType<typeof serviceApi.list>>)
+  show(<OperationServices mode={mode} />, 'admin')
+  if (name !== entities.find(row => row[0] === mode)?.[2]) fireEvent.click(screen.getByRole('tab', { name }))
+  fireEvent.click(await screen.findByRole('button', { name: entity === 'operation-service-targets' ? '修改并生成新版本' : /^编\s*辑$/ }))
+  fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: /^保\s*存$/ }))
+  await screen.findByText(entity === 'operation-service-targets' ? '服务目标新版本已保存' : `${name}已保存`)
+  expect(serviceApi.save).toHaveBeenCalledWith(undefined, entity, expect.any(Object), 'entry')
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+})
+
+it('keeps failed service saves editable without reporting success', async () => {
+  vi.mocked(serviceApi.save).mockRejectedValueOnce(new Error('保存冲突'))
+  show(<OperationServices />, 'admin')
+  fireEvent.click(screen.getByRole('button', { name: '新增服务入口' }))
+  fireEvent.change(screen.getByLabelText('入口名称'), { target: { value: '保留草稿' } })
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^保\s*存$/ }))
+  await screen.findByText('保存冲突')
+  expect(screen.getByLabelText('入口名称')).toHaveProperty('value', '保留草稿')
+  expect(screen.queryByText('服务入口已创建')).toBeNull()
+})
+
+it('reports a completed service write separately from a failed list refresh', async () => {
+  show(<OperationServices />, 'admin')
+  await screen.findByText('校园图书服务')
+  fireEvent.click(screen.getByRole('button', { name: '新增服务入口' }))
+  vi.mocked(serviceApi.list).mockRejectedValue(new Error('列表不可用'))
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^保\s*存$/ }))
+  await screen.findByText('服务入口已创建')
+  await screen.findByText('操作已完成，列表刷新失败，请刷新查看')
+  expect(screen.queryByRole('dialog')).toBeNull()
+  vi.mocked(serviceApi.list).mockResolvedValue({ id: 'current', token: '1:0', items: [] })
+  fireEvent.click(screen.getByRole('button', { name: /^刷\s*新$/ }))
+  expect(serviceApi.save).toHaveBeenCalledTimes(1)
+})
+
+it('confirms a school override and closes only after the write succeeds', async () => {
+  vi.mocked(serviceApi.preview).mockResolvedValue({ id: 'current', token: '1:0', server_time: '2026-11-21T00:00:00Z', items: [{ id: 'default', title: '平台入口', school_id: null, override_revision: 0, revision: 1, subtitle: '', badge: '', image_url: '/icon', category_id: null, category_name: null, featured: true, sort_order: 0, cooperation_id: null, starts_at: null, ends_at: null, action: { kind: 'none' }, channels: [], disclosure: null, cooperation: null }], featured: [], categories: [], has_more: false, preview: true })
+  show(<OperationServices school="school" />, 'admin')
+  fireEvent.click(await screen.findByRole('button', { name: '展示覆盖' }))
+  fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '保存覆盖' }))
+  await screen.findByText('本校覆盖已保存')
+  expect(serviceApi.override).toHaveBeenCalledWith('school', 'default', 0, '1:0', {})
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+})
+
+it('does not submit service writes twice and ignores completion after closing the editor', async () => {
+  let resolve!: (value: Awaited<ReturnType<typeof serviceApi.save>>) => void
+  vi.mocked(serviceApi.save).mockReturnValueOnce(new Promise(finish => { resolve = finish }))
+  show(<OperationServices />, 'admin')
+  fireEvent.click(screen.getByRole('button', { name: '新增服务入口' }))
+  const drawer = within(screen.getByRole('dialog'))
+  const save = drawer.getByRole('button', { name: /^保\s*存$/ })
+  fireEvent.click(save)
+  fireEvent.click(save)
+  expect(serviceApi.save).toHaveBeenCalledTimes(1)
+  fireEvent.click(drawer.getByRole('button', { name: 'Close' }))
+  await act(async () => { resolve({ id: 'late', revision: 1, name: '配置', active: true, sort_order: 0 }) })
+  expect(screen.queryByText('服务入口已创建')).toBeNull()
+})
+
+it('retains a rejected override without a success message', async () => {
+  vi.mocked(serviceApi.preview).mockResolvedValue({ id: 'current', token: '1:0', server_time: '2026-11-21T00:00:00Z', items: [{ id: 'default', title: '平台入口', school_id: null, override_revision: 0, revision: 1, subtitle: '', badge: '', image_url: '/icon', category_id: null, category_name: null, featured: true, sort_order: 0, cooperation_id: null, starts_at: null, ends_at: null, action: { kind: 'none' }, channels: [], disclosure: null, cooperation: null }], featured: [], categories: [], has_more: false, preview: true })
+  vi.mocked(serviceApi.override).mockRejectedValueOnce(new Error('覆盖冲突'))
+  show(<OperationServices school="school" />, 'admin')
+  fireEvent.click(await screen.findByRole('button', { name: '展示覆盖' }))
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '保存覆盖' }))
+  await screen.findByText('覆盖冲突')
+  expect(screen.getByRole('dialog')).toBeTruthy()
+  expect(screen.queryByText('本校覆盖已保存')).toBeNull()
+})
+
+it('blocks final service saves while images are uploading', async () => {
+  show(<OperationServices />, 'admin')
+  fireEvent.click(screen.getByRole('button', { name: '新增服务入口' }))
+  const drawer = within(screen.getByRole('dialog'))
+  fireEvent.click(drawer.getByRole('button', { name: '模拟图片上传' }))
+  const save = drawer.getByRole('button', { name: /^保\s*存$/ })
+  expect(save).toHaveProperty('disabled', true)
+  fireEvent.click(save)
+  expect(serviceApi.save).not.toHaveBeenCalled()
 })
