@@ -54,11 +54,11 @@ it("keeps recommendation grants and safe termination separate from event recover
       ),
     );
   vi.stubGlobal("fetch", fetch);
-  await createSchoolPermissionsClient(client).recommendation("school", "operator", {catalog_version:"2026-11-21.1",expected_revision:"9",effect:"allow",reason:"岗位配置"});
+  await createSchoolPermissionsClient(client).recommendation("school", "operator", {catalog_version:"2026-11-23.1",expected_revision:"9",effect:"allow",reason:"岗位配置"});
   await workspace.terminateSource("school", "event", "核对为未尝试且无法恢复");
   expect(JSON.parse(fetch.mock.calls[0][1].body).data).toEqual({
     type: "post-recommendation-capabilities",
-    attributes: { catalog_version:"2026-11-21.1",expected_revision:"9",effect:"allow",reason:"岗位配置" },
+    attributes: { catalog_version:"2026-11-23.1",expected_revision:"9",effect:"allow",reason:"岗位配置" },
   });
   expect(JSON.parse(fetch.mock.calls[1][1].body).data.type).toBe(
     "source-event-terminations",

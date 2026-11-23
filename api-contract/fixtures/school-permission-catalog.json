@@ -3,7 +3,7 @@
     "type": "school-permission-catalogs",
     "id": "current",
     "attributes": {
-      "catalog_version": "2026-11-21.1",
+      "catalog_version": "2026-11-23.1",
       "permissions": [
         {
           "id": "P01",
@@ -1092,6 +1092,28 @@
           "requires": [
             "operation.marketing.read"
           ],
+          "high_risk": false
+        },
+        {
+          "id": "P60",
+          "key": "school.message_advertisement.read",
+          "name": "消息尾部广告：查看",
+          "description": "查看本校广告配置、修订与审核记录，不授予来源路由或发送权限",
+          "group": "消息广告",
+          "applicable_roles": ["admin"],
+          "default_by_role": {"admin": true,"operator": false},
+          "requires": [],
+          "high_risk": false
+        },
+        {
+          "id": "P61",
+          "key": "school.message_advertisement.manage",
+          "name": "消息尾部广告：管理",
+          "description": "管理本校广告草稿、提交、撤回和删除，不包含平台审核",
+          "group": "消息广告",
+          "applicable_roles": ["admin"],
+          "default_by_role": {"admin": true,"operator": false},
+          "requires": ["school.message_advertisement.read"],
           "high_risk": false
         }
       ]
