@@ -128,17 +128,40 @@ impl Actor {
 #[derive(Clone, Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 pub struct Page {
-    #[serde(rename = "page[number]")]
+    #[serde(rename = "page[number]", default, deserialize_with = "query_option")]
     pub page: Option<i64>,
-    #[serde(rename = "page[size]")]
+    #[serde(rename = "page[size]", default, deserialize_with = "query_option")]
     pub page_size: Option<i64>,
     pub search: Option<String>,
     pub status: Option<String>,
     pub visibility: Option<String>,
+    #[serde(default, deserialize_with = "query_option")]
     pub mine: Option<bool>,
     pub kind: Option<String>,
     pub tag: Option<String>,
 }
+
+fn query_option<'de, D, T>(deserializer: D) -> std::result::Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de> + std::str::FromStr,
+    T::Err: std::fmt::Display,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum QueryValue<T> {
+        Value(T),
+        Text(String),
+    }
+
+    Option::<QueryValue<T>>::deserialize(deserializer)?
+        .map(|value| match value {
+            QueryValue::Value(value) => Ok(value),
+            QueryValue::Text(value) => value.parse().map_err(serde::de::Error::custom),
+        })
+        .transpose()
+}
+
 impl Page {
     /// Fetch one extra row to determine the next-page state without guessing totals.
     pub fn fetch_bounds(&self) -> Result<(i64, i64)> {
@@ -184,4 +207,71 @@ pub fn hash(value: &str) -> String {
 }
 pub fn secret() -> String {
     format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple())
+}
+
+#[cfg(test)]
+mod query_tests {
+    use super::*;
+    use axum::extract::Query;
+
+    #[test]
+    fn page_query_parses_pagination_and_boolean() {
+        for mine in [true, false] {
+            let uri = format!("/?page[number]=2&page[size]=10&mine={mine}")
+                .parse()
+                .unwrap();
+            let Query(page) = Query::<Page>::try_from_uri(&uri).unwrap();
+            assert_eq!(page.page, Some(2));
+            assert_eq!(page.page_size, Some(10));
+            assert_eq!(page.mine, Some(mine));
+            assert_eq!(page.bounds().unwrap(), (10, 10));
+        }
+    }
+
+    #[test]
+    fn page_query_preserves_native_values_and_defaults() {
+        let page: Page = serde_json::from_value(serde_json::json!({
+            "page[number]": 2,
+            "page[size]": 10,
+            "mine": false
+        }))
+        .unwrap();
+        assert_eq!(page.bounds().unwrap(), (10, 10));
+        assert_eq!(page.mine, Some(false));
+        let page: Page = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert_eq!(page.bounds().unwrap(), (30, 0));
+        assert_eq!(page.mine, None);
+    }
+
+    #[test]
+    fn page_query_rejects_invalid_values() {
+        for query in [
+            "page[number]=abc",
+            "page[size]=1.5",
+            "page[number]=9223372036854775808",
+            "mine=1",
+            "mine=invalid",
+            "page[number]=",
+            "unexpected=value",
+            "page[number]=1&page[number]=2",
+        ] {
+            let uri = format!("/?{query}").parse().unwrap();
+            assert!(Query::<Page>::try_from_uri(&uri).is_err(), "{query}");
+        }
+    }
+
+    #[test]
+    fn page_query_preserves_bounds_validation() {
+        for query in [
+            "page[number]=0",
+            "page[number]=100001",
+            "page[size]=0",
+            "page[size]=101",
+            "page[size]=-1",
+        ] {
+            let uri = format!("/?{query}").parse().unwrap();
+            let Query(page) = Query::<Page>::try_from_uri(&uri).unwrap();
+            assert!(page.bounds().is_err(), "{query}");
+        }
+    }
 }
