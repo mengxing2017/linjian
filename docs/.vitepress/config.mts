@@ -27,6 +27,7 @@ export default defineConfig({
           { text: '小程序用户与登录', link: '/guide/miniapp-users' },
           { text: '换校与学生证明审核', link: '/guide/miniapp-school-changes' },
           { text: '内容全文审核', link: '/guide/content-review' },
+          { text: '学校消息尾部广告', link: '/guide/message-advertisements' },
           { text: '仿真发帖', link: '/guide/simulated-posts' },
           { text: '小程序内容来源推送', link: '/guide/miniapp-publication' },
           { text: '运营中心', link: '/guide/operations' },
