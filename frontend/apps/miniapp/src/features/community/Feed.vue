@@ -215,9 +215,10 @@ defineExpose({
     </view>
     <view class="waterfall">
       <view v-for="post in posts" :key="post.id" class="card post-card" @tap="detail(post)">
-        <PrivateImage v-if="post.images[0]" :school="schoolContext.id" :source="post.images[0]" />
-        <text class="title">{{ post.title }}</text>
+        <text v-if="post.title" class="title">{{ post.title }}</text>
         <text class="summary">{{ post.content }}</text>
+        <text class="muted">查看全文</text>
+        <PrivateImage v-if="post.images[0]" :school="schoolContext.id" :source="post.images[0]" />
         <text class="muted">发布时间：{{ post.published_at_text }}</text>
         <view class="row spread muted">
           <text>{{ post.author_name || '校园成员' }}</text>

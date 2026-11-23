@@ -2,7 +2,8 @@ export type {
   Post,
   CommunityPost,
   PostInteractionState,
-  PostInput,
+  CreatePostInput,
+  UpdatePostInput,
   Comment,
   Reaction,
   Follow,
@@ -16,3 +17,5 @@ export type {
 export type { Cancellation } from '../../identity/api'
 export type { HomeMenu, HomeMenuTag } from '@linjian/api-contract/home-menu'
 export { communityApi, homeMenuApi } from './client'
+
+export { normalizePostContent, postFieldError } from '@linjian/api-contract/community'

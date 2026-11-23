@@ -5,7 +5,7 @@ import type { CommunityPost, Comment, PostInteractionState } from '../src/featur
 const school = '40000000-0000-0000-0000-000000000001'
 const id = '40000000-0000-0000-0000-000000000002'
 const snapshot: PostInteractionState = { id, school_id: school, audit_status: 'approved', visibility: 'visible', like_count: 2, comment_count: 1, liked: false, collected: false, author_followed: false, can_interact: true, can_share: true }
-const post: CommunityPost = { id, school_id: school, author_id: 'author', author_name: '作者', title: '帖子', content: '正文', images: [], tags: [], audit_status: 'approved', visibility: 'visible', revision: 1, display_published_at: '2026-11-21T00:00:00Z', published_at_text: '2026-11-21 08:00', like_count: 2, comment_count: 1 }
+const post: CommunityPost = { id, school_id: school, author_id: 'author', author_name: '作者', title: '帖子', display_label: '帖子', content: '正文', images: [], tags: [], audit_status: 'approved', visibility: 'visible', revision: 1, display_published_at: '2026-11-21T00:00:00Z', published_at_text: '2026-11-21 08:00', like_count: 2, comment_count: 1 }
 function comment(id = 'comment'): Comment {
   return { id, school_id: school, post_id: post.id, author_id: 'author', author_name: '作者', content: '评论', audit_status: 'approved', visibility: 'visible', deleted: false, parent_id: null, revision: 1, created_at: '2026-11-21T00:00:00Z' }
 }
@@ -27,6 +27,14 @@ function setup() {
   detail.show()
   return { api, detail, invalidate, notify, confirm, changeScope: () => { key = 'another'; detail.reset() } }
 }
+it('preserves a missing author title rather than copying the display label into it', async () => {
+  const { api, detail } = setup()
+  api.post.mockResolvedValue({ ...post, title: '', display_label: '正文' })
+  await detail.load()
+  expect(detail.post.value?.title).toBe('')
+  expect(detail.post.value?.display_label).toBe('正文')
+  expect(detail.post.value?.content).toBe('正文')
+})
 it('refreshes only interaction state after likes, preserving drafts, replies and loaded comments', async () => {
   const { api, detail } = setup()
   await detail.load()

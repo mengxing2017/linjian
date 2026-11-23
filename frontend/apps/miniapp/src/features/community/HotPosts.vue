@@ -50,10 +50,10 @@ defineExpose({
       @touchcancel="touching = false"
     >
       <swiper-item v-for="(group, index) in pages" :key="index">
-        <view v-for="item in group" :key="item.id" class="hot-post-row" role="button" :aria-label="`第${item.rank}名 ${item.title}`" @tap="board.open(item)">
+        <view v-for="item in group" :key="item.id" class="hot-post-row" role="button" :aria-label="`第${item.rank}名 ${item.display_label}`" @tap="board.open(item)">
           <text class="hot-post-rank">{{ item.rank }}</text>
           <view class="hot-post-body">
-            <text class="hot-post-title">{{ item.title }}</text>
+            <text class="hot-post-title">{{ item.display_label }}</text>
             <text class="muted">赞 {{ item.like_count }} · 评论 {{ item.comment_count }}</text>
           </view>
         </view>

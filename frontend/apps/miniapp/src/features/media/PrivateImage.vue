@@ -40,8 +40,8 @@ function preview() {
 }
 </script>
 <template>
-  <image v-if="local" class="post-image" :src="local" mode="widthFix" @tap="preview" />
-  <view v-else class="image-placeholder" @tap="load">
+  <image v-if="local" class="post-image" :src="local" mode="widthFix" @tap.stop="preview" />
+  <view v-else class="image-placeholder" @tap.stop="load">
     {{ error ? '图片加载失败，点击重试' : '图片加载中…' }}
   </view>
 </template>

@@ -3,7 +3,7 @@ import { createHotPosts } from '../src/features/community/use-hot-posts'
 import type { HotPostsResult } from '../src/features/community/api'
 
 function result(school: string): HotPostsResult {
-  return { items: [{ id: school, school_id: school, rank: 1, title: school, like_count: 3, comment_count: 0 }], meta: { window_start: '', window_end: '', ranked_at: '', validated_at: '', limit: 10 } }
+  return { items: [{ id: school, school_id: school, rank: 1, display_label: school, like_count: 3, comment_count: 0 }], meta: { window_start: '', window_end: '', ranked_at: '', validated_at: '', limit: 10 } }
 }
 function deferred() {
   let resolve!: (value: HotPostsResult) => void

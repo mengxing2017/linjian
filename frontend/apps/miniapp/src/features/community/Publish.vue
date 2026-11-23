@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { invalidatePost } from './post-invalidations'
-import { communityApi, homeMenuApi, type HomeMenuTag, type Post } from './api'
+import { postDraftKey } from './post-draft'
+import { communityApi, homeMenuApi, normalizePostContent, type HomeMenuTag, type Post } from './api'
 import { schoolContext, requireSchool, scopeKey, onScopeChange } from '../school-context/context'
 import { session } from '../identity/session'
 import { keepDraftImages } from '../media/files'
@@ -11,6 +12,7 @@ import { usePage, confirm, handlePageError } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
 import { onUnmounted } from 'vue'
 const props = defineProps<{ id?: string; school?: string }>()
+const titleExpanded = ref(false)
 const title = ref(''),
   content = ref(''),
   tags = ref(''),
@@ -24,6 +26,7 @@ const uploading = ref(false)
 const submitting = ref(false)
 const { busy, error, run } = usePage(() => {
   title.value = ''
+  titleExpanded.value = false
   content.value = ''
   tags.value = ''
   images.value = []
@@ -33,7 +36,7 @@ const { busy, error, run } = usePage(() => {
   candidates.value = []
   selectedCandidates.value = []
 })
-const draftKey = () => `linjian:draft:${session.user?.id}:${schoolContext.id}:${props.id ?? 'new'}`
+const draftKey = () => postDraftKey(session.user?.id, schoolContext.id, props.id)
 const draftId = ref(uuid())
 const leaseMessage = ref('')
 function saveDraft() {
@@ -72,6 +75,7 @@ function loadData() {
     if (post) {
       if (post.author_id !== session.user?.id) throw new Error('只能编辑自己的动态')
       title.value = post.title
+      titleExpanded.value = !!post.title
       content.value = post.content
       tags.value = post.tags.join(',')
       images.value = [...post.images]
@@ -87,6 +91,7 @@ function loadData() {
       const v = draft as Record<string, unknown>
       if (typeof v.draft_id === 'string') draftId.value = v.draft_id
       title.value = typeof v.title === 'string' ? v.title : ''
+      titleExpanded.value = !!title.value
       content.value = typeof v.content === 'string' ? v.content : ''
       tags.value = typeof v.tags === 'string' ? v.tags : ''
       images.value = Array.isArray(v.images)
@@ -135,32 +140,31 @@ async function submit() {
   submitting.value = true
   error.value = ''
   try {
-    if (!title.value.trim() || !content.value.trim()) throw new Error('请填写标题和正文')
     if (!(await ensureLoaded())) throw new Error('请先选择学校并加载编辑页面')
+    const normalized = normalizePostContent({ title: title.value, content: content.value })
     const s = schoolContext.id,
       key = scopeKey(),
       draft = draftKey()
     saveDraft()
-    const result = await communityApi.save(
-      s,
-      {
-        title: title.value,
-        content: content.value,
+    const input = {
+        ...normalized,
         images: [...images.value],
         tags: tags.value
           .split(/[,，]/)
           .map((v) => v.trim())
           .filter(Boolean),
         candidate_tag_ids: selectedCandidates.value.filter(tag => tags.value.split(/[,，]/).some(v => v.trim() === tag.name)).map(tag => tag.id),
-        revision: revision.value,
-      },
-      props.id,
-    )
+      }
+    if (props.id && !revision.value) throw new Error('请重新加载帖子后编辑')
+    const result = props.id
+      ? await communityApi.update(s, props.id, { ...input, revision: revision.value! })
+      : await communityApi.create(s, input)
     if (key !== scopeKey()) return
     uni.removeStorageSync(draft)
     invalidatePost(`${scopeKey()}:${session.user?.id ?? ''}`, s, result.id, true)
     message.value = result.audit_status === 'approved' ? '发布成功' : '已提交，等待审核'
     title.value = ''
+    titleExpanded.value = false
     content.value = ''
     tags.value = ''
     images.value = []
@@ -183,6 +187,7 @@ function discard() {
     if (await confirm('确认丢弃当前草稿？')) {
       uni.removeStorageSync(draftKey())
       title.value = ''
+      titleExpanded.value = false
       content.value = ''
       tags.value = ''
       images.value = []
@@ -200,13 +205,18 @@ defineExpose({ show: load, hide: saveDraft })
     </text>
     <PageStatus :busy="busy" :error="error" @retry="load" />
     <view class="card">
-      <input v-model="title" class="input" maxlength="200" placeholder="标题（必填）" />
+      <view v-if="titleExpanded">
+        <input v-model="title" class="input" maxlength="-1" placeholder="标题（选填，最多 200 字）" />
+        <button size="mini" @tap="titleExpanded = false">收起标题</button>
+        <button size="mini" @tap="title = ''; titleExpanded = false">移除标题</button>
+      </view>
       <textarea
         v-model="content"
         class="input editor"
-        maxlength="20000"
-        placeholder="分享你的校园故事…"
+        maxlength="-1"
+        placeholder="分享此刻的想法，或说说你想问的事……"
       />
+      <button v-if="!titleExpanded" size="mini" @tap="titleExpanded = true">{{ title ? '展开标题' : '添加标题（选填）' }}</button>
       <view class="row"><text>可选标签：</text><button v-for="tag in candidates" :key="tag.id" size="mini" @tap="addTag(tag)">{{ tag.name }}</button></view>
       <input v-model="tags" class="input" placeholder="标签，使用逗号分隔" />
       <ImageUploads v-model="images" purpose="post_image" :disabled="busy" @busy="uploading = $event" />

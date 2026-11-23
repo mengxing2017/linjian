@@ -4,7 +4,7 @@ import type { HotPostsResult } from '../src/features/community/api'
 
 function result(school = 'school', amount = 10): HotPostsResult {
   return {
-    items: Array.from({ length: amount }, (_, index) => ({ id: `post-${index}`, school_id: school, rank: index + 1, title: `标题${index}`, like_count: 3, comment_count: 0 })),
+    items: Array.from({ length: amount }, (_, index) => ({ id: `post-${index}`, school_id: school, rank: index + 1, display_label: `标题${index}`, like_count: 3, comment_count: 0 })),
     meta: { window_start: '2026-11-14T04:00:00Z', window_end: '2026-11-21T04:00:00Z', ranked_at: '2026-11-21T04:00:00Z', validated_at: '2026-11-21T04:00:00Z', limit: 10 },
   }
 }
