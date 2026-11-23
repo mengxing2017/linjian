@@ -7,7 +7,7 @@ import { Members } from './members'
 
 const api = vi.hoisted(() => ({ catalog: vi.fn(), mine: vi.fn(), members: vi.fn(), candidates: vi.fn(), detail: vi.fn(), save: vi.fn(), action: vi.fn(), recommendation: vi.fn() }))
 vi.mock('./api', () => ({ browserClient: {}, createSchoolPermissionsClient: () => api }))
-const member = { id:'operator', school_id:'school', username:'operator', display_name:'运营', active:true, role:'operator', mode:'school', revision:'1', catalog_version:'2026-11-21.1', overrides:[], effective_permissions:rolePermissions('operator') }
+const member = { id:'operator', school_id:'school', username:'operator', display_name:'运营', active:true, role:'operator', mode:'school', revision:'1', catalog_version:'2026-11-23.1', overrides:[], effective_permissions:rolePermissions('operator') }
 class ResizeObserver { observe() {} unobserve() {} disconnect() {} }
 vi.stubGlobal('ResizeObserver', ResizeObserver)
 Object.defineProperty(window,'matchMedia',{writable:true,value:()=>({matches:false,addListener:vi.fn(),removeListener:vi.fn(),addEventListener:vi.fn(),removeEventListener:vi.fn()})})
@@ -27,7 +27,7 @@ async function open(platform = true) {
 }
 it('renders all catalogue leaves, mutually exclusive overrides and dependency validation', async () => {
   await open()
-  expect(screen.getAllByRole('checkbox').filter(input => input.getAttribute('aria-label')?.endsWith('单独允许'))).toHaveLength(59)
+  expect(screen.getAllByRole('checkbox').filter(input => input.getAttribute('aria-label')?.endsWith('单独允许'))).toHaveLength(61)
   const allow = screen.getByRole('checkbox',{name:'推荐/重推帖子单独允许'})
   const deny = screen.getByRole('checkbox',{name:'推荐/重推帖子单独禁止'})
   fireEvent.click(allow)
