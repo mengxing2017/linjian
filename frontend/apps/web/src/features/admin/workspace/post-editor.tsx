@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Button, Drawer, Form, Image, Input, Modal, Select, Space, Upload } from 'antd'
 import { workspace, normalizePostContent, postFieldError, type PostContentInput } from './api'
 import { ReviewImage } from './review-image'
 import { notifySuccess } from '../../../shared/notify'
+import { useOperationScope } from '../../../shared/use-operation-scope'
 
 function ContentForm({
   school,
@@ -27,6 +28,8 @@ function ContentForm({
   const [form] = Form.useForm<PostContentInput>()
   const [titleExpanded, setTitleExpanded] = useState(!!initial.title)
   const images = Form.useWatch('images', form) ?? initial.images
+  const capture = useOperationScope(`${school}:${id ?? 'new'}`)
+  const uploadPending = useRef(false)
   const [busy, setBusy] = useState(false),
     [uploading, setUploading] = useState(false),
     [error, setError] = useState(''),
@@ -131,13 +134,20 @@ function ContentForm({
         showUploadList={false}
         disabled={blocked || images.length >= 9 || busy || uploading}
         beforeUpload={(file) => {
+          if (uploadPending.current || blocked || busy || images.length >= 9) return false
+          const active = capture()
+          uploadPending.current = true
           setUploading(true)
           setError('')
           void workspace
             .upload(school, file)
-            .then((result) => form.setFieldValue('images', [...images, result.url]))
-            .catch((e: Error) => setError(e.message))
-            .finally(() => setUploading(false))
+            .then((result) => {
+              if (!active()) return
+              form.setFieldValue('images', [...images, result.url])
+              notifySuccess('图片已上传，提交帖子后生效')
+            })
+            .catch((e: Error) => { if (active()) setError(e.message) })
+            .finally(() => { if (active()) { uploadPending.current = false; setUploading(false) } })
           return false
         }}
       >
