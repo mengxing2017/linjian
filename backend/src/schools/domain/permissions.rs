@@ -5,7 +5,7 @@ use std::{
     sync::OnceLock,
 };
 
-pub const CATALOG_VERSION: &str = "2026-11-21.1";
+pub const CATALOG_VERSION: &str = "2026-11-23.1";
 
 pub fn artwork_context(permission: &str, writing: bool) -> Result<&'static str> {
     match permission {
@@ -213,13 +213,13 @@ mod tests {
     }
     #[test]
     fn catalog_is_complete_unique_and_dependencies_are_known() {
-        assert_eq!(catalog().len(), 59);
+        assert_eq!(catalog().len(), 61);
         assert!(catalog().iter().all(|definition| !matches!(
             definition.key.as_str(),
             "audit.school.read" | "source.binding.read"
         )));
         let keys: BTreeSet<_> = catalog().iter().map(|definition| &definition.key).collect();
-        assert_eq!(keys.len(), 59);
+        assert_eq!(keys.len(), 61);
         for definition in catalog() {
             assert!(
                 definition

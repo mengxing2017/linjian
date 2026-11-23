@@ -94,7 +94,7 @@ async fn permissions_are_versioned_scoped_atomic_and_live() {
         .await
         .unwrap();
     assert_eq!(catalog["permissions"], sql_catalog);
-    assert_eq!(catalog["permissions"].as_array().unwrap().len(), 59);
+    assert_eq!(catalog["permissions"].as_array().unwrap().len(), 61);
     assert!(!root.has_permission(school, "unknown.permission"));
     let candidate_query = MemberQuery {
         search: Some("permissions-operator".into()),
