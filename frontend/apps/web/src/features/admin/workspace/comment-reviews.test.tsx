@@ -13,8 +13,18 @@ vi.mock('../../../shared/use-dialogs', () => ({
 
 afterEach(() => { cleanup(); vi.resetAllMocks() })
 
+it('keeps a comment identifiable when its parent post is unavailable', async () => {
+  vi.mocked(workspace.list).mockResolvedValue({ items: [{ id: 'comment', post_display_label: null, content: '保留的评论', audit_status: 'pending', revision: 1 }] })
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <CommentReviews school={{ ...schoolDefaults, id: 'school', name: '学校', revision: 1, config: {} }} refresh={async () => {}} />
+  </QueryClientProvider>)
+  const row = within((await screen.findByText('保留的评论')).closest('tr')!)
+  expect(screen.getByRole('columnheader', { name: '所属帖子' })).toBeTruthy()
+  expect(row.getByRole('button', { name: '所属帖子不可用' })).toBeTruthy()
+})
+
 it('requires reloading a conflicted comment before submitting its new revision', async () => {
-  const comment = { id: 'comment', content: '原评论', post_title: '所属帖子', author_name: '作者昵称', audit_status: 'pending', revision: 1 }
+  const comment = { id: 'comment', content: '原评论', post_display_label: '所属帖子', author_name: '作者昵称', audit_status: 'pending', revision: 1 }
   vi.mocked(workspace.list).mockResolvedValue({ items: [comment] })
   vi.mocked(workspace.mutate).mockRejectedValueOnce(Object.assign(new Error('版本冲突'), { status: 409 }))
   const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } })

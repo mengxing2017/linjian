@@ -84,16 +84,23 @@ export function RecordList<T extends Row = Row>({
           ]}
         />
       </ListPanel>
-      {selected && <Drawer key={selected.id} open size="large" title={label(selected.title ?? selected.name ?? selected.action) || '记录详情'} onClose={close}>
+      {selected && <Drawer key={selected.id} open size="large" title={recordName(selected)} onClose={close}>
         {detail({ record: selected, close, reload: async () => (await q.refetch()).isSuccess })}
       </Drawer>}
     </>
   )
 }
 
-export function recordTitleColumn(open: (id: string) => void): TableColumnsType<Row>[number] {
-  return { title: '标题 / 名称', key: 'title', width: 240, render: (_, row) => <Button className="record-title" type="link" onClick={() => open(row.id)}>
-    {label(row.post_title ?? row.title ?? row.name ?? row.group_name ?? row.display_name ?? row.action) || row.id}
+function recordName(row: Row) {
+  if (row.kind === 'feedback') return label(row.title) || '意见反馈'
+  if (row.kind === 'report') return label(row.post_display_label) || '举报内容不可用'
+  if ('post_display_label' in row) return label(row.post_display_label) || '所属帖子不可用'
+  return label(row.title ?? row.name ?? row.group_name ?? row.display_name ?? row.action) || row.id
+}
+
+export function recordTitleColumn(open: (id: string) => void, title = '标题 / 名称'): TableColumnsType<Row>[number] {
+  return { title, key: 'title', width: 240, render: (_, row) => <Button className="record-title" type="link" onClick={() => open(row.id)}>
+    {recordName(row)}
   </Button> }
 }
 

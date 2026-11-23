@@ -13,7 +13,7 @@ const post: PostReview = {
   school_name: '校园甲',
   author_id: 'author-1',
   author_nickname: '小程序昵称',
-  title: '完整标题',
+  title: '完整标题', display_label: '完整标题',
   content: '原始正文\n第二行',
   created_at: '2026-11-09T00:00:00Z',
   images: [],
@@ -80,7 +80,7 @@ it('shows the bounded preview on hover and requires opening full content before 
   vi.mocked(workspace.review).mockResolvedValue(full)
   mount()
   await screen.findByText('校园甲')
-  for (const name of ['标题', '审核状态', '内容摘要', '学校', '用户昵称', '创建时间'])
+  for (const name of ['内容概览', '审核状态', '内容摘要', '学校', '用户昵称', '创建时间'])
     expect(screen.getByRole('columnheader', { name })).toBeTruthy()
   expect(within(screen.getByText('校园甲').closest('tr')!).getByText('待审核')).toBeTruthy()
   expect(screen.getByText('小程序昵称')).toBeTruthy()

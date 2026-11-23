@@ -215,6 +215,7 @@ export function CommunityContent({ user }: { user: User }) {
               school={s}
               user={user}
               posts={filtered}
+              detail={!!params.id}
               reactions={reactions.data?.items ?? []}
               follows={follows.data?.items ?? []}
               busy={busy}

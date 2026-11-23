@@ -271,14 +271,14 @@ export function PostManagement({
               sorting ? (
                 <Space>
                   <Button
-                    aria-label={`上移 ${row.title}`}
+                    aria-label={`上移 ${row.display_label}`}
                     disabled={disabled || orderConflict || index === 0}
                     onClick={() => setDraft(movePost(rows, row.id, index - 1))}
                   >
                     上移
                   </Button>
                   <Button
-                    aria-label={`下移 ${row.title}`}
+                    aria-label={`下移 ${row.display_label}`}
                     disabled={disabled || orderConflict || index === rows.length - 1}
                     onClick={() => setDraft(movePost(rows, row.id, index + 1))}
                   >

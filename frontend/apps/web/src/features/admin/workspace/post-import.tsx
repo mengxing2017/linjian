@@ -130,7 +130,7 @@ export function PostImport({
       <p>{context}</p>
       <p>
         支持 UTF-8 CSV、XLS、XLSX，最多 200 条、5
-        MiB、一个工作表。标题和正文必填，标签名称和图集使用 JSON
+        MiB、一个工作表。正文必填，标题选填且允许省略整列；标签名称和图集使用 JSON
         字符串数组。图片须为当前学校已有附件地址。每行作为当前账号在本校发布的正常、未置顶帖子。
       </p>
       <Space>
@@ -189,7 +189,7 @@ export function PostImport({
                 dataSource={job.rows}
                 columns={[
                   { title: '行号', width: 80, dataIndex: 'row' },
-                  { title: '标题', width: 220, render: (_, r) => r.post.title },
+                  { title: '内容概览', width: 220, render: (_, _row, index) => job.row_labels[index] },
                   { title: '正文', width: 360, render: (_, r) => r.post.content },
                   { title: '标签名称', width: 220, render: (_, r) => r.post.tags.join('、') },
                   { title: '图片数', width: 100, render: (_, r) => r.post.images.length },

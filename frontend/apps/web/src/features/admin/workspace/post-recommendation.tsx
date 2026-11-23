@@ -159,7 +159,7 @@ export function PostRecommendation({
                 />
               )}
               <p>
-                学校：{p?.school_name}；标题：{p?.title}
+                学校：{p?.school_name}；内容概览：{p?.display_label}（帖子 ID：{p?.id}）
               </p>
               <p>审核摘要：{p?.summary ?? '暂无有效审核摘要'}</p>
               <p>

@@ -52,6 +52,7 @@ const preview: SeedBatch = {
   revoked_at: null,
   revoked_by: null,
   revoke_reason: null,
+  row_labels: ['预览标题'],
   post_count: 0,
   interaction_count: 0,
   preview_payload: {

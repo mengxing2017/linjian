@@ -19,7 +19,7 @@ const preview: RecommendationPreview = {
   id: 'post',
   school_id: 'school',
   school_name: '甲学校',
-  title: '优质帖子',
+  title: '优质帖子', display_label: '优质帖子',
   summary: '人工推荐摘要',
   revision: 3,
   content_revision: 1,

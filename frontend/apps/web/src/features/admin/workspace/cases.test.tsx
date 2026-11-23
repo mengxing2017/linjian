@@ -7,7 +7,7 @@ import { workspace, ApiError, type CaseManagementView } from './api'
 import { selectOption } from '../../../test/select-option'
 vi.mock('./api', async importOriginal => ({ ...await importOriginal<typeof import('./api')>(), workspace: { cases: vi.fn(), resolveCase: vi.fn() } }))
 afterEach(() => { cleanup(); vi.resetAllMocks() })
-const record: CaseManagementView = { id: 'case', school_id: 'school', account_id: 'reporter', kind: 'feedback', post_id: null, content: '完整反馈原因', contact: '联系信息', images: [], state: 'open', resolution: '', revision: 1, created_at: '2026-11-10T01:00:00Z', title: '意见反馈', reporter_name: '提交人昵称', school_name: '甲学校', handled_at: null, handled_by: null }
+const record: CaseManagementView = { id: 'case', school_id: 'school', account_id: 'reporter', kind: 'feedback', post_id: null, content: '完整反馈原因', contact: '联系信息', images: [], state: 'open', resolution: '', revision: 1, created_at: '2026-11-10T01:00:00Z', title: '意见反馈', post_display_label: null, reporter_name: '提交人昵称', school_name: '甲学校', handled_at: null, handled_by: null }
 function show() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(<QueryClientProvider client={client}><Cases school="school" refresh={async () => {}} /></QueryClientProvider>)
@@ -16,7 +16,7 @@ it('uses exactly the seven business columns and applies state and search queries
   vi.mocked(workspace.cases).mockResolvedValue({ items: [record] })
   show()
   await screen.findByText('完整反馈原因')
-  expect(screen.getAllByRole('columnheader').map(h => h.textContent)).toEqual(['标题 / 名称', '举报原因', '举报人', '学校', '处理状态', '举报时间', '处理时间', '操作'])
+  expect(screen.getAllByRole('columnheader').map(h => h.textContent)).toEqual(['内容概览 / 名称', '举报原因', '举报人', '学校', '处理状态', '举报时间', '处理时间', '操作'])
   expect(screen.getByText('提交人昵称')).toBeTruthy()
   expect(screen.getByText('—')).toBeTruthy()
   await selectOption(screen.getByLabelText('处理状态'), '已驳回')

@@ -189,7 +189,7 @@ export function PostSeed({
                       <Space orientation="vertical" style={{ width: '100%' }}>
                         <Input
                           aria-label={`标题 ${index + 1}`}
-                          maxLength={200}
+                          placeholder="标题（选填）"
                           value={row.title}
                           disabled={locked}
                           onChange={(event) => edit(index, { title: event.target.value })}
@@ -197,7 +197,6 @@ export function PostSeed({
                         <Input.TextArea
                           aria-label={`正文 ${index + 1}`}
                           rows={4}
-                          maxLength={20000}
                           value={row.content}
                           disabled={locked}
                           onChange={(event) => edit(index, { content: event.target.value })}
@@ -312,7 +311,7 @@ export function PostSeed({
                         preview_row: index + 1,
                       }))}
                       columns={[
-                        { title: '标题', dataIndex: 'title' },
+                        { title: '内容概览', render: (_, _row, index) => preview.row_labels[index] },
                         {
                           title: '作者',
                           render: (_, row) =>
@@ -459,7 +458,7 @@ export function PostSeed({
                       dataSource={items.data?.items}
                       columns={[
                         {
-                          title: '标题',
+                          title: '内容概览',
                           render: (_, item) =>
                             onOpenPost && can('content.post.read') ? (
                               <Button
@@ -467,10 +466,10 @@ export function PostSeed({
                                 disabled={locked}
                                 onClick={() => onOpenPost(item.id)}
                               >
-                                {item.title}
+                                {item.display_label}
                               </Button>
                             ) : (
-                              item.title
+                              item.display_label
                             ),
                         },
                         { title: '作者', dataIndex: 'author_nickname' },

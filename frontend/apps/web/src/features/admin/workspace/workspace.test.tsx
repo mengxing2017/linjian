@@ -56,7 +56,7 @@ function showManagement(view: string, platformAdmin = true, role: 'member' | 'op
 
 it.each(['comments', 'posts&subview=comments'])('opens comment reviews within content moderation from %s', async view => {
   showManagement(view, false, 'operator')
-  vi.mocked(workspace.list).mockResolvedValue({items:[{id:'comment-1',post_title:'评论所属帖子',content:'评论正文',author_name:'评论用户昵称',audit_status:'pending',revision:1}]})
+  vi.mocked(workspace.list).mockResolvedValue({items:[{id:'comment-1',post_display_label:'评论所属帖子',content:'评论正文',author_name:'评论用户昵称',audit_status:'pending',revision:1}]})
   expect(await screen.findByRole('tab', { name: '评论管理', selected: true })).toBeTruthy()
   expect(screen.getByRole('heading', { name: '内容管理', level: 1 })).toBeTruthy()
   expect(within(screen.getByRole('menu')).queryByRole('menuitem', { name: '评论管理' })).toBeNull()
@@ -65,7 +65,7 @@ it.each(['comments', 'posts&subview=comments'])('opens comment reviews within co
   const commentPanel = within(screen.getByRole('tabpanel', {name:'评论管理'}))
   const commentRow = within((await commentPanel.findByText('评论正文')).closest('tr')!)
   expect(commentPanel.getAllByRole('columnheader').map(header => header.textContent)).toEqual([
-    '标题 / 名称', '审核状态', '显示状态', '内容', '用户昵称', '创建时间', '操作',
+    '所属帖子', '审核状态', '显示状态', '内容', '用户昵称', '创建时间', '操作',
   ])
   expect(commentPanel.getByRole('columnheader', { name: '用户昵称' })).toBeTruthy()
   expect(commentRow.getByText('评论用户昵称')).toBeTruthy()

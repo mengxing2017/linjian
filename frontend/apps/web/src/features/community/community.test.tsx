@@ -13,7 +13,8 @@ vi.mock('../identity', () => ({
     children({ id: 'u', display_name: '用户', bound_school_id: 's' }),
   label: (value: unknown) => String(value ?? ''),
 }))
-vi.mock('./api', () => ({
+vi.mock('./api', async original => ({
+  ...await original<typeof import('./api')>(),
   identity: { profile: vi.fn() },
   product: { resources: { list: vi.fn().mockResolvedValue([]) } },
   workspace: {
@@ -57,6 +58,31 @@ function show(path = '/community') {
     </QueryClientProvider>,
   )
 }
+it('submits body-only posts without opening the optional title field', async () => {
+  show()
+  fireEvent.click(await screen.findByRole('button', { name: /^发\s*布$/ }))
+  expect(screen.queryByRole('textbox', { name: '标题（选填）' })).toBeNull()
+  fireEvent.change(screen.getByLabelText('正文'), { target: { value: '随手写下的想法 👩‍💻' } })
+  fireEvent.click(screen.getByRole('button', { name: '提交审核' }))
+  await waitFor(() => expect(workspace.mutate).toHaveBeenCalledWith('s', 'posts', {
+    title: '', content: '随手写下的想法 👩‍💻', images: [], tags: [], revision: undefined,
+  }, 'POST'))
+})
+
+it.each(['feed', 'detail'])('renders body-only posts once with a usable entry in %s', async view => {
+  const post = {
+    id: 'post', school_id: 's', author_id: 'u', title: '', display_label: '正文内容',
+    content: '正文内容', images: [], tags: [], audit_status: 'approved' as const,
+    visibility: 'visible' as const, revision: 1,
+    display_published_at: '2026-11-23T00:00:00Z', published_at_text: '2026-11-23 08:00',
+  }
+  vi.mocked(workspace.getPost).mockResolvedValue(post)
+  vi.mocked(workspace.list).mockImplementation(async (_school, resource) => ({ items: resource === 'posts' ? [post] : [] }))
+  show(view === 'detail' ? '/community/s/posts/post' : '/community')
+  expect(await screen.findAllByText('正文内容')).toHaveLength(1)
+  expect(screen.queryByRole('heading', { name: '校园动态' })).toBeNull()
+  if (view === 'feed') expect(screen.getByRole('link', { name: '查看全文：正文内容' }).getAttribute('href')).toBe('/community/s/posts/post')
+})
 it.each(['feed', 'mine', 'detail'])(
   'shows only server-provided publication time in %s',
   async (view) => {
@@ -64,7 +90,7 @@ it.each(['feed', 'mine', 'detail'])(
       id: 'post',
       school_id: 's',
       author_id: 'u',
-      title: '我的帖子',
+      title: '我的帖子', display_label: '我的帖子',
       content: '正文',
       images: [],
       tags: [],
@@ -92,7 +118,8 @@ it.each(['feed', 'mine', 'detail'])(
 it('uploads through the contract and submits managed form values with image URLs', async () => {
   show()
   fireEvent.click(await screen.findByRole('button', { name: /^发\s*布$/ }))
-  fireEvent.change(screen.getByLabelText('标题'), { target: { value: '校园通知' } })
+  fireEvent.click(screen.getByRole('button', { name: '添加标题（选填）' }))
+  fireEvent.change(screen.getByLabelText('标题（选填）'), { target: { value: '校园通知' } })
   fireEvent.change(screen.getByLabelText('正文'), { target: { value: '通知正文' } })
   const tags = screen.getByLabelText('标签')
   fireEvent.change(tags, { target: { value: '校园,通知' } })
@@ -148,7 +175,7 @@ it('preserves comment input across service switches and clears it after submissi
     published_at_text: '2026-11-10 08:00',
     school_id: 's',
     author_id: 'author',
-    title: '帖子标题',
+    title: '帖子标题', display_label: '帖子标题',
     content: '帖子正文',
     images: [],
     tags: [],

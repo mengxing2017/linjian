@@ -29,7 +29,7 @@ export function CaseDetail({ school, record, reload, refresh }: RecordDetailProp
   }
   return <>
     <Descriptions title="基本信息" column={1} bordered items={[
-      { key: 'title', label: '标题 / 名称', children: record.title },
+      { key: 'title', label: '内容概览 / 名称', children: record.kind === 'report' ? record.post_display_label || '举报内容不可用' : record.title },
       { key: 'reporter', label: '举报人', children: record.reporter_name },
       { key: 'school', label: '学校', children: record.school_name },
       { key: 'state', label: '处理状态', children: <CaseStateTag state={record.state} /> },

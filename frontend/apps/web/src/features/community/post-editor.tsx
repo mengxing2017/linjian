@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button, Alert, Form, Input, Select, Upload } from 'antd'
 import { Field } from '../../shared/field'
-import { workspace, type Post } from './api'
+import { workspace, normalizePostContent, postFieldError, type Post } from './api'
 import type { CommunityAction } from './actions'
 
 export function PostEditor({
@@ -24,26 +24,31 @@ export function PostEditor({
   error?: string
 }) {
   const [failed, setFailed] = useState<File[]>([])
+  const [form] = Form.useForm()
+  const [titleExpanded, setTitleExpanded] = useState(!!editing?.title)
   return (
     <Form
       layout="vertical"
       className="business-form"
-      onFinish={publish}
+      form={form}
+      onFinish={(values) => publish({ ...values, ...normalizePostContent(values) })}
       disabled={busy}
       key={editing?.id ?? 'new'}
       initialValues={{
-        title: editing?.title,
+        title: editing?.title ?? '',
         content: editing?.content,
         tags: editing?.tags ?? [],
       }}
     >
       <h2>{editing ? '编辑内容' : '发布内容'}</h2>
-      <Field name="title" required label={<>标题</>}>
-        <Input name="title" maxLength={200} />
-      </Field>
-      <Field name="content" required label={<>正文</>}>
-        <Input.TextArea name="content" maxLength={20000} />
-      </Field>
+      <Form.Item name="title" label="标题（选填）" hidden={!titleExpanded} rules={[{ validator: (_, value = '') => { const error = postFieldError('title', value); return error ? Promise.reject(new Error(error)) : Promise.resolve() } }]}>
+        <Input name="title" />
+      </Form.Item>
+      <Form.Item name="content" label="正文" rules={[{ validator: (_, value = '') => { const error = postFieldError('content', value); return error ? Promise.reject(new Error(error)) : Promise.resolve() } }]}>
+        <Input.TextArea name="content" rows={8} placeholder="分享此刻的想法，或说说你想问的事……" />
+      </Form.Item>
+      <Button htmlType="button" onClick={() => setTitleExpanded(!titleExpanded)}>{titleExpanded ? '收起标题' : '添加标题（选填）'}</Button>
+      <Button htmlType="button" onClick={() => { form.setFieldValue('title', ''); setTitleExpanded(false) }}>移除标题</Button>
       <Field name="tags" label={<>标签</>}>
         <Select
           mode="tags"

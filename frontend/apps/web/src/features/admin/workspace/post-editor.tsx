@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Button, Drawer, Form, Image, Input, Modal, Select, Space, Upload } from 'antd'
-import { workspace, type PostContentInput } from './api'
+import { workspace, normalizePostContent, postFieldError, type PostContentInput } from './api'
 import { ReviewImage } from './review-image'
 import { notifySuccess } from '../../../shared/notify'
 
@@ -25,6 +25,7 @@ function ContentForm({
   onDirtyChange?: (dirty: boolean) => void
 }) {
   const [form] = Form.useForm<PostContentInput>()
+  const [titleExpanded, setTitleExpanded] = useState(!!initial.title)
   const images = Form.useWatch('images', form) ?? initial.images
   const [busy, setBusy] = useState(false),
     [uploading, setUploading] = useState(false),
@@ -36,6 +37,7 @@ function ContentForm({
     try {
       const input = {
         ...values,
+        ...normalizePostContent(values),
         images,
         tags: values.tags ?? [],
         ...(id ? { revision: initial.revision } : {}),
@@ -63,16 +65,20 @@ function ContentForm({
       onValuesChange={() => onDirtyChange?.(true)}
       onFinish={(values) => void submit(values)}
     >
-      <Form.Item name="title" label="标题" rules={[{ required: true, whitespace: true, max: 200 }]}>
-        <Input maxLength={200} />
+      <Form.Item name="title" label="标题（选填）" hidden={!titleExpanded} rules={[{ validator: (_, value = '') => { const error = postFieldError('title', value); return error ? Promise.reject(new Error(error)) : Promise.resolve() } }]}>
+        <Input />
       </Form.Item>
       <Form.Item
         name="content"
         label="正文"
-        rules={[{ required: true, whitespace: true, max: 20000 }]}
+        rules={[{ validator: (_, value = '') => { const error = postFieldError('content', value); return error ? Promise.reject(new Error(error)) : Promise.resolve() } }]}
       >
-        <Input.TextArea rows={8} maxLength={20000} />
+        <Input.TextArea rows={8} placeholder="分享此刻的想法，或说说你想问的事……" />
       </Form.Item>
+      <Space>
+        <Button htmlType="button" onClick={() => setTitleExpanded(!titleExpanded)}>{titleExpanded ? '收起标题' : '添加标题（选填）'}</Button>
+        <Button htmlType="button" onClick={() => { form.setFieldValue('title', ''); setTitleExpanded(false); onDirtyChange?.(true) }}>移除标题</Button>
+      </Space>
       <Form.Item
         name="tags"
         label="标签名称"

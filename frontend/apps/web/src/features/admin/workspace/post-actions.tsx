@@ -50,7 +50,7 @@ export function PostRowActions({
       danger: true,
       disabled: disabled || !can('content.post.delete'),
       onClick: async () => {
-        if (await dialogs.confirm(`确认删除“${row.title}”？删除后无法恢复。`)) {
+        if (await dialogs.confirm(`确认删除“${row.display_label}”？帖子 ID：${row.id}。删除后无法恢复。`)) {
           await act(() => workspace.postManagement.delete(school, row.id, row.revision))
         }
       },
@@ -59,7 +59,7 @@ export function PostRowActions({
   return (
     <>
       {dialogs.contextHolder}
-      <RowActions label={row.title} actions={actions} />
+      <RowActions label={row.display_label} actions={actions} />
     </>
   )
 }

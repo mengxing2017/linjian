@@ -128,7 +128,7 @@ export function ReviewDetail({
           <Descriptions
             column={1}
             items={[
-              { key: 'title', label: '标题', children: post.title },
+              { key: 'title', label: '标题（选填）', children: post.title || '未填写' },
               { key: 'school', label: '学校', children: post.school_name },
               { key: 'author', label: '用户昵称', children: post.author_nickname },
               { key: 'created', label: '创建时间', children: formatDate(post.created_at) },
@@ -271,16 +271,16 @@ export function PostReviews({ school }: { school: string }) {
         scroll={{ x: 1290 }}
         columns={[
           {
-            title: '标题',
+            title: '内容概览',
             width: 200,
             render: (_, row) => (
               <Button
                 type="link"
                 className="record-title review-title"
-                title={row.title}
+                title={row.display_label}
                 onClick={() => setSelected(row.id)}
               >
-                {row.title}
+                {row.display_label}
               </Button>
             ),
           },

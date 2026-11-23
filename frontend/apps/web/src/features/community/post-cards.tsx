@@ -14,6 +14,7 @@ export function PostCards({
   busy,
   run,
   onEdit,
+  detail = false,
 }: {
   school: string
   user: User
@@ -23,6 +24,7 @@ export function PostCards({
   busy: boolean
   run: CommunityAction
   onEdit: (post: Post) => void
+  detail?: boolean
 }) {
   const dialogs = useDialogs()
   return (
@@ -30,13 +32,12 @@ export function PostCards({
       {dialogs.contextHolder}
       {posts.map((p) => (
         <Card className="community-card" key={p.id}>
-          <h2>
-            <Link to={`/community/${s}/posts/${p.id}`}>{p.title}</Link>
-          </h2>
+          {p.title && <h2><Link to={`/community/${s}/posts/${p.id}`}>{p.title}</Link></h2>}
           <p>
             发布时间：<time dateTime={p.display_published_at}>{p.published_at_text}</time>
           </p>
-          <p className="text-content">{p.content}</p>
+          <p className={`text-content${detail ? '' : ' post-content-preview'}`}>{p.content}</p>
+          {!detail && <Link to={`/community/${s}/posts/${p.id}`} aria-label={`查看全文：${p.display_label}`}>查看全文</Link>}
           {p.images.map((src) => (
             <img key={src} src={src} alt="帖子图片" loading="lazy" />
           ))}

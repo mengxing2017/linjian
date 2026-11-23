@@ -23,20 +23,20 @@ export function postColumns(
 ): TableColumnsType<PostManagementView> {
   return [
     {
-      title: '标题',
+      title: '内容概览',
       fixed: 'left',
       width: 220,
       render: (_, r) => (
         <div className="post-title-with-pin">
           <Button type="link" className="record-title review-title" onClick={() => detail(r.id)}>
-            {r.title}
+            {r.display_label}
           </Button>
           <Tooltip title={r.is_top ? '取消置顶' : '置顶'}>
             <Button
               type="text"
               size="small"
               className="post-pin"
-              aria-label={`${r.is_top ? '取消置顶' : '置顶'} ${r.title}`}
+              aria-label={`${r.is_top ? '取消置顶' : '置顶'} ${r.display_label}`}
               aria-pressed={r.is_top}
               disabled={pin.disabled}
               icon={r.is_top ? <PushpinFilled /> : <PushpinOutlined />}
@@ -83,7 +83,7 @@ export function postColumns(
             type="text"
             size="small"
             disabled={status.disabled}
-            aria-label={`设置状态 ${row.title}`}
+            aria-label={`设置状态 ${row.display_label}`}
           >
             {postStatusLabels[row.visibility]} <DownOutlined />
           </Button>

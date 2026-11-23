@@ -28,3 +28,5 @@ export type {
   BlockedWordInput,
   BlockedWordImport,
 } from '@linjian/api-contract/business'
+
+export { normalizePostContent, postFieldError } from '@linjian/api-contract/community'

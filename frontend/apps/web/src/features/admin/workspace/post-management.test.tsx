@@ -14,7 +14,8 @@ import { postColumns } from './post-columns'
 import { PostRowActions } from './post-actions'
 import { SchoolPermissionsContext } from './permissions-context'
 import { workspace, type PostManagementView } from './api'
-vi.mock('./api', () => ({
+vi.mock('./api', async original => ({
+  ...await original<typeof import('./api')>(),
   workspace: {
     postManagement: {
       list: vi.fn(),
@@ -43,7 +44,7 @@ const post: PostManagementView = {
   school_name: '甲学校',
   author_id: 'author',
   author_nickname: '公开昵称',
-  title: '帖子甲',
+  title: '帖子甲', display_label: '帖子甲',
   content: '正文',
   images: [],
   tags: ['校园', '生活'],
@@ -79,7 +80,7 @@ Object.defineProperty(window, 'matchMedia', {
 })
 beforeEach(() => {
   vi.mocked(workspace.postManagement.list).mockResolvedValue({
-    items: [post, { ...post, id: 'post-2', title: '帖子乙' }],
+    items: [post, { ...post, id: 'post-2', title: '帖子乙', display_label: '帖子乙' }],
     order_revision: 8,
     page: { number: 1, size: 30, has_more: false },
   })
@@ -103,7 +104,7 @@ it('shows content provenance columns in order and separates creation privileges 
   mount()
   await screen.findAllByText('公开昵称')
   expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual([
-    '标题',
+    '内容概览',
     '投稿来源',
     '模拟批次',
     '创建操作者',
@@ -131,7 +132,7 @@ it('shows content provenance columns in order and separates creation privileges 
   expect(postColumns('school', vi.fn(), { toggle: vi.fn(), disabled: false }, {
     change: vi.fn(), disabled: false,
   })[0]).toMatchObject({
-    title: '标题',
+    title: '内容概览',
     fixed: 'left',
   })
   expect(row.getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toContain(
@@ -265,7 +266,7 @@ it.each(['确认', '取消'])('requires deletion confirmation from more: %s', as
   fireEvent.click(await screen.findByRole('menuitem', { name: '删除' }))
   const dialog = within(
     await screen.findByRole('dialog', {
-      name: '确认删除“帖子甲”？删除后无法恢复。',
+      name: '确认删除“帖子甲”？帖子 ID：post-1。删除后无法恢复。',
     }),
   )
   expect(workspace.postManagement.delete).not.toHaveBeenCalled()

@@ -20,7 +20,7 @@ export function CommentReviews({ school, refresh }: { school: School; refresh: (
     ]} /><Select aria-label="显示状态" value={visibility} style={{ width: 150 }} onChange={value => { setVisibility(value); change(status) }} options={[
       { value: '', label: '全部显示状态' }, { value: 'visible', label: '正常' }, { value: 'hidden', label: '隐藏' },
     ]} /></Space>}
-    columns={open => [recordTitleColumn(open),
+    columns={open => [recordTitleColumn(open, '所属帖子'),
       { title: '审核状态', key: 'status', width: 140, render: (_, row) => <Tag color={row.audit_status === 'approved' ? 'success' : row.audit_status === 'rejected' ? 'error' : 'processing'}>{stateLabel(row.audit_status)}</Tag> },
       { title: '显示状态', key: 'visibility', width: 100, render: (_, row) => <Tag>{row.visibility === 'hidden' ? '隐藏' : '正常'}</Tag> },
       { title: '内容', key: 'summary', width: 360, render: (_, row) => <p className="review-full-text">{label(row.content ?? row.body) || '—'}</p> },

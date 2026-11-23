@@ -28,6 +28,7 @@ const preview: PostImportPreview = {
   revision: 1,
   digest: 'digest',
   rows: [{ row: 2, post: { title: '导入帖子', content: '正文', images: [], tags: [] } }],
+  row_labels: ['导入帖子'],
   errors: [],
   state: 'preview',
   result: [],
