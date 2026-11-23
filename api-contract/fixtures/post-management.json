@@ -30,7 +30,8 @@
       "author_kind": "ordinary",
       "seed_batch_id": null,
       "created_by": null,
-      "display_published_at": "2026-11-09T00:00:00Z"
+      "display_published_at": "2026-11-09T00:00:00Z",
+      "display_label": "全文审核标题"
     }
   }
 }

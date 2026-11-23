@@ -40,6 +40,7 @@ export interface Post extends Row {
     school_id: string;
     author_id: string;
     title: string;
+    display_label: string;
     content: string;
     images: string[];
     tags: string[];
@@ -58,7 +59,7 @@ export type Resource = 'source-outbox' | 'posts' | 'comments' | 'cases' | 'resou
 
 export interface PostReview extends Row {
   school_id: string; school_name: string; author_id: string; author_nickname: string;
-  title: string; content: string; images: string[]; tags: string[]; created_at: string;
+  title: string; display_label: string; content: string; images: string[]; tags: string[]; created_at: string;
   audit_status: 'pending' | 'approved' | 'rejected'; visibility: 'visible' | 'hidden' | 'offline' | 'deleted';
   top_sort: number; revision: number; content_revision: number; review_digest: string;
   decision_source: DecisionSource | null; decided_at: string | null; moderator_id: string | null;
@@ -81,6 +82,7 @@ export interface CaseRecord extends Row {
 }
 export interface CaseManagementView extends CaseRecord {
   title: string
+  post_display_label: string | null
   reporter_name: string
   school_name: string
   handled_at: string | null

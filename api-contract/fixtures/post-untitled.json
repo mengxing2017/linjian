@@ -1,0 +1,21 @@
+{
+  "data": {
+    "type": "posts",
+    "id": "00000000-0000-0000-0000-000000000001",
+    "attributes": {
+      "school_id": "00000000-0000-0000-0000-000000000002",
+      "author_id": "00000000-0000-0000-0000-000000000003",
+      "title": "",
+      "content": "想到什么，就写什么。",
+      "images": [],
+      "tags": [],
+      "audit_status": "pending",
+      "visibility": "visible",
+      "browse": 0,
+      "revision": 1,
+      "display_published_at": "2026-10-21T00:00:00+00:00",
+      "published_at_text": "2026-10-21 08:00",
+      "display_label": "想到什么，就写什么。"
+    }
+  }
+}

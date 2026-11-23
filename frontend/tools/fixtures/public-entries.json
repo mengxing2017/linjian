@@ -199,6 +199,8 @@
       "createProductClient",
       "createSchoolPermissionsClient",
       "identity",
+      "normalizePostContent",
+      "postFieldError",
       "postManagement",
       "postSeed",
       "product",
@@ -285,6 +287,8 @@
       "createPostSeedClient",
       "createProductClient",
       "identity",
+      "normalizePostContent",
+      "postFieldError",
       "postManagement",
       "postSeed",
       "product",
@@ -353,6 +357,7 @@
       "Cancellation",
       "Comment",
       "CommunityPost",
+      "CreatePostInput",
       "FeedFilter",
       "Follow",
       "HomeMenu",
@@ -362,12 +367,12 @@
       "HotPostSummary",
       "Notification",
       "Post",
-      "PostInput",
       "PostInteractionState",
       "Reaction",
-      "SchoolResource"
+      "SchoolResource",
+      "UpdatePostInput"
     ],
-    "values": ["communityApi", "homeMenuApi"]
+    "values": ["communityApi", "homeMenuApi", "normalizePostContent", "postFieldError"]
   },
   "apps/miniapp/src/features/feedback/api/index.ts": {
     "types": ["FeedbackType"],

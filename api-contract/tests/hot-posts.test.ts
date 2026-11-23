@@ -21,7 +21,7 @@ it('reads typed hot summaries and mandatory metadata, and forwards cancellation 
 })
 it('rejects malformed items rather than falling back to community post fields or zero counts', async () => {
   for (const patch of [
-    { school_id: 'other' }, { rank: 0 }, { rank: 2 }, { title: '' }, { title: ' '.repeat(5) },
+    { school_id: 'other' }, { rank: 0 }, { rank: 2 }, { display_label: '' }, { display_label: ' '.repeat(5) },
     { like_count: undefined }, { like_count: -1 }, { comment_count: 0.5 }, { like_count: Number.MAX_SAFE_INTEGER + 1 },
   ]) {
     const body = { ...fixture, data: [{ ...fixture.data[0], attributes: { ...fixture.data[0].attributes, ...patch } }] }
@@ -34,7 +34,7 @@ it('rejects malformed items rather than falling back to community post fields or
   await expect(setup({ ...fixture, data: [fixture.data[0], duplicate] }).api.hotPosts(school)).rejects.toMatchObject({ code: 'invalid_document' })
   const tooMany = { ...fixture, data: Array.from({ length: 11 }, () => fixture.data[0]) }
   await expect(setup(tooMany).api.hotPosts(school)).rejects.toMatchObject({ code: 'invalid_document' })
-  await expect(setup({ data: [{ post_id: fixture.data[0].id, title: '旧结构' }] }).api.hotPosts(school)).rejects.toMatchObject({ code: 'invalid_document' })
+  await expect(setup({ data: [{ post_id: fixture.data[0].id, display_label: '旧结构' }] }).api.hotPosts(school)).rejects.toMatchObject({ code: 'invalid_document' })
 })
 it('requires valid and consistent ranking metadata, not a cached time or client-clock comparison', async () => {
   for (const patch of [
@@ -48,7 +48,7 @@ it('requires valid and consistent ranking metadata, not a cached time or client-
   await expect(setup({ data: fixture.data }).api.hotPosts(school)).rejects.toMatchObject({ code: 'invalid_document' })
   const offsets = { ...fixture, meta: { ...fixture.meta, ranked_at: '2026-11-21T12:00:00+08:00' } }
   expect((await setup(offsets).api.hotPosts(school)).items).toHaveLength(1)
-  const unicode = { ...fixture, data: [{ ...fixture.data[0], attributes: { ...fixture.data[0].attributes, title: '🌟'.repeat(200) } }] }
+  const unicode = { ...fixture, data: [{ ...fixture.data[0], attributes: { ...fixture.data[0].attributes, display_label: '🌟'.repeat(80) } }] }
   expect((await setup(unicode).api.hotPosts(school)).items).toHaveLength(1)
 })
 it('rejects invalid local limits, HTTP failures and cancellation without turning them into empty lists', async () => {

@@ -21,7 +21,7 @@ export function createOperationsClient(c: Client) {
       search = '',
       signal?: Cancellation,
     ) =>
-      c.requestCollection<{ id: string; title: string }>(
+      c.requestCollection<{ id: string; display_label: string }>(
         `${root(school)}/operation-post-options?context=${encodeURIComponent(context)}&search=${encodeURIComponent(search)}`,
         signal,
       ),

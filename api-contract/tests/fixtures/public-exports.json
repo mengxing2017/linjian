@@ -172,8 +172,18 @@
     ]
   },
   "./school-changes": {
-    "types": ["SchoolChangeDocument", "SchoolChangeFilters", "SchoolChangePolicy", "SchoolChangeRequest", "SchoolChangeStatus", "SchoolChangeSubmission", "SchoolChangeSummary"],
-    "values": ["createSchoolChangesClient"]
+    "types": [
+      "SchoolChangeDocument",
+      "SchoolChangeFilters",
+      "SchoolChangePolicy",
+      "SchoolChangeRequest",
+      "SchoolChangeStatus",
+      "SchoolChangeSubmission",
+      "SchoolChangeSummary"
+    ],
+    "values": [
+      "createSchoolChangesClient"
+    ]
   },
   "./schools": {
     "types": [
@@ -202,6 +212,7 @@
     "types": [
       "Comment",
       "CommunityPost",
+      "CreatePostInput",
       "FeedFilter",
       "Follow",
       "HotPostsMeta",
@@ -210,15 +221,17 @@
       "HotPostSummary",
       "Notification",
       "Post",
-      "PostInput",
       "PostInteractionState",
       "Reaction",
       "Row",
-      "SchoolResource"
+      "SchoolResource",
+      "UpdatePostInput"
     ],
     "values": [
       "createCommunityClient",
-      "pageQuery"
+      "normalizePostContent",
+      "pageQuery",
+      "postFieldError"
     ]
   },
   "./media": {

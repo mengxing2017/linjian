@@ -8,9 +8,11 @@ export type {
   Follow,
   Notification,
   Post,
-  PostInput,
+  CreatePostInput,
+  UpdatePostInput,
   PostInteractionState,
   Reaction,
   Row,
   SchoolResource,
 } from './types'
+export { normalizePostContent, postFieldError } from './post-content'

@@ -18,14 +18,7 @@ export interface PostInteractionState {
   can_interact: boolean
   can_share: boolean
 }
-export interface PostInput {
-  title: string
-  content: string
-  images: string[]
-  tags: string[]
-  candidate_tag_ids?: string[]
-  revision?: number
-}
+export type { CreatePostInput, UpdatePostInput } from './post-content'
 export interface Comment extends Row {
   school_id: string
   post_id: string

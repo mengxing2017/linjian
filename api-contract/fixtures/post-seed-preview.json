@@ -41,7 +41,10 @@
       "revoked_by": null,
       "revoke_reason": null,
       "post_count": 0,
-      "interaction_count": 0
+      "interaction_count": 0,
+      "row_labels": [
+        "校园生活"
+      ]
     }
   }
 }

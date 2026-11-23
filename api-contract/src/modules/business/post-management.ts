@@ -17,13 +17,7 @@ export interface PostManagementView extends PostReview {
   is_top: boolean;
   cover_image: string | null;
 }
-export interface PostContentInput {
-  title: string;
-  content: string;
-  images: string[];
-  tags: string[];
-  revision?: number;
-}
+export type PostContentInput = import("../community/post-content").PostContent & { revision?: number };
 export interface PinPostInput {
   revision: number;
   is_top: boolean;
@@ -33,8 +27,8 @@ export interface SetPostStatusInput {
   visibility: PostVisibility;
   reason: string;
 }
-export type CreatePostInput = Omit<PostContentInput, "revision">;
-export type UpdatePostInput = PostContentInput & { revision: number };
+export type CreatePostInput = import("../community/post-content").CreatePostInput;
+export type UpdatePostInput = import("../community/post-content").UpdatePostInput;
 export type PostManagementFilters = PostManagementFilter;
 export type ReorderPostsInput = PostOrderInput;
 export type PostImportResult = PostImportPreview;
@@ -71,6 +65,7 @@ export interface PostImportPreview {
   revision: number;
   digest: string;
   rows: { row: number; post: PostContentInput }[];
+  row_labels: string[];
   errors: { row: number; message: string }[];
   state: "preview" | "committed" | "expired";
   result: string[];
@@ -111,6 +106,7 @@ export interface RecommendationPreview {
   school_id: string;
   school_name: string;
   title: string;
+  display_label: string;
   summary: string | null;
   revision: number;
   content_revision: number;

@@ -37,7 +37,7 @@ it('requires counters on community reads rather than accepting an old post shape
   for (const attributes of [{ school_id: school }, { school_id: school, like_count: 0, comment_count: -1 }]) {
     await expect(setup({ data: { type: 'posts', id: post, attributes } }).api.post(school, post)).rejects.toMatchObject({ code: 'invalid_document' })
   }
-  const attributes = { school_id: school, like_count: 0, comment_count: 0 }
+  const attributes = { school_id: school, title: '', display_label: '正文', like_count: 0, comment_count: 0 }
   expect(await setup({ data: { type: 'posts', id: post, attributes } }).api.post(school, post)).toMatchObject(attributes)
 })
 it('decodes the community post and distinguishes pending comments from approved replies', async () => {

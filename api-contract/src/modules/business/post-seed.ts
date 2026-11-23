@@ -42,6 +42,7 @@ export interface SeedBatch {
   revoked_at: string | null;
   revoked_by: string | null;
   revoke_reason: string | null;
+  row_labels: string[];
   preview_payload: {
     authors: SeedAuthor[];
     rows: SeedRow[];
@@ -54,12 +55,13 @@ export interface SeedBatch {
 }
 export type SeedBatchSummary = Omit<
   SeedBatch,
-  "preview_payload" | "post_count" | "interaction_count"
+  "preview_payload" | "row_labels" | "post_count" | "interaction_count"
 >;
 export interface SeedItem {
   id: string;
   row_number: number;
   title: string;
+  display_label: string;
   author_id: string;
   author_nickname: string;
   audit_status: string;

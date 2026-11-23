@@ -9,13 +9,15 @@ import type {
   Follow,
   Notification,
   Post,
-  PostInput,
+  CreatePostInput,
+  UpdatePostInput,
   PostInteractionState,
   Reaction,
   Row,
   SchoolResource,
 } from './types'
 import { readInteractionState, readPost } from './validation'
+import { normalizePostContent } from './post-content'
 export function createCommunityClient(client: Client) {
   const scope = (s: string, p: string) => `${schoolPath(s)}/${p}`
   const part = encodeURIComponent
@@ -64,11 +66,17 @@ export function createCommunityClient(client: Client) {
       )
       return readInteractionState(doc.data, s, id)
     },
-    save: (s: string, input: PostInput, id?: string) =>
+    create: (s: string, input: CreatePostInput) =>
       client.requestResource<Post>(
-        scope(s, id ? `posts/${part(id)}` : 'posts'),
-        id ? 'PUT' : 'POST',
-        input,
+        scope(s, 'posts'),
+        'POST',
+        { ...input, ...normalizePostContent(input) },
+      ),
+    update: (s: string, id: string, input: UpdatePostInput) =>
+      client.requestResource<Post>(
+        scope(s, `posts/${part(id)}`),
+        'PUT',
+        { ...input, ...normalizePostContent(input) },
       ),
     remove: (s: string, post: Pick<Post, 'id' | 'revision'>) =>
       client.requestResource<Post>(scope(s, `posts/${part(post.id)}/visibility`), 'PUT', {

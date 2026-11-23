@@ -23,12 +23,15 @@
       "errors": [
         {
           "row": 3,
-          "message": "标题不能为空"
+          "message": "请填写正文"
         }
       ],
       "state": "preview",
       "result": [],
-      "expires_at": "2026-11-10T01:30:00Z"
+      "expires_at": "2026-11-10T01:30:00Z",
+      "row_labels": [
+        "导入标题"
+      ]
     }
   }
 }

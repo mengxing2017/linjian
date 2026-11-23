@@ -18,7 +18,8 @@
       "reporter_name": "举报人昵称",
       "school_name": "甲学校",
       "handled_at": null,
-      "handled_by": null
+      "handled_by": null,
+      "post_display_label": "被举报的帖子"
     }
   }
 }

@@ -2,6 +2,14 @@ import { expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { createClient } from '../src/http/client'
 import { createOperationsClient } from '../src/modules/operations'
+it('identifies untitled post options by display label and searches body text', async () => {
+  const body = JSON.parse(readFileSync(new URL('../fixtures/operations-post-options.json', import.meta.url), 'utf8'))
+  const transport = vi.fn().mockResolvedValue({ status: 200, headers: { 'content-type': 'application/vnd.api+json' }, body })
+  const api = createOperationsClient(createClient(transport))
+  const options = await api.postOptions('school', 'operation.banner.create', '想到什么')
+  expect(options.items[0]).toEqual({ id: '50000000-0000-0000-0000-000000000001', display_label: '想到什么，就写什么。' })
+  expect(transport.mock.calls[0][0].path).toContain(`search=${encodeURIComponent('想到什么')}`)
+})
 it('reads a hidden display and sends metric IDs and revisioned deletions as JSON:API', async () => {
   const body = JSON.parse(readFileSync(new URL('../fixtures/operations-display.json', import.meta.url), 'utf8'))
   const transport = vi.fn().mockResolvedValueOnce({ status: 200, headers: { 'content-type': 'application/vnd.api+json' }, body })

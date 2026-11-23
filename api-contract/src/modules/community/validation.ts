@@ -9,6 +9,8 @@ export function readPost(resource: ResourceObject, school: string, id?: string):
     resource.type !== 'posts' ||
     value.school_id !== school ||
     (id !== undefined && value.id !== id) ||
+    typeof value.title !== 'string' ||
+    typeof value.display_label !== 'string' || !value.display_label.trim() || Array.from(value.display_label).length > 80 ||
     !count(value.like_count) ||
     !count(value.comment_count)
   )

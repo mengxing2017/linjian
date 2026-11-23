@@ -22,7 +22,8 @@
       "review_digest": "review-fixture-digest",
       "decision_source": "legacy",
       "decided_at": null,
-      "moderator_id": null
+      "moderator_id": null,
+      "display_label": "全文审核标题"
     }
   }
 }

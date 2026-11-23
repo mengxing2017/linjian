@@ -4,7 +4,7 @@ export interface HotPostSummary {
   id: string
   school_id: string
   rank: number
-  title: string
+  display_label: string
   like_count: number
   comment_count: number
 }
@@ -52,7 +52,7 @@ export function readHotPosts(document: ResourceDocument, school: string, limit: 
   const ids = new Set<string>()
   const items = document.data.map((resource, index) => {
     const value = decodeResource(resource)
-    if (resource.type !== 'hot-posts' || !uuid.test(resource.id) || ids.has(resource.id.toLowerCase()) || value.school_id !== school || value.rank !== index + 1 || typeof value.title !== 'string' || !value.title.trim() || Array.from(value.title).length > 200 || !count(value.like_count) || !count(value.comment_count)) return invalidDocument()
+    if (resource.type !== 'hot-posts' || !uuid.test(resource.id) || ids.has(resource.id.toLowerCase()) || value.school_id !== school || value.rank !== index + 1 || typeof value.display_label !== 'string' || !value.display_label.trim() || Array.from(value.display_label).length > 80 || !count(value.like_count) || !count(value.comment_count)) return invalidDocument()
     ids.add(resource.id.toLowerCase())
     return value as unknown as HotPostSummary
   })

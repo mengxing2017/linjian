@@ -6,9 +6,9 @@
       "attributes": {
         "school_id": "019a92b1-0000-7000-8000-000000000002",
         "rank": 1,
-        "title": "帖子标题",
         "like_count": 6,
-        "comment_count": 2
+        "comment_count": 2,
+        "display_label": "帖子标题"
       }
     }
   ],

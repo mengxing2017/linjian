@@ -62,7 +62,7 @@ describe('platform-independent clients', () => {
     expect(transport.mock.calls[0][0].path).toContain('kind=following')
     transport.mockRejectedValue(new Error('lost response'))
     await expect(
-      api.save('s', { title: 'Title', content: 'Body', images: [], tags: [] }),
+      api.create('s', { title: 'Title', content: 'Body', images: [], tags: [] }),
     ).rejects.toMatchObject({ code: 'network_error' })
     expect(transport).toHaveBeenCalledTimes(2)
   })

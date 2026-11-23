@@ -22,7 +22,8 @@
       "review_digest": "review-fixture-digest",
       "decision_source": "automatic",
       "decided_at": "2026-11-09T00:00:00Z",
-      "moderator_id": null
+      "moderator_id": null,
+      "display_label": "全文审核标题"
     }
   }
 }
