@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button } from 'antd'
 import { SignIn } from './sign-in'
@@ -14,15 +14,19 @@ export function SessionGate({
   const q = useQuery({ queryKey: ['session'], queryFn: identity.session, retry: false })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const logoutRequest = useRef<Promise<void> | null>(null)
   const clearProtected = useCallback(
-    () =>
+    () => {
       cache.removeQueries({
         predicate: (query) =>
           !(
-            query.queryKey[0] === 'site-settings' &&
-            query.queryKey[1] === 'public'
+            query.queryKey[0] === 'session' ||
+            (query.queryKey[0] === 'site-settings' &&
+              query.queryKey[1] === 'public')
           ),
-      }),
+      })
+      cache.getMutationCache().clear()
+    },
     [cache],
   )
   useEffect(
@@ -52,15 +56,27 @@ export function SessionGate({
       setBusy(false)
     }
   }
-  async function logout() {
+  function logout(): Promise<void> {
+    if (logoutRequest.current) return logoutRequest.current
     setError('')
-    try {
-      await identity.logout()
-      await cache.cancelQueries()
-      clearProtected()
-    } catch (e) {
-      setError((e as Error).message)
-    }
+    setBusy(true)
+    const request = (async () => {
+      try {
+        await cache.cancelQueries()
+        await identity.logout()
+        cache.setQueryData(['session'], null)
+        clearProtected()
+      } catch (e) {
+        setError((e as Error).message)
+        const session = await identity.session().catch(() => undefined)
+        if (session) cache.setQueryData(['session'], session)
+      } finally {
+        logoutRequest.current = null
+        setBusy(false)
+      }
+    })()
+    logoutRequest.current = request
+    return request
   }
   if (q.isPending)
     return (
@@ -74,7 +90,7 @@ export function SessionGate({
       {showSessionBar && (
         <div className="session-bar">
           <span>{q.data.user.display_name}</span>
-          <Button onClick={logout}>退出登录</Button>
+          <Button onClick={logout} loading={busy} disabled={busy}>退出登录</Button>
         </div>
       )}
       {error && <Alert type="error" showIcon className="session-error" title={<>{error}</>} />}
