@@ -582,6 +582,10 @@ a:focus-visible {
   gap: 4px;
   min-width: 0;
 }
+.form-grid > label > .ant-switch,
+.form-pair > label > .ant-switch {
+  align-self: flex-start;
+}
 .form-pair > label .ant-picker,
 .form-pair > label .ant-select,
 .form-pair > label .ant-input-number {
