@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { createUniTransport, trustedOrigin } from '../src/app/transport'
+import { ApiError } from '../src/features/identity/api/contract'
 import { credentials } from '../src/app/credentials'
 const uniMock = {
   getStorageSync: vi.fn(),
@@ -22,6 +23,39 @@ it('only allows a configured HTTPS origin', () => {
   ])
     expect(() => trustedOrigin(value)).toThrow()
   expect(trustedOrigin('https://api.example.com')).toBe('https://api.example.com')
+  expect(trustedOrigin('https://api.example.com/')).toBe('https://api.example.com')
+})
+it('reports missing or malformed API origins as configuration errors', () => {
+  for (const [value, code] of [
+    ['', 'api_origin_missing'],
+    ['http://127.0.0.1:8080', 'api_origin_invalid'],
+  ] as const) {
+    try {
+      trustedOrigin(value)
+      throw new Error('expected trustedOrigin to throw')
+    } catch (error) {
+      expect(error).toBeInstanceOf(ApiError)
+      expect((error as ApiError).code).toBe(code)
+    }
+  }
+  expect(() => trustedOrigin('')).toThrow('未配置 VITE_LINJIAN_API_BASE_URL')
+  expect(() => trustedOrigin('http://127.0.0.1:8080')).toThrow('HTTPS origin')
+})
+it('surfaces the platform request failure reason', async () => {
+  uniMock.request.mockImplementation((options) => {
+    queueMicrotask(() => {
+      options.fail({ errMsg: 'request:fail url not in domain list' })
+      options.complete()
+    })
+    return { abort: vi.fn() }
+  })
+  await expect(
+    createUniTransport('https://api.example.com')({
+      path: '/api/v1/auth/session',
+      method: 'GET',
+      headers: {},
+    }),
+  ).rejects.toThrow('url not in domain list')
 })
 it('adds only miniapp credentials and preserves raw bytes and HTTP failure status', async () => {
   credentials.set('token-a')

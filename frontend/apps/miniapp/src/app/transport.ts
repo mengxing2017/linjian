@@ -1,4 +1,4 @@
-import type { Transport, TransportRequest } from '../features/identity/api/contract'
+import { ApiError, type Transport, type TransportRequest } from '../features/identity/api/contract'
 import { credentials } from './credentials'
 const active = new Set<{ abort(): void }>()
 export function cancelRequests() {
@@ -7,9 +7,20 @@ export function cancelRequests() {
 }
 credentials.subscribe(cancelRequests)
 export function trustedOrigin(value: string) {
-  if (!/^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(value))
-    throw new Error('请配置有效的 HTTPS API 域名')
-  return value
+  if (!value)
+    throw new ApiError(
+      0,
+      'api_origin_missing',
+      '未配置 VITE_LINJIAN_API_BASE_URL，请在 apps/miniapp/.env.local 中填写 API 的 HTTPS 域名后重新编译',
+    )
+  const origin = value.replace(/\/+$/, '')
+  if (!/^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(origin))
+    throw new ApiError(
+      0,
+      'api_origin_invalid',
+      'VITE_LINJIAN_API_BASE_URL 必须是无路径的 HTTPS origin，例如 https://api.example.com',
+    )
+  return origin
 }
 export function createUniTransport(base: string): Transport {
   // Validate only when used, so an unconfigured build can show a useful error.
@@ -83,7 +94,15 @@ export function createUniTransport(base: string): Transport {
             body,
           })
         },
-        fail: reject,
+        fail(error) {
+          reject(
+            new ApiError(
+              0,
+              'network_error',
+              `网络请求失败（${error.errMsg}），请检查网络、API 域名或开发者工具域名校验`,
+            ),
+          )
+        },
         complete: cleanup,
       })
       active.add(task)
