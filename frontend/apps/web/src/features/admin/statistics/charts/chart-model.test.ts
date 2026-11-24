@@ -64,6 +64,8 @@ it('retains longer comparison tails without inventing current values or drill ta
   ]
   const model = trendModel(report, '内容趋势', ['posts'], 'previous', false)
   expect(model.categories).toHaveLength(2)
+  expect(model.categories[1]).toContain('对比期 2026/11/16')
+  expect(model.series[0].notes[1]).toBe('该时段没有对应数据')
   expect(model.categoryIds[1]).toBe('')
   expect(model.series[0].data).toEqual([0, null])
   expect(model.series[1]).toMatchObject({ dashed: true, data: [0, 5] })
@@ -99,8 +101,11 @@ it('renders real SVG charts for zero counts, missing categories and 400 buckets'
     key: `bucket-${i}`,
     metrics: { ...report.summary, posts: i === 1 ? null : 0 },
   }))
-  const trend = trendModel(report, '400 桶', ['posts'], 'none', false)
+  const trend = trendModel(report, '400 个时段', ['posts'], 'none', false)
   expect(trend.zoom).toBe(true)
+  expect(trend.description).toContain('北京时间；数据截至')
+  expect(trend.description).toContain('默认显示最近 60 个时段')
+  expect(trend.description).not.toMatch(/桶|另发请求|上海时间/)
   const chart = init(null, undefined, { renderer: 'svg', ssr: true, width: 1000, height: 320 })
   try {
     chart.setOption(chartOption(trend))
@@ -129,4 +134,12 @@ it('renders real SVG charts for zero counts, missing categories and 400 buckets'
     chart.dispose()
     canvas.mockRestore()
   }
+})
+
+it('explains empty periods without exposing internal grouping terms', () => {
+  const report = emptyReport()
+  report.buckets = []
+  const model = trendModel(report, '内容趋势', ['posts'], 'none', false)
+  expect(model.emptyMessage).toBe('所选期间暂无可展示的数据。')
+  expect(model.series[0].data).toEqual([])
 })

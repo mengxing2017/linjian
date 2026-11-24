@@ -52,12 +52,12 @@ export function ContentStateCharts({ report: r }: { report: StatisticsReport }) 
                   value,
                 })),
                 kind === 'posts' ? '帖' : '条',
-                `本期创建内容的当前快照，数据截至 ${shanghai(r.as_of)}；不表示历史审核或展示次数。${!r.coverage.content ? '数据存在缺口，仅展示现有记录。' : ''}`,
+                `显示本期新增${kind === 'posts' ? '帖子' : '评论'}截至 ${shanghai(r.as_of)} 的审核和展示状态，不统计历史审核次数或展示次数。${!r.coverage.content ? '数据存在缺口，仅展示现有记录。' : ''}`,
               )}
             />
           ))}
           <p>
-            当前公开：{r.current_state[kind]?.public ?? '—'}（独立注释，不与审核、展示状态相加）
+            当前公开：{r.current_state[kind]?.public ?? '—'}。该数量与上方审核、展示状态可能重复，请勿相加。
           </p>
         </Col>
       ))}

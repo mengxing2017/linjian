@@ -33,7 +33,7 @@ function bucketLabel(bucket: Bucket) {
     : `${start}（${labels[bucket.state] ?? bucket.state}）`
 }
 function bucketNote(bucket: Bucket | undefined, key: keyof Metrics) {
-  if (!bucket) return '该期无对应时间桶'
+  if (!bucket) return '该时段没有对应数据'
   return [
     `${shanghai(bucket.start_at)} 至 ${shanghai(bucket.state === 'future' ? bucket.end_at : bucket.actual_end_at)}`,
     labels[bucket.state] ?? bucket.state,
@@ -86,7 +86,7 @@ export function trendModel(
   return {
     title,
     categories: Array.from({ length }, (_, index) =>
-      report.buckets[index] ? bucketLabel(report.buckets[index]) : `对比期第 ${index + 1} 桶`,
+      report.buckets[index] ? bucketLabel(report.buckets[index]) : `对比期 ${bucketLabel(previous!.buckets[index])}`,
     ),
     categoryIds: Array.from({ length }, (_, index) =>
       report.buckets[index]?.state === 'future' ? '' : (report.buckets[index]?.start_at ?? ''),
@@ -95,10 +95,10 @@ export function trendModel(
     bars,
     percent: keys.some((key) => key.endsWith('_rate')),
     zoom: length > 60,
-    description: `上海时间；数据截至 ${shanghai(report.as_of)}。${keys.map((key) => `${metricNames[key]}单位：${metricUnit(key)}`).join('；')}。虚线为所选同期，缺失处断线，未来周期不补零。${length > 60 ? '默认查看最近 60 桶，可拖动下方滑块查看整个期间；缩放不另发请求。' : ''}`,
+    description: `北京时间；数据截至 ${shanghai(report.as_of)}。${keys.map((key) => `${metricNames[key]}单位：${metricUnit(key)}`).join('；')}。虚线表示所选的同比或环比数据。没有数据的时段不连线，尚未发生的时段不显示数值。${length > 60 ? '默认显示最近 60 个时段，可拖动下方滑块查看其他时段。' : ''}`,
     emptyMessage: length
-      ? '所选指标暂无可用数据，请查看数据覆盖与统计口径说明。'
-      : '暂无可绘制时间分桶。',
+      ? '所选指标暂无可用数据，请查看数据完整性与统计规则说明。'
+      : '所选期间暂无可展示的数据。',
   }
 }
 

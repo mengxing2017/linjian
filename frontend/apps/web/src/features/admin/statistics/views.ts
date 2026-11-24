@@ -30,6 +30,7 @@ export const labels: Record<string, string> = {
   in_progress: '进行中',
   partial: '部分周期',
   normal: '正常',
+  complete: '已结束',
 }
 
 export function coverageReasons(report: StatisticsReport, view: StatisticsView) {
@@ -45,6 +46,6 @@ export function coverageReasons(report: StatisticsReport, view: StatisticsView) 
       reasons.push('累计注册所需数据缺失或异常，累计注册统计不可用。')
   }
   if (['overview', 'activity', 'schools'].includes(view) && !coverage.activity)
-    reasons.push('活跃采集未覆盖、延迟或存在缺口。')
+    reasons.push('访问数据尚不完整，可能尚未开始记录、更新延迟或部分记录缺失。')
   return reasons
 }

@@ -305,7 +305,7 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
         <>
           <p>
             {r.full_site ? '全站' : r.school_names.join('、') || '全站（已筛选）'} ·{' '}
-            {shanghai(r.window.start_at)} 至 {shanghai(r.window.actual_end_at)} · 上海时间
+            {shanghai(r.window.start_at)} 至 {shanghai(r.window.actual_end_at)} · 北京时间
             {r.window.state === 'in_progress' && <Tag>进行中</Tag>}
           </p>
           <Alert type="info" title="帖子总量含仿真发帖，按实际创建时间统计；参与人数排除模拟账号。" description={r.summary.posts == null ? undefined : `投稿来源：小程序 ${r.summary.miniapp_posts ?? "—"}，后台直接发布 ${r.summary.web_posts ?? "—"}，模拟 ${r.summary.seed_posts ?? "—"}，未知 ${r.summary.unknown_posts ?? "—"}`} />
@@ -358,7 +358,7 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
             <Alert type="info" title="所选期间的注册数据存在缺口或时间异常，仅展示时间有效的记录。" />
           )}
           {view === 'activity' && !r.coverage.activity && (
-            <Alert type="info" title="所选期间的活跃采集尚未完整覆盖，暂不展示人数和增长率。" />
+            <Alert type="info" title="所选期间的访问数据尚不完整，暂不显示相关人数和增长率。" />
           )}
           <PeriodPanel
             key={`period-${view}-${user.id}-${scope}`}
@@ -392,7 +392,7 @@ export function StatisticsPage({ user, schools, view = 'overview' }: Props) {
             items={[
               {
                 key: 'definitions',
-                label: coverageReasons(r, view).length ? '数据覆盖与统计口径说明' : '统计口径说明',
+                label: coverageReasons(r, view).length ? '数据完整性与统计规则说明' : '统计规则说明',
                 children: (
                   <>
                     {coverageReasons(r, view).length > 0 && (

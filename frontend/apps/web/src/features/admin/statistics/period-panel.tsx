@@ -61,7 +61,7 @@ export function PeriodPanel({
                 scroll={{ x: 850 }}
                 columns={[
                   {
-                    title: '周期（上海时间）',
+                    title: '周期（北京时间）',
                     key: 'period',
                     width: 200,
                     render: (_, b) => (

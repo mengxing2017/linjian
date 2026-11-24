@@ -83,7 +83,7 @@ impl CoverageData {
             reasons.push("注册学校归属数据缺失，学校注册统计不可用".into());
         }
         if !activity {
-            reasons.push("活跃采集未覆盖、延迟或存在缺口".into());
+            reasons.push("访问数据尚不完整，可能尚未开始记录、更新延迟或部分记录缺失".into());
         }
         Coverage {
             content,
@@ -546,7 +546,9 @@ impl StatisticsStore for Repository {
         authorize(&mut tx, a, school, "statistics.school.export").await?;
         let result:Option<Value>=sqlx::query_scalar("SELECT result FROM statistics_snapshots WHERE id=$1 AND owner_id=$2 AND school_id IS NOT DISTINCT FROM $3 AND expires_at>now()").bind(id).bind(a.id).bind(school).fetch_optional(&mut *tx).await?;
         tx.commit().await?;
-        serde_json::from_value(result.ok_or(Error::Invalid("快照不可用，请刷新后重新导出".into()))?)
-            .map_err(|_| Error::Unavailable)
+        serde_json::from_value(result.ok_or(Error::Invalid(
+            "这份报告暂时无法导出，请刷新报告后重试".into(),
+        ))?)
+        .map_err(|_| Error::Unavailable)
     }
 }

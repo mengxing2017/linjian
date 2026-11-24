@@ -10,7 +10,7 @@ export function emptyReport(): StatisticsReport {
     registration_from: null,
     activity_from: null,
     activity_through: null,
-    reasons: ['活跃采集未覆盖'],
+    reasons: ['访问数据尚不完整'],
   }
   const metrics = {
     miniapp_posts: 0, web_posts: 0, seed_posts: 0, unknown_posts: 0,

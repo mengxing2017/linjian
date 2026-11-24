@@ -16,7 +16,7 @@ const modes: Record<string, { value: string; label: string; keys: (keyof Metrics
   ],
   registration: [
     { value: 'new', label: '新增注册', keys: ['registrations'] },
-    { value: 'total', label: '累计注册（截至桶末）', keys: ['cumulative_registrations'] },
+    { value: 'total', label: '累计注册（截至该时段结束）', keys: ['cumulative_registrations'] },
     { value: 'participants', label: '新注册参与人数', keys: ['new_participants'] },
     { value: 'rate', label: '新注册参与率', keys: ['new_participation_rate'] },
   ],
@@ -99,14 +99,14 @@ export function TrendPanel({
             ))}
           </Space>
           {mode === 'total' && (
-            <span>累计包含期初基数，不是本期新增累加；累计模式不展示同比、环比曲线。</span>
+            <span>累计注册包含所选期间开始前已注册的用户，不只是本期新增人数。累计注册不展示同比、环比曲线。</span>
           )}
           {choice.keys.some((key) => key.endsWith('_rate')) && (
             <span>
               {view === 'registration'
-                ? '各桶新注册内容参与人数 / 各桶新增注册人数'
-                : '各桶注册人员内容参与人数 / 各桶访问活跃人数'}
-              ；分母为零或覆盖不足时留空，不平均各桶参与率。
+                ? '每个时段参与内容互动的新注册用户数 ÷ 该时段新增注册用户数'
+                : '每个时段参与内容互动的注册用户数 ÷ 该时段活跃注册用户数'}
+              。分母为 0 或数据不完整时不显示。整个期间的参与率不按各时段参与率取平均。
             </span>
           )}
           {comparison !== 'none' &&

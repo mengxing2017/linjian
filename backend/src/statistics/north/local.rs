@@ -65,8 +65,8 @@ pub fn csv(report: &Report, kind: &str) -> Result<Vec<u8>> {
         "周期结束",
         "时区",
         "数据截至",
-        "口径版本",
-        "覆盖状态",
+        "统计规则版本",
+        "数据完整性",
         "新增帖子",
         "新增评论",
         "发帖人数",
@@ -75,13 +75,13 @@ pub fn csv(report: &Report, kind: &str) -> Result<Vec<u8>> {
         "新增注册",
         "期末累计注册",
         "新注册参与人数",
-        "访问活跃人数",
-        "注册人员内容参与人数",
+        "活跃注册用户数",
+        "参与内容互动的注册用户数",
         "日均发帖",
         "日均评论",
         "评论/发帖量比",
         "新注册参与率(%)",
-        "注册人员参与率(%)",
+        "注册用户内容参与率(%)",
         "小程序投稿",
         "后台直接发布",
         "模拟投稿",
@@ -129,9 +129,15 @@ pub fn csv(report: &Report, kind: &str) -> Result<Vec<u8>> {
                 .to_rfc3339(),
             report.definition_version.to_string(),
             if w.state == "future" {
-                "future".into()
+                "尚未发生".into()
             } else if c.reasons.is_empty() {
-                w.state.clone()
+                match w.state.as_str() {
+                    "complete" => "已结束",
+                    "partial" => "部分周期",
+                    "in_progress" => "统计中",
+                    state => state,
+                }
+                .into()
             } else {
                 c.reasons.join("；")
             },
@@ -227,8 +233,40 @@ mod tests {
         let text = String::from_utf8(bytes).unwrap();
         assert!(text.contains("'=1+1"));
         assert!(text.contains("2026-11-16T00:00:00+08:00"));
-        assert!(text.contains("访问活跃人数"));
+        assert!(text.contains("活跃注册用户数"));
         assert!(!text.contains("新注册参与率"));
         assert!(!text.contains("日均发帖"));
+        assert!(text.contains("统计规则版本,数据完整性"));
+
+        report.view = "activity".into();
+        report.coverage.reasons.clear();
+        report.buckets = ["complete", "in_progress", "partial", "future"]
+            .into_iter()
+            .map(|state| Bucket {
+                window: Window {
+                    state: state.into(),
+                    ..report.window.clone()
+                },
+                metrics: report.summary.clone(),
+                coverage: report.coverage.clone(),
+            })
+            .collect();
+        let bytes = csv(&report, "periods").unwrap();
+        let mut reader = csv::Reader::from_reader(&bytes[3..]);
+        let header = reader.headers().unwrap().clone();
+        assert!(header.iter().any(|value| value == "活跃注册用户数"));
+        assert!(
+            header
+                .iter()
+                .any(|value| value == "参与内容互动的注册用户数")
+        );
+        assert!(header.iter().any(|value| value == "注册用户内容参与率(%)"));
+        let rows: Vec<_> = reader.records().map(|row| row.unwrap()).collect();
+        for (row, status) in rows
+            .iter()
+            .zip(["已结束", "统计中", "部分周期", "尚未发生"])
+        {
+            assert_eq!(&row[6], status);
+        }
     }
 }

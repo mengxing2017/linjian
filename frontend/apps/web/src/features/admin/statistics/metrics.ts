@@ -11,11 +11,11 @@ export const metricNames: Record<keyof Metrics, string> = {
   registrations: '新增注册人数',
   cumulative_registrations: '累计注册人数',
   new_participants: '新注册内容参与人数',
-  active_users: '注册人员访问活跃人数',
-  registered_participants: '注册人员内容参与人数',
+  active_users: '活跃注册用户数',
+  registered_participants: '参与内容互动的注册用户数',
   comment_post_ratio: '评论/发帖量比（条/帖）',
   new_participation_rate: '新注册内容参与率（%）',
-  participation_rate: '注册人员内容参与率（%）',
+  participation_rate: '注册用户内容参与率（%）',
 }
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 const timeFormatter = new Intl.DateTimeFormat('zh-CN', {
