@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import AppIcon from './AppIcon.vue'
 import type { IconName } from './icons'
-withDefaults(defineProps<{ title: string; icon?: IconName; arrow?: boolean; disabled?: boolean; danger?: boolean }>(), { arrow: true, disabled: false, danger: false })
+withDefaults(defineProps<{ title: string; icon?: IconName; arrow?: boolean; disabled?: boolean; danger?: boolean; centered?: boolean }>(), { arrow: true, disabled: false, danger: false, centered: false })
 const emit = defineEmits<{ activate: [] }>()
 </script>
 <template>
-  <button class="menu-item" :class="{ danger }" :disabled="disabled" @tap="!disabled && emit('activate')">
+  <button class="menu-item" :class="{ danger, centered }" :disabled="disabled" @tap="!disabled && emit('activate')">
     <view v-if="icon" class="menu-item-icon" :class="`tone-${icon}`"><AppIcon :name="icon" :size="38" /></view>
     <text class="menu-item-title">{{ title }}</text>
     <AppIcon v-if="arrow" name="next" :size="28" />
@@ -19,6 +19,7 @@ const emit = defineEmits<{ activate: [] }>()
 .tone-join, .tone-business { background: #fff3e6; }
 .tone-service, .tone-school, .tone-privacy { background: #eaf7f4; }
 .menu-item-title { flex: 1; min-width: 0; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.centered .menu-item-title { text-align: center; }
 .danger { color: #bd303c; }
 .menu-item[disabled] { opacity: .55; }
 </style>

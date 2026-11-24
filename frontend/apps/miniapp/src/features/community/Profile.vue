@@ -75,7 +75,7 @@ defineExpose({ show: page.show, hide: page.hide })
       <MenuItem title="校园服务" icon="services" @activate="navigate('/pages/index/category')" />
       <MenuItem title="学校说明" icon="info" @activate="navigate('/pages/user/legal')" />
       <MenuItem title="投诉反馈" icon="posts" @activate="navigate('/pages/user/feedback')" />
-      <MenuItem title="退出登录" :arrow="false" danger :disabled="signingOut" @activate="signout" />
+      <MenuItem title="退出登录" :arrow="false" danger centered :disabled="signingOut" @activate="signout" />
     </view>
   </view>
 </template>
