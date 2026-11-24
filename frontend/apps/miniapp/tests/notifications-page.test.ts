@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import * as notificationList from '../src/features/community/notification-list'
+import * as pageWindow from '../src/shared/page-window'
 import { component, findAll, mount, tap, text } from './support/vue-component'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -20,6 +21,7 @@ function setup() {
   const stop = vi.fn(), pageScrollTo = vi.fn()
   vi.stubGlobal('uni', { pageScrollTo })
   const screen = component(new URL('../src/features/community/Notifications.vue', import.meta.url), {
+    '../../shared/PageWindow.vue': { default: component(new URL('../src/shared/PageWindow.vue', import.meta.url), { './page-window': pageWindow }) },
     './api': { communityApi },
     '../school-context/context': {
       schoolContext: { id: 'school', schools: [{ id: 'school', theme_primary: '#FFFFFF', theme_text_color: '#FFFFFF' }] },

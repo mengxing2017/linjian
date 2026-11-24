@@ -24,6 +24,23 @@ function setup() {
   return { board: createNotificationList(options), options, changeScope: (next: typeof scope) => { scope = next } }
 }
 
+it('keeps at most three pages per category and permits returning to an earlier group', async () => {
+  const { board, options } = setup()
+  options.read.mockImplementation(async (_school, page) => result([item(`page-${page}`)], true))
+  await board.show()
+  await board.loadMore()
+  await board.loadMore()
+  expect(board.current.value.items).toHaveLength(3)
+  await board.loadMore()
+  expect(board.current.value.items.map(item => item.id)).toEqual(['page-4'])
+  await board.loadPage(1)
+  expect(board.current.value.items.map(item => item.id)).toEqual(['page-1'])
+  await board.select('comment')
+  expect(options.read).toHaveBeenLastCalledWith('school', 1, { kind: 'comment' })
+  await board.select('all')
+  expect(board.current.value.page).toBe(1)
+})
+
 it('loads only all on entry, uses explicit kinds and caches completed categories', async () => {
   const { board, options } = setup()
   expect(notificationTabs.map(tab => tab.label)).toEqual(['全部', '评论', '点赞', '关注', '系统'])

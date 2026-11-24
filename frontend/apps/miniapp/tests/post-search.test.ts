@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest'
+import { watch } from 'vue'
 import { createPostSearch } from '../src/features/community/use-post-search'
 import {
   invalidatePost,
@@ -59,6 +60,39 @@ async function setup() {
   }
 }
 beforeEach(clearPostInvalidations)
+
+it('commits multiple interaction updates once and preserves unrelated post identities', async () => {
+  const { search, api } = await setup()
+  api.posts.mockResolvedValueOnce(result(['one', 'two', 'untouched']))
+  await search.submit()
+  const untouched = search.posts.value[2]
+  invalidatePost('scope:user', 'school', 'one')
+  invalidatePost('scope:user', 'school', 'two')
+  api.interactionState.mockImplementation(async (_school, id) => ({ id, like_count: 7 }))
+  const committed = vi.fn()
+  const stop = watch(search.posts, committed, { flush: 'sync' })
+  await search.sync()
+  expect(committed).toHaveBeenCalledOnce()
+  expect(search.posts.value.map(item => item.like_count)).toEqual([7, 7, 0])
+  expect(search.posts.value[2]).toBe(untouched)
+  stop()
+})
+
+it('bounds accumulated results to three pages and reloads an earlier group without changing the submitted query', async () => {
+  const { search, api } = await setup()
+  api.posts.mockImplementation(async (_school, filter) => result([`page-${filter.page}`], filter.page, true))
+  await search.submit()
+  await search.loadMore()
+  await search.loadMore()
+  expect(search.posts.value.map(item => item.id)).toEqual(['page-1', 'page-2', 'page-3'])
+  await search.loadMore()
+  expect(search.posts.value.map(item => item.id)).toEqual(['page-4'])
+  await search.loadPage(1)
+  expect(search.posts.value.map(item => item.id)).toEqual(['page-1'])
+  await search.loadMore()
+  expect(search.posts.value.map(item => item.id)).toEqual(['page-1', 'page-2'])
+  expect(api.posts.mock.calls.at(-1)?.[1]).toEqual({ search: '课本', page: 2 })
+})
 
 it('waits for a valid explicit submission and counts Unicode scalars', async () => {
   const { search, api } = await setup()

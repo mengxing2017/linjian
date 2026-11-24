@@ -10,10 +10,19 @@ export interface TestNode {
   props: Record<string, unknown>
   children: TestNode[]
   parent: TestNode | null
+  addEventListener: (type: string, listener: EventListener) => void
+  removeEventListener: (type: string, listener: EventListener) => void
 }
 
 function node(type: string, text = ''): TestNode {
-  return { type, text, props: {}, children: [], parent: null }
+  return {
+    type, text, props: {}, children: [], parent: null,
+    addEventListener(event, listener) { this.props[`on${event[0].toUpperCase()}${event.slice(1)}`] = listener },
+    removeEventListener(event, listener) {
+      const key = `on${event[0].toUpperCase()}${event.slice(1)}`
+      if (this.props[key] === listener) delete this.props[key]
+    },
+  }
 }
 
 export function component(url: URL, dependencies: Record<string, unknown> = {}) {
