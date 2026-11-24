@@ -8,7 +8,7 @@
     "typecheck": "vue-tsc --noEmit",
     "lint": "eslint src --max-warnings=0",
     "test": "vitest run",
-    "build": "uni build -p mp-weixin && node ../../tools/check-miniapp-location.mjs dist/build/mp-weixin/app.json"
+    "build": "uni build -p mp-weixin && node ../../tools/check-miniapp-location.mjs dist/build/mp-weixin/app.json && node ../../tools/check-miniapp-navigation.mjs dist/build/mp-weixin"
   },
   "dependencies": {
     "@dcloudio/uni-app": "3.0.0-5030320261023001",
