@@ -121,7 +121,7 @@
           "id": "P07",
           "key": "post.recommend",
           "name": "推荐/重推帖子",
-          "description": "推荐预览、确认提交；仍校验发布证据、频控、幂等和来源就绪条件",
+          "description": "允许预览并提交帖子推荐；帖子仍需满足发布要求、操作频率限制和接收方配置要求，系统会检查重复提交",
           "group": "内容治理",
           "applicable_roles": [
             "admin",
@@ -804,7 +804,7 @@
           "id": "P44",
           "key": "statistics.school.read",
           "name": "查看本校业务统计",
-          "description": "学校统计与当前可读快照；不包含全校汇总、跨校比较",
+          "description": "查看本校统计和已生成且有权查看的报告；不包含全站汇总或跨校比较",
           "group": "学校与管理",
           "applicable_roles": [
             "admin",
@@ -821,7 +821,7 @@
           "id": "P45",
           "key": "statistics.school.export",
           "name": "导出本校业务统计",
-          "description": "已有学校统计快照 CSV 导出；下载时重查",
+          "description": "将已生成的本校统计报告导出为 CSV，下载时会再次检查查看和导出权限",
           "group": "学校与管理",
           "applicable_roles": [
             "admin",
