@@ -85,6 +85,7 @@ pub mod permissions;
 pub mod preview;
 
 pub mod profiles;
+pub mod school_recommendations;
 
 pub mod blocked_words;
 pub mod home_menu;

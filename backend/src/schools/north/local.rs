@@ -4,6 +4,7 @@ use crate::schools::south::port::Store;
 use serde_json::Value;
 use uuid::Uuid;
 pub mod permissions;
+pub mod school_recommendations;
 #[derive(Clone)]
 pub struct Service<R: Store = Repository>(pub R);
 impl<R: Store> Service<R> {

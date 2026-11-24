@@ -12,6 +12,50 @@ use axum::{
 use serde_json::Value;
 use uuid::Uuid;
 pub mod permissions;
+use crate::schools::domain::school_recommendations::{
+    LIMIT, OnboardingQuery, Query as RecommendationQuery, Recommendation,
+};
+use axum::{
+    http::{HeaderMap, header},
+    response::{IntoResponse, Response},
+};
+
+fn recommendations_response(rows: Vec<Recommendation>) -> ApiResponse {
+    resource("school-recommendations", rows).meta(serde_json::json!({"distance_kind":"straight_line_approximate","coordinate_system":"gcj02","limit":LIMIT}))
+}
+async fn recommendation_headers(mut response: Response) -> Response {
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, "private, no-store".parse().unwrap());
+    response
+}
+async fn recommendations(
+    State(app): State<Application>,
+    actor: Actor,
+    input: Input,
+) -> Result<Response> {
+    let query: RecommendationQuery = input.decode("school-recommendation-queries")?;
+    Ok(
+        recommendations_response(app.schools.school_recommendations(&actor, &query).await?)
+            .into_response(),
+    )
+}
+async fn onboarding_recommendations(
+    State(app): State<Application>,
+    headers: HeaderMap,
+    input: Input,
+) -> Result<Response> {
+    if headers.contains_key(header::ORIGIN) {
+        return Err(crate::business::Error::Forbidden);
+    }
+    let query: OnboardingQuery = input.decode("school-recommendation-queries")?;
+    Ok(recommendations_response(
+        app.schools
+            .onboarding_school_recommendations(&query)
+            .await?,
+    )
+    .into_response())
+}
 fn page(mut rows: Vec<Value>, q: &SchoolQuery) -> Result<ApiResponse> {
     let (n, _) = q.bounds()?;
     let more = rows.len() > n as usize;
@@ -140,6 +184,16 @@ async fn global_resources(State(a): State<Application>, actor: Actor) -> Result<
 
 pub fn router() -> Router<Application> {
     Router::new()
+        .route(
+            "/api/v1/school-recommendations",
+            post(recommendations).layer(axum::middleware::map_response(recommendation_headers)),
+        )
+        .route(
+            "/api/v1/onboarding/school-recommendations",
+            post(onboarding_recommendations)
+                .layer(axum::extract::DefaultBodyLimit::max(16_384))
+                .layer(axum::middleware::map_response(recommendation_headers)),
+        )
         .route("/api/v1/platform/resources", get(global_resources))
         .route("/api/v1/platform/schools", get(platform_list))
         .route(

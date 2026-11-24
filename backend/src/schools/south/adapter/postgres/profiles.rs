@@ -6,7 +6,7 @@ use crate::{
 use serde_json::{Value, json};
 use sqlx::{Postgres, Row, Transaction};
 use uuid::Uuid;
-const VIEW: &str = "SELECT s.id,s.name,s.short_name,s.province,s.city,s.area,s.latitude::float8 AS latitude,s.longitude::float8 AS longitude,CASE WHEN s.active THEN 'normal' ELSE 'hidden' END AS status,s.logo_asset_id,s.header_bg_asset_id,CASE WHEN s.logo_asset_id IS NOT NULL THEN '/api/v1/school-directory/'||s.id||'/branding/logo' END AS logo_url,CASE WHEN s.header_bg_asset_id IS NOT NULL THEN '/api/v1/school-directory/'||s.id||'/branding/header' END AS header_bg_image_url,s.theme_primary,s.theme_secondary,s.theme_text_color,s.revision,s.created_at,s.updated_at,s.config FROM schools s";
+pub(super) const VIEW: &str = "SELECT s.id,s.name,s.short_name,s.province,s.city,s.area,s.latitude::float8 AS latitude,s.longitude::float8 AS longitude,CASE WHEN s.active THEN 'normal' ELSE 'hidden' END AS status,s.logo_asset_id,s.header_bg_asset_id,CASE WHEN s.logo_asset_id IS NOT NULL THEN '/api/v1/school-directory/'||s.id||'/branding/logo' END AS logo_url,CASE WHEN s.header_bg_asset_id IS NOT NULL THEN '/api/v1/school-directory/'||s.id||'/branding/header' END AS header_bg_image_url,s.theme_primary,s.theme_secondary,s.theme_text_color,s.revision,s.created_at,s.updated_at,s.config FROM schools s";
 fn decode(v: Value) -> Result<SchoolView> {
     serde_json::from_value(v).map_err(|_| Error::Unavailable)
 }

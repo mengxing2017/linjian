@@ -19,3 +19,4 @@ pub mod resources;
 pub mod blocked_words;
 pub mod home_menu;
 pub mod permissions;
+pub mod school_recommendations;
