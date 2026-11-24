@@ -275,6 +275,23 @@ async fn notices(
         &page,
     ))
 }
+async fn notification_summary(
+    State(application): State<Application>,
+    actor: Actor,
+    Path(school): Path<Uuid>,
+) -> Result<axum::response::Response> {
+    use axum::response::IntoResponse;
+    let summary = application
+        .community
+        .notification_summary(&actor, school)
+        .await?;
+    let mut response = resource("notification-summaries", summary).into_response();
+    response.headers_mut().insert(
+        axum::http::header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("private, no-store"),
+    );
+    Ok(response)
+}
 async fn read(
     State(a): State<Application>,
     actor: Actor,
@@ -367,6 +384,10 @@ pub fn router() -> Router<Application> {
             put(follow).delete(follow),
         )
         .route("/api/v1/schools/{school}/notifications", get(notices))
+        .route(
+            "/api/v1/schools/{school}/notification-summary",
+            get(notification_summary),
+        )
         .route(
             "/api/v1/schools/{school}/notifications/{id}/read",
             put(read),

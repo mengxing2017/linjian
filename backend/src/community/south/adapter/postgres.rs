@@ -393,7 +393,42 @@ impl Repository {
             .require_active(s)
             .await?;
         let (limit, offset) = page.fetch_bounds()?;
-        Ok(sqlx::query_scalar("SELECT to_jsonb(n) FROM notifications n WHERE school_id=$1 AND account_id=$2 AND (n.kind NOT IN ('comment','moderation') OR EXISTS(SELECT 1 FROM posts p WHERE p.id=n.object_id AND p.school_id=n.school_id AND (p.author_id=$2 OR (p.audit_status='approved' AND p.visibility='visible'))) OR EXISTS(SELECT 1 FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.id=n.object_id AND c.school_id=n.school_id AND NOT c.deleted AND c.visibility='visible' AND p.audit_status='approved' AND p.visibility='visible' AND (c.audit_status='approved' OR c.author_id=$2))) ORDER BY created_at DESC,id DESC LIMIT $3 OFFSET $4").bind(s).bind(a.id).bind(limit).bind(offset).fetch_all(&self.0).await?)
+        let query = format!(
+            "SELECT to_jsonb(n) FROM notifications n WHERE {} ORDER BY created_at DESC,id DESC LIMIT $3 OFFSET $4",
+            include_str!("postgres/notification_visibility.sql")
+        );
+        Ok(sqlx::query_scalar(&query)
+            .bind(s)
+            .bind(a.id)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.0)
+            .await?)
+    }
+    pub async fn notification_summary(
+        &self,
+        actor: &Actor,
+        school: Uuid,
+    ) -> Result<crate::community::domain::notification_summary::NotificationSummary> {
+        crate::schools::south::adapter::postgres::Repository(self.0.clone())
+            .require_active(school)
+            .await?;
+        let query = format!(
+            "SELECT count(*) FROM notifications n WHERE ({}) AND n.read_at IS NULL",
+            include_str!("postgres/notification_visibility.sql")
+        );
+        let unread_count = sqlx::query_scalar(&query)
+            .bind(school)
+            .bind(actor.id)
+            .fetch_one(&self.0)
+            .await?;
+        Ok(
+            crate::community::domain::notification_summary::NotificationSummary {
+                id: school,
+                school_id: school,
+                unread_count,
+            },
+        )
     }
     pub async fn read(&self, a: &Actor, s: Uuid, id: Uuid) -> Result<()> {
         let mut tx = crate::media::south::adapter::lifecycle::begin(&self.0).await?;
@@ -607,6 +642,13 @@ impl crate::community::south::port::Store for Repository {
     }
     async fn notifications(&self, a: &Actor, s: Uuid, page: Page) -> Result<Vec<Value>> {
         Repository::notifications(self, a, s, page).await
+    }
+    async fn notification_summary(
+        &self,
+        actor: &Actor,
+        school: Uuid,
+    ) -> Result<crate::community::domain::notification_summary::NotificationSummary> {
+        Repository::notification_summary(self, actor, school).await
     }
     async fn read(&self, a: &Actor, s: Uuid, id: Uuid) -> Result<()> {
         Repository::read(self, a, s, id).await

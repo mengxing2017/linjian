@@ -201,6 +201,14 @@ impl<R: Store> Service<R> {
         a.authorize(s, "member")?;
         self.0.notifications(a, s, page).await
     }
+    pub async fn notification_summary(
+        &self,
+        actor: &Actor,
+        school: Uuid,
+    ) -> Result<crate::community::domain::notification_summary::NotificationSummary> {
+        actor.authorize(school, "member")?;
+        self.0.notification_summary(actor, school).await
+    }
     pub async fn read(&self, a: &Actor, s: Uuid, id: Uuid) -> Result<()> {
         a.authorize(s, "member")?;
         self.0.read(a, s, id).await

@@ -1,4 +1,5 @@
 pub mod interaction;
+pub mod notification_summary;
 pub mod post_seed;
 pub mod post_text;
 pub mod public_post;

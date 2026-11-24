@@ -4,6 +4,14 @@
 
 职责：帖子、评论、互动、关注与站内通知。
 
+## 通知未读汇总
+
+`GET /api/v1/schools/{school}/notification-summary` 返回当前认证账号在指定学校可访问通知的未读总数，JSON:API 类型为 `notification-summaries`，资源 ID 与 `school_id` 均为学校 UUID，`unread_count` 为非负整数。该响应是个人汇总而非学校公共数据，使用 `private, no-store`。
+
+服务层执行成员授权，adapter 校验学校有效性；账号来自 Actor。列表与 COUNT 共用 `south/adapter/postgres/notification_visibility.sql` 中的可见性条件，计数额外要求 `read_at IS NULL`。沿用现有单条已读幂等接口，不生成 Outbox、发送任务或额外通知；本次不新增统计表或数据库 migration。
+
+`backend/tests/notification_summary/mod.rs` 在显式隔离测试库内验证跨学校、跨账号、分页总数、重复已读、审核/删除可见性、JSON:API fixture、HTTP 认证、停用学校及无来源推送副作用。
+
 约束：审核状态与展示状态分离；浏览、点赞和计数更新不得触发发送。
 
 模块边界：
