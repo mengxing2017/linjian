@@ -167,7 +167,13 @@
   },
   "./identity": {
     "types": [
+      "LegalAcceptance",
       "MiniappSession",
+      "OnboardingInput",
+      "OnboardingProgress",
+      "OnboardingReady",
+      "OnboardingResult",
+      "OnboardingSchool",
       "Session",
       "User"
     ],

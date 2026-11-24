@@ -1,0 +1,1 @@
+{"data":{"type":"onboarding","id":"current","attributes":{"state":"consent_required","ticket":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","expires_at":"2026-11-24T00:10:00Z","documents":[{"id":"user_agreement","kind":"user_agreement","revision":1,"updated_at":"2026-11-24T00:00:00Z"}],"accepted":[],"first_login":true,"school_id":null}}}

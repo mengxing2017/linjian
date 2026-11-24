@@ -3,7 +3,7 @@ import { createClient, type Transport } from '../src/http/client'
 import { createIdentityClient } from '../src/modules/identity'
 import { createCommunityClient } from '../src/modules/community'
 import { createMediaClient } from '../src/modules/media'
-import fixture from '../fixtures/miniapp-session.json'
+import fixture from '../fixtures/onboarding-progress.json'
 const response = (body: unknown, status = 200) => ({
   status,
   headers: { 'content-type': 'application/vnd.api+json' },
@@ -13,15 +13,15 @@ const response = (body: unknown, status = 200) => ({
 describe('platform-independent clients', () => {
   it('consumes the Rust miniapp session and encodes a fresh code without browser globals', async () => {
     const transport = vi.fn<Transport>().mockResolvedValue(response(fixture))
-    expect(await createIdentityClient(createClient(transport)).miniapp('fresh-code')).toEqual({
+    expect(await createIdentityClient(createClient(transport)).startOnboarding('fresh-code')).toEqual({
       id: 'current',
       ...fixture.data.attributes,
     })
     expect(transport.mock.calls[0][0]).toMatchObject({
-      path: '/api/v1/auth/miniapp',
+      path: '/api/v1/auth/miniapp/onboarding',
       method: 'POST',
       body: JSON.stringify({
-        data: { type: 'sessions', attributes: { code: 'fresh-code' } },
+        data: { type: 'onboarding', attributes: { code: 'fresh-code' } },
       }),
     })
     expect(transport.mock.calls[0][0].headers).not.toHaveProperty('X-CSRF-Token')
