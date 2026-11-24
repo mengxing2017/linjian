@@ -1,0 +1,27 @@
+{
+  "data": {
+    "type": "schools",
+    "id": "50000000-0000-0000-0000-000000000001",
+    "attributes": {
+      "name": "历史大学",
+      "short_name": "",
+      "province": "",
+      "city": "",
+      "area": "",
+      "latitude": null,
+      "longitude": null,
+      "status": "normal",
+      "logo_asset_id": null,
+      "header_bg_asset_id": null,
+      "logo_url": null,
+      "header_bg_image_url": null,
+      "theme_primary": "#6A5AF9",
+      "theme_secondary": "#8F6BFF",
+      "theme_text_color": "#FFFFFF",
+      "revision": 1,
+      "created_at": "2026-11-09T00:00:00Z",
+      "updated_at": "2026-11-09T00:00:00Z",
+      "config": { "post_audit_mode": "manual", "comment_audit_mode": "manual" }
+    }
+  }
+}
