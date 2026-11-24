@@ -439,9 +439,11 @@ async fn statistics_scope_registration_snapshot_and_activity_are_isolated() {
         .await
         .unwrap();
     phone_bindings_tests::verify_fixture_phone(&pool, user).await;
+    let mut own_input = input();
+    own_input.tags.clear();
     let own_post = app
         .community
-        .post(&mini_actor, s, None, input())
+        .post(&mini_actor, s, None, own_input)
         .await
         .unwrap();
     let own_post_id = own_post["id"].as_str().unwrap().parse().unwrap();

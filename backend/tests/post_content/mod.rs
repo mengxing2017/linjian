@@ -3,6 +3,7 @@ use linjian_api::{
     business::SessionKind,
     community::domain::{PostInput, hot_posts::HotPostsQuery, public_post},
 };
+mod tags;
 
 #[tokio::test]
 #[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
