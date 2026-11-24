@@ -11,6 +11,7 @@
       "path": "pages/user/phonePrivacy",
       "style": { "navigationBarTitleText": "手机号隐私规则" }
     },
+    { "path": "pages/user/policy", "style": { "navigationBarTitleText": "协议与政策" } },
     {
       "path": "pages/user/schoolChange",
       "style": { "navigationBarTitleText": "换校申请与结果", "enablePullDownRefresh": true }

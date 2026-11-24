@@ -1,4 +1,8 @@
 {
+  "apps/miniapp/src/features/legal-documents/api/index.ts": {
+    "types": ["LegalDocument", "LegalDocumentKind", "LegalSummary"],
+    "values": ["legalDocuments", "legalTitles"]
+  },
   "apps/web/src/app/shell/index.tsx": {
     "types": [],
     "values": ["AppShell", "navigation", "schoolRoleLabel"]

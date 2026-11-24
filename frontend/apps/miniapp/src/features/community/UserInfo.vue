@@ -9,6 +9,8 @@ import { confirm, handlePageError } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
 import { onScopeChange, scopeKey } from '../school-context/context'
 import { createUserInfo } from './use-user-info'
+import LegalLinks from '../legal-documents/LegalLinks.vue'
+const policies = ref<InstanceType<typeof LegalLinks>>()
 const phone = ref<InstanceType<typeof PhoneBindingPanel>>()
 
 const info = createUserInfo({
@@ -27,7 +29,7 @@ onUnmounted(() => { stop(); info.dispose() })
 function choose(event: { detail: { avatarUrl?: string } }) {
   void info.choose(event.detail.avatarUrl ?? '')
 }
-defineExpose({ show: info.show, hide: () => { info.hide(); phone.value?.close() }, refresh: info.reload })
+defineExpose({ show: () => { void policies.value?.show(); return info.show() }, hide: () => { info.hide(); phone.value?.close(); policies.value?.hide() }, refresh: () => { void policies.value?.show(); return info.reload() } })
 </script>
 <template>
   <view class="page">
@@ -52,5 +54,6 @@ defineExpose({ show: info.show, hide: () => { info.hide(); phone.value?.close() 
       <text>创建时间：{{ new Date(profile.created_at).toLocaleString() }}</text>
       <text>状态：{{ profile.status === 'normal' ? '正常' : '封禁' }}</text>
     </view>
+    <LegalLinks ref="policies" />
   </view>
 </template>
