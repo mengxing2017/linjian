@@ -4490,6 +4490,165 @@ async fn operations_scope_metrics_configuration_and_feedback_deletion() {
             .await
             .is_ok()
     );
+    let mut member = actor.clone();
+    member.platform_admin = false;
+    member.grants = vec![linjian_api::business::Grant {
+        school_id: s,
+        role: "member".into(),
+    }];
+    assert!(
+        ops.execute(&member, Some(s), Command::Display)
+            .await
+            .is_ok()
+    );
+    assert!(
+        ops.execute(&member, Some(other), Command::Display)
+            .await
+            .is_err()
+    );
+    assert!(ops.execute(&member, None, Command::Customer).await.is_err());
+    for kind in ["service", "join", "business"] {
+        let image = ops
+            .execute(&member, Some(s), Command::CustomerMedia(kind.into()))
+            .await
+            .unwrap();
+        assert_eq!(image["bytes"], json!(png.get_ref()));
+        assert!(
+            ops.execute(&member, Some(other), Command::CustomerMedia(kind.into()))
+                .await
+                .is_err()
+        );
+    }
+    let customer_input = |revision, enabled, service, fallback| {
+        serde_json::from_value(json!({"revision":revision,"enabled":enabled,"business_asset_id":null,"join_asset_id":null,"service_asset_id":service,"fallback_asset_id":fallback,"note":"咨询请备注来意"})).unwrap()
+    };
+    let empty: Option<Uuid> = None;
+    let global_id: Uuid = global["id"].as_str().unwrap().parse().unwrap();
+    let school_asset_id: Uuid = asset["id"].as_str().unwrap().parse().unwrap();
+    assert!(
+        ops.execute(
+            &operator,
+            None,
+            Command::SaveCustomer(customer_input(1, true, empty, Some(global_id)))
+        )
+        .await
+        .is_err()
+    );
+    assert!(
+        ops.execute(
+            &actor,
+            None,
+            Command::SaveCustomer(customer_input(0, true, empty, Some(global_id)))
+        )
+        .await
+        .is_err()
+    );
+    assert!(
+        ops.execute(
+            &actor,
+            None,
+            Command::SaveCustomer(customer_input(1, true, Some(school_asset_id), empty))
+        )
+        .await
+        .is_err()
+    );
+    let mut dedicated_png = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::new_rgb8(3, 3)
+        .write_to(&mut dedicated_png, image::ImageFormat::Png)
+        .unwrap();
+    let dedicated_asset = media
+        .upload(
+            &actor,
+            None,
+            dedicated_png.get_ref().clone(),
+            Default::default(),
+        )
+        .await
+        .unwrap();
+    let dedicated_id: Uuid = dedicated_asset["id"].as_str().unwrap().parse().unwrap();
+    ops.execute(
+        &actor,
+        None,
+        Command::SaveCustomer(customer_input(1, true, Some(dedicated_id), Some(global_id))),
+    )
+    .await
+    .unwrap();
+    let preferred = ops
+        .execute(&member, Some(s), Command::CustomerMedia("service".into()))
+        .await
+        .unwrap();
+    assert_eq!(preferred["bytes"], json!(dedicated_png.get_ref()));
+    let fallback = ops
+        .execute(&member, Some(s), Command::CustomerMedia("join".into()))
+        .await
+        .unwrap();
+    assert_eq!(fallback["bytes"], json!(png.get_ref()));
+    ops.execute(
+        &actor,
+        None,
+        Command::SaveCustomer(customer_input(2, true, Some(dedicated_id), empty)),
+    )
+    .await
+    .unwrap();
+    let dedicated = ops
+        .execute(&member, Some(s), Command::Display)
+        .await
+        .unwrap();
+    assert_eq!(dedicated["customer"]["join"], Value::Null);
+    assert_eq!(dedicated["customer"]["business"], Value::Null);
+    assert!(
+        dedicated["customer"]["service"]
+            .as_str()
+            .unwrap()
+            .ends_with("?revision=3")
+    );
+    assert!(
+        ops.execute(&member, Some(s), Command::CustomerMedia("service".into()))
+            .await
+            .is_ok()
+    );
+    assert!(
+        ops.execute(&member, Some(s), Command::CustomerMedia("join".into()))
+            .await
+            .is_err()
+    );
+    ops.execute(
+        &actor,
+        None,
+        Command::SaveCustomer(customer_input(3, true, empty, empty)),
+    )
+    .await
+    .unwrap();
+    let missing = ops
+        .execute(&member, Some(s), Command::Display)
+        .await
+        .unwrap();
+    assert_eq!(missing["customer"]["enabled"], true);
+    for kind in ["service", "join", "business"] {
+        assert_eq!(missing["customer"][kind], Value::Null);
+    }
+    ops.execute(
+        &actor,
+        None,
+        Command::SaveCustomer(customer_input(4, false, empty, Some(global_id))),
+    )
+    .await
+    .unwrap();
+    let disabled = ops
+        .execute(&member, Some(s), Command::Display)
+        .await
+        .unwrap();
+    assert_eq!(disabled["customer"], json!({"enabled":false}));
+    assert!(
+        ops.execute(&member, Some(s), Command::CustomerMedia("service".into()))
+            .await
+            .is_err()
+    );
+    assert!(
+        ops.execute(&member, Some(s), Command::CustomerMedia("unknown".into()))
+            .await
+            .is_err()
+    );
     let image = app
         .media
         .put(
@@ -4632,6 +4791,27 @@ async fn operations_scope_metrics_configuration_and_feedback_deletion() {
     // HTTP verifies the JSON:API boundary plus Origin/CSRF, not just repository methods.
     let router = linjian_api::http::app_router(app);
     let path = format!("/api/v1/schools/{s}/group-qrcodes");
+    for private_path in [
+        "/api/v1/platform/customer-config".to_owned(),
+        format!("/api/v1/schools/{s}/operations-display"),
+        format!("/api/v1/schools/{s}/customer-images/service"),
+    ] {
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(&private_path)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            StatusCode::UNAUTHORIZED,
+            "{private_path}"
+        );
+    }
     let res = router
         .clone()
         .oneshot(
