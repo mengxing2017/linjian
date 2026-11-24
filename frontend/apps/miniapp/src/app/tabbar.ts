@@ -6,6 +6,7 @@ import { notificationSummary } from '../features/community/notification-state'
 import { notificationBadge } from '../features/community/notification-summary'
 import { currentRoot, isRootId, rootRoutes } from './root-routes'
 import { openPublish, switchRoot } from './navigation'
+import { iconPath } from '../shared/icons'
 
 interface NativeTabbar { setData: (data: Record<string, unknown>) => void }
 interface TabbarBridge {
@@ -15,6 +16,7 @@ interface TabbarBridge {
 }
 const bars = new Set<NativeTabbar>()
 const items = [...rootRoutes.slice(0, 2), { id: 'publish', label: '发布动态' }, ...rootRoutes.slice(2)]
+  .map(item => ({ ...item, icon: iconPath(item.id), selectedIcon: iconPath(item.id, true) }))
 function update() {
   const data = {
     items,

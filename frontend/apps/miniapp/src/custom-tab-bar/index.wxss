@@ -6,18 +6,10 @@
 .nav-item.selected .nav-label { font-weight: 700; }
 .nav-label { font-size: 26rpx; line-height: 32rpx; margin-top: 8rpx; white-space: nowrap; }
 .icon-wrap { position: relative; width: 48rpx; height: 48rpx; display: flex; align-items: center; justify-content: center; }
-.nav-icon { position: relative; box-sizing: border-box; width: 36rpx; height: 36rpx; }
-.icon-home { width: 32rpx; height: 28rpx; margin-top: 12rpx; border: 4rpx solid currentColor; border-top: 0; border-radius: 3rpx; }
-.icon-home::before { content: ''; position: absolute; width: 24rpx; height: 24rpx; border-top: 4rpx solid currentColor; border-left: 4rpx solid currentColor; transform: rotate(45deg); top: -16rpx; left: -2rpx; }
-.icon-home .icon-part { position: absolute; bottom: 0; left: 8rpx; width: 8rpx; height: 14rpx; border: 3rpx solid currentColor; border-bottom: 0; }
-.icon-following { width: 32rpx; height: 38rpx; border: 4rpx solid currentColor; border-radius: 75% 15% 65% 45%; transform: rotate(12deg); }
-.icon-following .icon-part { position: absolute; bottom: 3rpx; left: 7rpx; width: 10rpx; height: 17rpx; background: currentColor; border-radius: 80% 10% 70% 40%; }
-.icon-messages { width: 34rpx; height: 32rpx; border: 4rpx solid currentColor; border-radius: 20rpx 20rpx 4rpx 4rpx; }
-.icon-messages::after { content: ''; position: absolute; bottom: -12rpx; left: 9rpx; width: 8rpx; height: 6rpx; border-radius: 50%; background: currentColor; }
-.icon-profile::before { content: ''; position: absolute; top: -3rpx; left: 9rpx; width: 16rpx; height: 16rpx; border: 4rpx solid currentColor; border-radius: 50%; box-sizing: border-box; }
-.icon-profile .icon-part { position: absolute; bottom: -4rpx; left: 0; width: 36rpx; height: 22rpx; border: 4rpx solid currentColor; border-radius: 22rpx 22rpx 5rpx 5rpx; box-sizing: border-box; }
+.nav-icon-image { width: 48rpx; height: 48rpx; }
+.icon-placeholder { width: 28rpx; height: 28rpx; border: 2rpx solid #9ca3af; border-radius: 6rpx; }
 .publish-item { padding-top: 0; }
 .publish-circle { width: 88rpx; height: 88rpx; min-width: 44px; min-height: 44px; box-sizing: border-box; border: 6rpx solid #fff; border-radius: 50%; transform: translateY(-22rpx); background: linear-gradient(135deg, var(--primary, #5b8ff9), var(--secondary, #48c5bd)); box-shadow: 0 12rpx 28rpx rgba(91,143,249,.3); display: flex; align-items: center; justify-content: center; }
-.plus { position: relative; width: 34rpx; height: 4rpx; background: #fff; border-radius: 4rpx; }
-.plus::after { content: ''; position: absolute; top: -15rpx; left: 15rpx; width: 4rpx; height: 34rpx; background: #fff; border-radius: 4rpx; }
+.publish-icon { width: 44rpx; height: 44rpx; }
+.publish-fallback { color: #fff; font-size: 24rpx; }
 .badge { position: absolute; top: -7rpx; right: -28rpx; min-width: 30rpx; height: 30rpx; padding: 0 6rpx; box-sizing: border-box; border-radius: 999rpx; background: #dc2626; color: #fff; font-size: 18rpx; line-height: 30rpx; text-align: center; pointer-events: none; }
