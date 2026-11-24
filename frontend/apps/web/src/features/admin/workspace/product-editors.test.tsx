@@ -11,6 +11,22 @@ Object.defineProperty(window,'matchMedia',{writable:true,value:()=>({matches:fal
 configure({asyncUtilTimeout:5000})
 afterEach(()=>{cleanup();vi.clearAllMocks()})
 function show(element:React.ReactNode){vi.mocked(workspace.list).mockResolvedValue({items:[]});vi.mocked(product.resources.artwork).mockResolvedValue({items:[]});return render(<MemoryRouter><QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}>{element}</QueryClientProvider></MemoryRouter>)}
+it.each([
+ undefined,
+ {kind:'none'},
+ {kind:'external_link',url:'https://example.com'},
+ {kind:'internal_page',page:'feed'},
+ {kind:'phone',number:'123456'},
+ {kind:'copy_text',text:'联系方式'},
+])('keeps resource validity dates paired for action %j',action=>{
+ const item=action?{id:'resource',revision:1,kind:'service',title:'活动',content:'校园活动',image_ref:null,action,active:true,sort_order:0,starts_at:null,ends_at:null}:undefined
+ show(<ResourceEditor school="school" item={item} onSaved={vi.fn()}/>)
+ const starts=screen.getByLabelText('生效时间').closest('label')!
+ const ends=screen.getByLabelText('失效时间').closest('label')!
+ expect(starts.parentElement?.classList.contains('form-pair')).toBe(true)
+ expect(ends.parentElement).toBe(starts.parentElement)
+ expect(starts.parentElement?.parentElement?.classList.contains('form-grid')).toBe(true)
+})
 it('keeps a failed service publication preview recoverable without introducing image input',async()=>{
  const saved=vi.fn().mockResolvedValue(undefined)
  const item={id:'resource',revision:1,kind:'service',title:'活动',content:'校园活动',image_ref:null,action:{kind:'none'},active:true,sort_order:0,starts_at:null,ends_at:null}
