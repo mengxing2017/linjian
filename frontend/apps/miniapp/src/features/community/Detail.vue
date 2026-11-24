@@ -33,6 +33,9 @@ const detail = createPostDetail({
 const { post, interaction, comments, content, parent, error, busy, loadingMore, operation, more, canInteract, canShare, page } = detail
 const focused = ref(false)
 const reason = ref('')
+const reporting = ref(false)
+const reportError = ref('')
+const menuBusy = ref(false)
 const auxiliaryBusy = ref(false)
 let visible = false
 let displayEpoch = 0
@@ -48,6 +51,9 @@ function clear() {
   hideMenu()
   detail.reset()
   reason.value = ''
+  reporting.value = false
+  reportError.value = ''
+  menuBusy.value = false
   focused.value = false
   auxiliaryBusy.value = false
   contentVersion = 0
@@ -71,6 +77,7 @@ async function prepare() {
 }
 async function load(full = false) {
   const turn = ++displayEpoch
+  menuBusy.value = false
   hideMenu()
   detail.show()
   try {
@@ -118,23 +125,40 @@ async function remove() {
   } finally { if (target === key()) auxiliaryBusy.value = false }
 }
 async function report() {
-  if (auxiliaryBusy.value || busy.value) return
-  if (!reason.value.trim()) { error.value = '请填写举报原因'; return }
+  if (!visible || !reporting.value || !post.value || auxiliaryBusy.value || busy.value) return
+  if (!reason.value.trim()) { reportError.value = '请填写举报原因'; return }
   const target = key()
   const draft = reason.value
+  reportError.value = ''
   auxiliaryBusy.value = true
   try {
     await communityApi.report(props.school, props.id, draft)
     if (target !== key()) return
-    if (reason.value === draft) reason.value = ''
+    if (reason.value === draft) { reason.value = ''; reporting.value = false }
     if (visible) notify('已提交举报')
-  } catch (cause) { if (target === key()) { const message = handlePageError(cause); if (target === key()) error.value = message } } finally {
+  } catch (cause) { if (target === key()) { const message = handlePageError(cause); if (target === key()) reportError.value = message } } finally {
     if (target === key()) auxiliaryBusy.value = false
   }
 }
+async function openMore() {
+  if (!visible || !post.value || busy.value || auxiliaryBusy.value || menuBusy.value) return
+  const target = key()
+  const turn = displayEpoch
+  menuBusy.value = true
+  try {
+    const choice = await uni.showActionSheet({ itemList: ['举报'] })
+    if (choice.tapIndex !== 0 || target !== key() || turn !== displayEpoch || !visible) return
+    reporting.value = true
+    await nextTick()
+    if (target === key() && turn === displayEpoch && visible) uni.pageScrollTo({ selector: '#post-report-form', duration: 200 })
+  } catch {
+    return
+  } finally { if (target === key() && turn === displayEpoch) menuBusy.value = false }
+}
+function cancelReport() { reporting.value = false; reason.value = ''; reportError.value = '' }
 defineExpose({
   show: () => { visible = true; return load() },
-  hide: () => { visible = false; displayEpoch++; detail.hide(); hideMenu(); phone.value?.close() },
+  hide: () => { visible = false; displayEpoch++; menuBusy.value = false; cancelReport(); detail.hide(); hideMenu(); phone.value?.close() },
   refresh: () => load(true),
   loadMore: detail.next,
   share: () => postShare(interaction.value, props.school, props.id, canShare.value),
@@ -147,7 +171,10 @@ defineExpose({
     <template v-if="post">
       <view class="card">
         <text v-if="post.title" class="heading">{{ post.title }}</text>
-        <text class="muted">{{ post.author_name || '校园成员' }}</text>
+        <view class="row spread">
+          <text class="muted">{{ post.author_name || '校园成员' }}</text>
+          <button class="post-more-button" size="mini" aria-label="更多操作" :disabled="busy || auxiliaryBusy || menuBusy" @tap="openMore"><text aria-hidden="true">⋯</text></button>
+        </view>
         <text v-if="post.visibility !== 'visible'" class="muted">状态：{{ postVisibilityLabel(post.visibility) }}</text>
         <text class="body">{{ post.content }}</text>
         <PrivateImage v-for="src in post.images" :key="src" :school="props.school" :source="src" />
@@ -165,6 +192,15 @@ defineExpose({
           <button v-if="post.author_id !== session.user?.id" size="mini" :disabled="busy || !canInteract" @tap="detail.follow()"><AppIcon name="attention" :selected="!!interaction?.author_followed" :size="28" />{{ interaction?.author_followed ? '取消关注' : '关注作者' }}</button>
           <button v-if="post.author_id === session.user?.id" size="mini" :disabled="busy" @tap="navigate(`/pages/community/edit?school=${props.school}&id=${props.id}`)"><AppIcon name="posts" :size="28" />编辑</button>
           <button v-if="post.author_id === session.user?.id" size="mini" :disabled="busy || auxiliaryBusy" @tap="remove"><AppIcon name="delete" :size="28" />删除</button>
+        </view>
+      </view>
+      <view v-if="reporting" id="post-report-form" class="card">
+        <text class="title">举报动态</text>
+        <text v-if="reportError" class="error">{{ reportError }}</text>
+        <input v-model="reason" class="input" placeholder="请填写举报原因" maxlength="500" :disabled="auxiliaryBusy" />
+        <view class="row">
+          <button size="mini" :disabled="busy || auxiliaryBusy" @tap="report">提交举报</button>
+          <button size="mini" :disabled="auxiliaryBusy" @tap="cancelReport">取消</button>
         </view>
       </view>
       <view class="card">
@@ -185,16 +221,14 @@ defineExpose({
         <textarea id="post-comment-input" v-model="content" :focus="focused" :disabled="!canInteract || operation === 'comment'" class="input" maxlength="2000" placeholder="友善交流，留下你的评论" @blur="focused = false" />
         <button class="primary" :disabled="busy || !canInteract" @tap="detail.comment()">提交评论</button>
       </view>
-      <view class="card">
-        <input v-model="reason" class="input" placeholder="举报原因" maxlength="500" />
-        <button size="mini" :disabled="busy || auxiliaryBusy" @tap="report">举报动态</button>
-      </view>
     </template>
   </view>
 </template>
 <style scoped>
 .post-actions { padding-bottom: env(safe-area-inset-bottom); flex-wrap: wrap; }
 .detail-page button[size='mini'] { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; line-height: 1.4; }
+.detail-page button.post-more-button { width: 44px; height: 44px; padding: 0; background: transparent; color: #6b7280; font-size: 40rpx; }
+.post-more-button::after { border: none; }
 .detail-page .row { gap: 8rpx; }
 .detail-page .comment { font-size: var(--linjian-font-body); }
 </style>
