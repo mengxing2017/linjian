@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { onLaunch } from '@dcloudio/uni-app'
+import { onLaunch, onShow } from '@dcloudio/uni-app'
 import { credentials } from './app/credentials'
+import { installTabbar } from './app/tabbar'
+import { notificationSummary } from './features/community/notification-state'
 onLaunch(() => {
+  installTabbar(getApp())
   credentials.restore()
 })
+onShow(() => { void notificationSummary.refresh() })
 </script>
 <style>
 /* Carry forward the old uniapp theme palette and card/feed interaction. */
@@ -17,6 +21,9 @@ page {
 .page {
   padding: 28rpx;
   padding-bottom: 60rpx;
+}
+.root-page {
+  padding-bottom: calc(138rpx + env(safe-area-inset-bottom));
 }
 .heading {
   display: block;

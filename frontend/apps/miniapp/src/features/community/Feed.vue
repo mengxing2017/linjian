@@ -23,6 +23,7 @@ const props = defineProps<{
   initial?: 'feed' | 'following' | 'mine' | 'collect'
   searchPage?: boolean
   homePage?: boolean
+  lockedMode?: boolean
 }>()
 const mode = ref(props.initial ?? 'feed'),
   search = ref(''),
@@ -161,7 +162,8 @@ defineExpose({
       <button size="mini" @tap="navigate('/pages/plugin/index')">选校</button>
     </view>
     <HotPosts v-if="homePage" ref="hotPosts" :active="hotPostsActive" />
-    <view class="row tabs">
+    <text v-if="lockedMode" class="heading">关注动态</text>
+    <view v-if="!lockedMode" class="row tabs">
       <button
         size="mini"
         :disabled="busy"

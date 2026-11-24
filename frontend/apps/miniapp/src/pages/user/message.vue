@@ -5,5 +5,5 @@ const { screen, allowed } = useProtectedScreen()
 import Screen from '../../features/community/Notifications.vue'
 </script>
 <template>
-  <view :style="schoolTheme"><Screen v-if="allowed" ref="screen" /></view>
+  <view class="root-page" :style="schoolTheme"><Screen v-if="allowed" ref="screen" /></view>
 </template>
