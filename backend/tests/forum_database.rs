@@ -26,6 +26,8 @@ mod phone_bindings_tests;
 mod post_content_tests;
 #[path = "post_interactions/mod.rs"]
 mod post_interactions_tests;
+#[path = "post_search/mod.rs"]
+mod post_search_tests;
 #[path = "post_seed/mod.rs"]
 mod post_seed_tests;
 #[path = "school_changes/mod.rs"]
