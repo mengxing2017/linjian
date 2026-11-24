@@ -1,21 +1,54 @@
 <script setup lang="ts">
-import { shallowRef, ref, onUnmounted } from 'vue'
-import { operationsApi, type Display } from './api'
+import { onUnmounted } from 'vue'
+import { operationsApi } from './api'
 import { imagePath } from '../media/files'
-import { schoolContext, scopeKey, onScopeChange } from '../school-context/context'
-const config = shallowRef<Display['customer']>(), selected = ref(''), path = ref('')
-let generation = 0
-const clear = () => { generation++; config.value = undefined; selected.value = ''; path.value = '' }
-const stop = onScopeChange(clear)
-onUnmounted(stop)
-async function show() { clear(); if (!schoolContext.id) return; const key = scopeKey(), turn = generation; try { const v = await operationsApi.display(schoolContext.id); if (key === scopeKey() && turn === generation) config.value = v.customer } catch { /* Contact configuration never blocks the profile. */ } }
-async function open(kind: 'business' | 'join' | 'service', title: string) { const src = config.value?.[kind]; if (!src) { uni.showToast({ title: '暂未配置联系方式', icon: 'none' }); return }; const key = scopeKey(), turn = generation; try { const p = await imagePath(schoolContext.id, src); if (key === scopeKey() && turn === generation) { path.value = p; selected.value = title } } catch { uni.showToast({ title: '二维码加载失败，请重试', icon: 'none' }) } }
-function preview() { if(path.value) uni.previewImage({urls:[path.value]}) }
-defineExpose({ show, hide: () => { selected.value = ''; path.value = '' } })
+import { scopeKey, onScopeChange } from '../school-context/context'
+import { handlePageError, navigate } from '../../shared/use-page'
+import { contactEntries, createCustomerContacts } from './use-customer-contacts'
+const emit = defineEmits<{ 'retry-prepare': [] }>()
+const contacts = createCustomerContacts({
+  display: operationsApi.display,
+  image: imagePath,
+  key: scopeKey,
+  failure: handlePageError,
+  notify: title => uni.showToast({ title, icon: 'none' }),
+  preview: path => new Promise<void>((resolve, reject) => uni.previewImage({ urls: [path], success: () => resolve(), fail: reject })),
+})
+const { state, config, error, failureStage, selected, imageState, path, imageError, title } = contacts
+const stop = onScopeChange(contacts.reset)
+onUnmounted(() => { stop(); contacts.dispose() })
+function retry() {
+  if (failureStage.value === 'prepare') emit('retry-prepare')
+  else void contacts.retry()
+}
+defineExpose({ prepare: contacts.prepare, show: contacts.show, hide: contacts.hide })
 </script>
 <template>
-  <view v-if="config?.enabled" class="card">
-    <button @tap="open('business','商务合作')">商务合作</button><button @tap="open('join','申请加盟')">申请加盟</button><button @tap="open('service','平台客服')">平台客服</button>
-    <view v-if="selected"><text class="heading">{{ selected }}</text><image :src="path" mode="aspectFit" style="width:100%;height:450rpx" @tap="preview" /><text>{{ config.note }}</text><button @tap="selected=''">关闭</button></view>
+  <view v-if="state !== 'idle' && state !== 'disabled'" class="card menu">
+    <text class="heading">平台服务</text>
+    <text v-if="state === 'preparing' || state === 'loading'" class="muted">平台服务加载中…</text>
+    <view v-else-if="state === 'login-required'">
+      <text>登录后查看平台联系方式</text>
+      <button @tap="navigate('/pages/user/login')">前往登录</button>
+    </view>
+    <view v-else-if="state === 'school-required'">
+      <text>请先绑定或选择可用学校，再查看平台联系方式</text>
+      <button @tap="navigate('/pages/plugin/index')">选择学校</button>
+    </view>
+    <view v-else-if="state === 'error'">
+      <text class="error">平台服务加载失败：{{ error }}</text>
+      <button @tap="retry">重试平台服务</button>
+    </view>
+    <view v-else-if="state === 'ready'">
+      <button v-for="entry in contactEntries" :key="entry.kind" @tap="contacts.open(entry.kind)">{{ entry.title }}</button>
+      <view v-if="selected">
+        <text class="heading">{{ title }}</text>
+        <text v-if="imageState === 'loading'" class="muted">二维码加载中…</text>
+        <image v-if="imageState === 'ready'" :src="path" mode="aspectFit" style="width:100%;height:450rpx" @tap="contacts.preview" />
+        <view v-if="imageState === 'error'"><text class="error">{{ imageError }}</text><button @tap="contacts.retryImage">重试二维码</button></view>
+        <text>{{ config?.note }}</text>
+        <button @tap="contacts.close">关闭</button>
+      </view>
+    </view>
   </view>
 </template>
