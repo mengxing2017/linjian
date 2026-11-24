@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { defineComponent, h, nextTick, ref } from 'vue'
+import { defineComponent, h, nextTick, reactive, ref } from 'vue'
 import * as pageWindow from '../src/shared/page-window'
 import * as concurrency from '../src/shared/concurrency'
 import * as feedCopy from '../src/features/community/post-feed-card'
@@ -8,7 +8,7 @@ import { component, findAll, mount, text } from './support/vue-component'
 
 afterEach(() => vi.unstubAllGlobals())
 
-it('limits feed models and mounted cards, and avoids a duplicate school read during initial show', async () => {
+function setup(schoolContext = reactive({ id: 'school', generation: 0, school: { id: 'school', name: '学校' } as { id: string; name: string } | undefined, loaded: true })) {
   const blank = defineComponent({ setup: (_, { expose }) => {
     expose({ show: vi.fn(), hide: vi.fn(), refresh: vi.fn() })
     return () => h('view')
@@ -31,7 +31,7 @@ it('limits feed models and mounted cards, and avoids a duplicate school read dur
     './HotPosts.vue': { default: blank },
     './use-hot-posts': { isHotPostsHome: () => true },
     './api': { communityApi: { posts }, homeMenuApi: { public: vi.fn().mockResolvedValue({ tags: [], settings: { latest_visible: true, latest_label: '最新' } }) } },
-    '../school-context/context': { requireSchool, schoolContext: { id: 'school', generation: 0, schools: [{ id: 'school', name: '学校' }] }, scopeKey: () => 'scope' },
+    '../school-context/context': { requireSchool, schoolContext, scopeKey: () => 'scope' },
     './post-invalidations': invalidations,
     '../identity/session': { session: { user: { id: 'user', bound_school_id: 'school' } } },
     '../../shared/use-page': { navigate: vi.fn(), usePage: () => ({ busy: ref(false), error: ref(''), run: async (action: (current: () => boolean) => Promise<void>) => action(() => true) }) },
@@ -42,6 +42,11 @@ it('limits feed models and mounted cards, and avoids a duplicate school read dur
   })
   invalidations.clearPostInvalidations()
   const mounted = mount(screen, { homePage: true })
+  return { mounted, requireSchool, posts }
+}
+
+it('limits feed models and mounted cards, and avoids a duplicate school read during initial show', async () => {
+  const { mounted, requireSchool, posts } = setup()
   await mounted.exposed.value.show(); await nextTick()
   expect(requireSchool).toHaveBeenCalledOnce()
   const cards = () => findAll(mounted.root, target => target.props.class === 'test-card')
@@ -52,5 +57,24 @@ it('limits feed models and mounted cards, and avoids a duplicate school read dur
   await mounted.exposed.value.loadMore(); await nextTick()
   expect(cards()).toHaveLength(1)
   expect(posts).toHaveBeenLastCalledWith('school', expect.objectContaining({ page: 4 }))
+  mounted.unmount()
+})
+
+it('does not show school unavailability before the initial school response or while retrying', async () => {
+  const schoolContext = reactive({ id: '', generation: 0, school: undefined as { id: string; name: string } | undefined, loaded: false })
+  const { mounted } = setup(schoolContext)
+  const unavailable = '学校暂不可用，请联系管理员'
+  expect(text(mounted.root)).not.toContain(unavailable)
+  schoolContext.loaded = true
+  await nextTick()
+  expect(text(mounted.root)).toContain(unavailable)
+  schoolContext.loaded = false
+  await nextTick()
+  expect(text(mounted.root)).not.toContain(unavailable)
+  schoolContext.school = { id: 'school', name: '学校' }
+  schoolContext.id = 'school'
+  schoolContext.loaded = true
+  await nextTick()
+  expect(text(mounted.root)).not.toContain(unavailable)
   mounted.unmount()
 })
