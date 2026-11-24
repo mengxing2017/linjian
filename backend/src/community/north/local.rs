@@ -115,8 +115,14 @@ impl<R: Store> Service<R> {
 }
 
 impl<R: Store> Service<R> {
-    pub async fn posts(&self, a: &Actor, s: Uuid, p: crate::business::Page) -> Result<Vec<Value>> {
+    pub async fn posts(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        mut p: crate::business::Page,
+    ) -> Result<Vec<Value>> {
         a.authorize(s, "member")?;
+        p.search = crate::community::domain::post_search::normalize(p.search.as_deref())?;
         self.0.posts(a, s, p).await
     }
     pub async fn interaction_state(

@@ -4,6 +4,14 @@
 
 职责：帖子、评论、互动、关注与站内通知。
 
+## 帖子搜索
+
+`GET /api/v1/schools/{school}/posts?search=关键词` 复用帖子列表接口，只搜索当前授权学校内的标题或完整正文。关键词按 ECMAScript 边界空白规则规范化，非空时最多 100 个 Unicode 标量值；空值仍表示不筛选，兼容首页及个人列表。客户端和 Rust 共用规范化 fixture。
+
+查询使用参数绑定和显式 `ESCAPE '!'`，`!`、`%`、`_`、反斜杠均按字面处理，英文匹配大小写不敏感。不拆词、不按相关度排序，沿用置顶、人工顺序、展示发布时间和 ID。服务层保留成员授权，adapter 校验学校有效性及现有作者／读取权限可见范围；列表查询不增加浏览计数或生成 Outbox。
+
+小程序首页学校标题旁进入 `/pages/index/search` 的独立搜索页，空输入不请求列表；`view=mine`、`view=collect` 仍进入个人列表。搜索结果只保存在页面内，分页及重试使用已提交关键词，切换学校或账号时使旧结果失效。`backend/tests/post_search/mod.rs` 覆盖字面匹配、权限、JSON:API 分页、排序与只读边界。
+
 ## 通知未读汇总
 
 `GET /api/v1/schools/{school}/notification-summary` 返回当前认证账号在指定学校可访问通知的未读总数，JSON:API 类型为 `notification-summaries`，资源 ID 与 `school_id` 均为学校 UUID，`unread_count` 为非负整数。该响应是个人汇总而非学校公共数据，使用 `private, no-store`。
