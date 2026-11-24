@@ -11,7 +11,7 @@ export function createNotificationSummary(options: {
   failure: (error: unknown) => void
   now?: () => number
 }) {
-  const state = reactive({ count: undefined as number | undefined, busy: false })
+  const state = reactive({ count: undefined as number | undefined, busy: false, error: '' })
   const now = options.now ?? Date.now
   let scope: SummaryScope | undefined
   let generation = 0, mutation = 0, validatedAt: number | undefined, pending = false
@@ -22,6 +22,7 @@ export function createNotificationSummary(options: {
       generation++
       scope = next
       state.count = undefined
+      state.error = ''
       state.busy = false
       validatedAt = undefined
       pending = false
@@ -47,12 +48,14 @@ export function createNotificationSummary(options: {
           sync()
           if (turn === generation && version === mutation) {
             state.count = result.unread_count
+            state.error = ''
             validatedAt = now()
           }
         } catch (error) {
           sync()
           if (turn === generation && version === mutation) {
             validatedAt = undefined
+            state.error = error instanceof Error ? error.message : '未读数量暂未更新，请下拉刷新重试'
             options.failure(error)
           }
         }
