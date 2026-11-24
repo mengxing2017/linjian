@@ -61,9 +61,9 @@ async function prepare() {
   if (!validPostTarget(school, id)) throw new Error('帖子链接无效')
   await restoreSession()
   if (school !== props.school || id !== props.id || !visible) return false
-  if (!session.user || (!session.user.bound_school_id && !session.user.grants.length)) {
+  if (!session.user?.bound_school_id) {
     saveReturnTarget(school, id)
-    uni.navigateTo({ url: session.user ? '/pages/plugin/index' : '/pages/user/login' })
+    uni.navigateTo({ url: '/pages/user/login' })
     return false
   }
   const allowed = await requireSchool(school)

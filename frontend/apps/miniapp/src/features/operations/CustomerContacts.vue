@@ -34,8 +34,8 @@ defineExpose({ prepare: contacts.prepare, show: contacts.show, hide: () => { con
       <button @tap="navigate('/pages/user/login')">前往登录</button>
     </view>
     <view v-else-if="state === 'school-required'">
-      <text>请先绑定或选择可用学校，再查看平台联系方式</text>
-      <button @tap="navigate('/pages/plugin/index')">选择学校</button>
+      <text>请先完成首次入驻，再查看平台联系方式</text>
+      <button @tap="navigate('/pages/user/login')">继续登录与入驻</button>
     </view>
     <view v-else-if="state === 'error'">
       <text class="error">平台服务加载失败：{{ error }}</text>

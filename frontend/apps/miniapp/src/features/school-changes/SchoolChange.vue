@@ -153,7 +153,7 @@ defineExpose({ show: load, refresh: load, hide })
       </button>
       <button v-if="request.status === 'pending'" :disabled="busy" @tap="cancel">撤回申请</button>
     </view>
-    <text v-if="session.user && !session.user.bound_school_id">尚未绑定学校，请先使用学校绑定入口。</text>
+    <text v-if="session.user && !session.user.bound_school_id">尚未绑定学校，请先完成首次入驻。</text>
     <view v-if="canApply && policy" class="card">
       <text>当前归属：{{ currentSchoolName }}</text>
       <text>仅受理目标学校在读学生、新生；其他学生关系不予受理。审核期限 {{ policy.review_working_days }} 个工作日，提交次日起按北京时间计算，超期自动驳回。</text>

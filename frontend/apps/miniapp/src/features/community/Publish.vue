@@ -246,7 +246,7 @@ async function submit() {
   error.value = ''
   let submissionScope = scopeKey()
   try {
-    if (!(await ensureLoaded())) throw new Error('请先选择学校并加载编辑页面')
+    if (!(await ensureLoaded())) throw new Error('请先加载绑定学校与编辑页面')
     submissionScope = scopeKey()
     const normalized = normalizePostContent({ title: title.value, content: content.value })
     const s = schoolContext.id,
