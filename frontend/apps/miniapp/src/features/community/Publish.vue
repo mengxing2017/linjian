@@ -12,6 +12,9 @@ import { usePage, confirm, handlePageError } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
 import PhoneBindingPanel from '../miniapp-users/PhoneBindingPanel.vue'
 import { onUnmounted } from 'vue'
+import { createPublishExit } from './publish-exit'
+import { leavePublish, finishPublish } from '../../app/navigation'
+import { clearReturnTarget } from '../identity/return-target'
 const props = defineProps<{ id?: string; school?: string }>()
 const phone = ref<InstanceType<typeof PhoneBindingPanel>>()
 const ensurePhone = () => phone.value?.ensure() ?? Promise.resolve(false)
@@ -28,7 +31,10 @@ const title = ref(''),
 const uploading = ref(false)
 const pendingImages = ref(0)
 const submitting = ref(false)
+let visible = false
+let draftScope: { key: string; school: string; account: string; scope: string } | undefined
 const { busy, error, run } = usePage(() => {
+  draftScope = undefined
   title.value = ''
   titleExpanded.value = false
   content.value = ''
@@ -39,28 +45,50 @@ const { busy, error, run } = usePage(() => {
   message.value = ''
   candidates.value = []
   selectedCandidates.value = []
+  leaseMessage.value = ''
 })
 const draftKey = () => postDraftKey(session.user?.id, schoolContext.id, props.id)
 const draftId = ref(uuid())
 const leaseMessage = ref('')
 function saveDraft() {
+  if (!draftScope || draftScope.scope !== scopeKey() || draftScope.account !== session.user?.id) return false
   if (
     !session.user ||
     !schoolContext.id ||
-    (!title.value.trim() && !content.value.trim() && !images.value.length)
+    (!title.value.trim() && !content.value.trim() && !tags.value.trim() && !images.value.length)
   )
-    return
-  uni.setStorageSync(draftKey(), {
+    return true
+  try { uni.setStorageSync(draftScope.key, {
     title: title.value,
     content: content.value,
     tags: tags.value,
     images: images.value,
     revision: revision.value,
     draft_id: draftId.value,
-  })
+  }) } catch {
+    uni.showToast({ title: '草稿保存失败，请勿退出', icon: 'none' })
+    return false
+  }
   const scope = scopeKey()
-  void keepDraftImages(schoolContext.id, draftId.value, images.value).then(v => { if (scope === scopeKey()) leaseMessage.value = `草稿图片保留 ${v.lease_days} 天；恢复时重新核验。` }).catch(() => { if (scope === scopeKey()) leaseMessage.value = '草稿已保存本机，图片保留未确认，恢复时可能需要重新上传。' })
+  void keepDraftImages(draftScope.school, draftId.value, images.value).then(v => { if (scope === scopeKey()) leaseMessage.value = `草稿图片保留 ${v.lease_days} 天；恢复时重新核验。` }).catch(() => { if (scope === scopeKey()) leaseMessage.value = '草稿已保存本机，图片保留未确认，恢复时可能需要重新上传。' })
+  return true
 }
+function clearDraft() {
+  if (draftScope?.scope === scopeKey()) uni.removeStorageSync(draftScope.key)
+  title.value = ''
+  titleExpanded.value = false
+  content.value = ''
+  tags.value = ''
+  images.value = []
+}
+const exit = createPublishExit({
+  snapshot: () => JSON.stringify([title.value, content.value, tags.value, images.value, pendingImages.value]),
+  save: saveDraft,
+  discard: clearDraft,
+  busy: () => busy.value || uploading.value || submitting.value,
+  scope: scopeKey,
+  leave: () => props.id ? uni.navigateBack({ delta: 1 }) : leavePublish(),
+})
 const stop = onScopeChange(() => {
   loaded.value = ''
 })
@@ -70,6 +98,8 @@ function loadData() {
     if (!(await requireSchool(props.school))) return false
     const key = scopeKey()
     if (loaded.value === key) return true
+    if (!session.user) return false
+    draftScope = { key: draftKey(), school: schoolContext.id, account: session.user.id, scope: key }
     const menu = await homeMenuApi.public(schoolContext.id)
     if (key !== scopeKey()) return false
     candidates.value = menu.tags
@@ -85,6 +115,7 @@ function loadData() {
       images.value = [...post.images]
       revision.value = post.revision
     }
+    exit.checkpoint()
     const draft: unknown = uni.getStorageSync(draftKey())
     if (
       draft &&
@@ -114,7 +145,9 @@ function loadData() {
       try { await keepDraftImages(schoolContext.id, draftId.value, images.value) }
       catch { leaseMessage.value = '部分草稿图片已失效，请移除失效图片并重新上传。' }
     }
+    if (key !== scopeKey()) return false
     loaded.value = key
+    if (!props.id) clearReturnTarget()
     return true
   })()
 }
@@ -125,6 +158,7 @@ function ensureLoaded() {
   return loading
 }
 function load() {
+  visible = true
   return run(async () => {
     await ensureLoaded()
   })
@@ -137,19 +171,21 @@ function addTag(tag: HomeMenuTag) {
 }
 
 async function submit() {
-  if (submitting.value || uploading.value) {
+  if (busy.value || submitting.value || uploading.value) {
     uni.showToast({ title: '正在处理，请稍候', icon: 'none' })
     return
   }
   submitting.value = true
   error.value = ''
+  let submissionScope = scopeKey()
   try {
     if (!(await ensureLoaded())) throw new Error('请先选择学校并加载编辑页面')
+    submissionScope = scopeKey()
     const normalized = normalizePostContent({ title: title.value, content: content.value })
     const s = schoolContext.id,
       key = scopeKey(),
       draft = draftKey()
-    saveDraft()
+    if (!saveDraft()) return
     if (!await ensurePhone() || key !== scopeKey()) return
     if (pendingImages.value) throw new Error('还有未上传的图片，请重试或移除后再发布；正文已保存')
     const input = {
@@ -175,14 +211,23 @@ async function submit() {
     tags.value = ''
     images.value = []
     revision.value = result.revision
+    exit.checkpoint()
+    if (!visible) return
     uni.showModal({
       title: '提交成功',
       content: message.value,
       showCancel: false,
-      success: () => { if (key === scopeKey()) uni.redirectTo({ url: `/pages/index/detail?school=${s}&id=${result.id}` }) },
+      success: () => {
+        if (key !== scopeKey() || !visible) return
+        const operation = props.id
+          ? uni.redirectTo({ url: `/pages/index/detail?school=${s}&id=${result.id}` })
+          : finishPublish(s, result.id)
+        void operation.catch(() => uni.showToast({ title: '提交已成功，可在我的发布中查看', icon: 'none' }))
+      },
     })
   } catch (e) {
-    if (e && typeof e === 'object' && 'code' in e && e.code === 'phone_verification_required') void phone.value?.open()
+    if (submissionScope !== scopeKey()) return
+    if (visible && e && typeof e === 'object' && 'code' in e && e.code === 'phone_verification_required') void phone.value?.open()
     error.value = handlePageError(e)
     uni.showToast({ title: error.value.slice(0, 30), icon: 'none' })
   } finally {
@@ -190,52 +235,53 @@ async function submit() {
   }
 }
 function discard() {
-  void run(async () => {
-    if (await confirm('确认丢弃当前草稿？')) {
-      uni.removeStorageSync(draftKey())
-      title.value = ''
-      titleExpanded.value = false
-      content.value = ''
-      tags.value = ''
-      images.value = []
+  void run(async (current) => {
+    if (await confirm('确认丢弃当前草稿？') && current()) {
+      clearDraft()
+      exit.checkpoint()
     }
   })
 }
 // Scope changes clear in-memory fields; drafts are explicitly saved under account + school.
-defineExpose({ show: load, hide: () => { saveDraft(); phone.value?.close() } })
+defineExpose({ show: load, hide: () => { visible = false; exit.saveOnHide(); phone.value?.close() }, cancel: exit.cancel })
 </script>
 <template>
   <view class="page">
-    <text class="heading">{{ props.id ? '编辑动态' : '分享校园生活' }}</text>
+    <view class="row spread">
+      <text class="heading">{{ props.id ? '编辑动态' : '分享校园生活' }}</text>
+      <button size="mini" :disabled="busy || uploading || submitting" @tap="exit.cancel">取消</button>
+    </view>
     <text class="muted">
       {{ schoolContext.schools.find((s) => s.id === schoolContext.id)?.name }}
     </text>
     <PageStatus :busy="busy" :error="error" @retry="load" />
     <view class="card">
       <view v-if="titleExpanded">
-        <input v-model="title" class="input" maxlength="-1" placeholder="标题（选填，最多 200 字）" />
-        <button size="mini" @tap="titleExpanded = false">收起标题</button>
-        <button size="mini" @tap="title = ''; titleExpanded = false">移除标题</button>
+        <input v-model="title" :disabled="busy || submitting" class="input" maxlength="-1" placeholder="标题（选填，最多 200 字）" />
+        <button size="mini" :disabled="busy || submitting" @tap="titleExpanded = false">收起标题</button>
+        <button size="mini" :disabled="busy || submitting" @tap="title = ''; titleExpanded = false">移除标题</button>
       </view>
       <textarea
         v-model="content"
+        :disabled="busy || submitting"
         class="input editor"
         maxlength="-1"
         placeholder="分享此刻的想法，或说说你想问的事……"
       />
-      <button v-if="!titleExpanded" size="mini" @tap="titleExpanded = true">{{ title ? '展开标题' : '添加标题（选填）' }}</button>
-      <view class="row"><text>可选标签：</text><button v-for="tag in candidates" :key="tag.id" size="mini" @tap="addTag(tag)">{{ tag.name }}</button></view>
-      <input v-model="tags" class="input" placeholder="标签，使用逗号分隔" />
-      <ImageUploads v-model="images" purpose="post_image" :before-upload="ensurePhone" :disabled="busy" @busy="uploading = $event" @pending="pendingImages = $event" />
+      <button v-if="!titleExpanded" size="mini" :disabled="busy || submitting" @tap="titleExpanded = true">{{ title ? '展开标题' : '添加标题（选填）' }}</button>
+      <view class="row"><text>可选标签：</text><button v-for="tag in candidates" :key="tag.id" size="mini" :disabled="busy || submitting" @tap="addTag(tag)">{{ tag.name }}</button></view>
+      <input v-model="tags" :disabled="busy || submitting" class="input" placeholder="标签，使用逗号分隔" />
+      <ImageUploads v-model="images" purpose="post_image" :before-upload="ensurePhone" :disabled="busy || submitting" @busy="uploading = $event" @pending="pendingImages = $event" />
       <text v-if="leaseMessage" class="muted">{{ leaseMessage }}</text>
       <view class="row">
-        <button size="mini" :disabled="busy || uploading" @tap="saveDraft">保存本地草稿</button>
-        <button size="mini" :disabled="busy || uploading" @tap="discard">丢弃草稿</button>
+        <button size="mini" :disabled="busy || uploading || submitting" @tap="saveDraft">保存本地草稿</button>
+        <button size="mini" :disabled="busy || uploading || submitting" @tap="discard">丢弃草稿</button>
       </view>
       <text v-if="error" class="error">{{ error }}</text>
-      <button class="primary" :disabled="submitting || uploading" :loading="submitting" @tap="submit">发布</button>
+      <button class="primary" :disabled="busy || submitting || uploading" :loading="submitting" @tap="submit">发布</button>
       <text class="muted">网络中断时请先在“我的发布”核对结果，再决定是否重新提交。</text>
       <text class="muted">首次发布需通过微信验证手机号；暂不验证仍可浏览和保存正文草稿。</text>
+      <text class="muted">点击“取消”可选择保存或放弃；使用系统返回时自动保存本地草稿，草稿图片恢复时会重新核验。</text>
     </view>
     <PhoneBindingPanel ref="phone" />
   </view>
