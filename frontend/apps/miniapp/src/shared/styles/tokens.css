@@ -1,0 +1,45 @@
+page {
+  --linjian-font-heading: 36rpx;
+  --linjian-font-title: 30rpx;
+  --linjian-font-body: 28rpx;
+  --linjian-font-meta: 24rpx;
+  --linjian-font-caption: 22rpx;
+  --linjian-line-body: 1.6;
+  --linjian-space-page: 24rpx;
+  --linjian-space-card: 20rpx;
+  --linjian-space-list: 12rpx;
+  --linjian-radius-card: 18rpx;
+}
+.page.compact-page {
+  padding: var(--linjian-space-page);
+  padding-bottom: 60rpx;
+}
+.compact-page .heading {
+  font-size: var(--linjian-font-heading);
+  line-height: 1.4;
+  margin: 12rpx 0;
+  overflow-wrap: anywhere;
+}
+.compact-page .card {
+  padding: var(--linjian-space-card);
+  margin: var(--linjian-space-list) 0;
+  border-radius: var(--linjian-radius-card);
+}
+.compact-page .title {
+  font-size: var(--linjian-font-title);
+  line-height: 1.4;
+  margin: 8rpx 0;
+}
+.compact-page .muted {
+  margin: 8rpx 0;
+}
+.compact-page .body {
+  font-size: var(--linjian-font-body);
+  line-height: 1.7;
+  margin: 16rpx 0;
+}
+.compact-page .comment {
+  padding: 16rpx 0;
+  line-height: var(--linjian-line-body);
+  overflow-wrap: anywhere;
+}

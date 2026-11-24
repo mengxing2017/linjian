@@ -2,7 +2,7 @@
 import { ref, watch, onUnmounted } from 'vue'
 import { imagePath } from './files'
 import { onScopeChange, clearScope } from '../school-context/context'
-const props = defineProps<{ school: string; source: string }>()
+const props = withDefaults(defineProps<{ school: string; source: string; variant?: 'detail' | 'feed' }>(), { variant: 'detail' })
 const local = ref(''),
   error = ref(false)
 let generation = 0
@@ -40,8 +40,21 @@ function preview() {
 }
 </script>
 <template>
-  <image v-if="local" class="post-image" :src="local" mode="widthFix" @tap.stop="preview" />
-  <view v-else class="image-placeholder" @tap.stop="load">
+  <image v-if="local && !error" class="post-image" :class="{ 'feed-image': variant === 'feed' }" :src="local" :mode="variant === 'feed' ? 'aspectFill' : 'widthFix'" @error="error = true" @tap.stop="preview" />
+  <view v-else class="image-placeholder" :class="{ 'feed-placeholder': variant === 'feed' }" :role="error ? 'button' : undefined" :aria-label="error ? '图片加载失败，点击重试' : '图片加载中'" @tap.stop="error && load()">
     {{ error ? '图片加载失败，点击重试' : '图片加载中…' }}
   </view>
 </template>
+<style scoped>
+.feed-image, .feed-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 152rpx;
+  height: 152rpx;
+  box-sizing: border-box;
+  margin: 0;
+  border-radius: 12rpx;
+}
+.feed-placeholder { padding: 12rpx; font-size: var(--linjian-font-caption); line-height: 1.4; }
+</style>

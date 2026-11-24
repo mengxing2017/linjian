@@ -10,6 +10,7 @@ onLaunch(() => {
 onShow(() => { void notificationSummary.refresh() })
 </script>
 <style>
+@import './shared/styles/tokens.css';
 /* Carry forward the old uniapp theme palette and card/feed interaction. */
 page {
   background: #f5f7fb;
