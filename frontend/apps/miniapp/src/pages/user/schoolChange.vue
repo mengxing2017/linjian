@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { useScreen } from '../../app/page-lifecycle'
+import { useProtectedScreen } from '../../app/page-lifecycle'
 import Screen from '../../features/school-changes/SchoolChange.vue'
-const screen = useScreen()
+const { screen, allowed } = useProtectedScreen()
 </script>
-<template><Screen ref="screen" /></template>
+<template><Screen v-if="allowed" ref="screen" /></template>

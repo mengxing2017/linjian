@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { schoolTheme } from '../../features/school-context/theme'
-import { useScreen } from '../../app/page-lifecycle'
-const screen = useScreen(true)
+import { useProtectedScreen } from '../../app/page-lifecycle'
+const { screen, allowed } = useProtectedScreen(true)
 import Screen from '../../features/community/Detail.vue'
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
@@ -13,5 +13,5 @@ onLoad((query) => {
 })
 </script>
 <template>
-  <view :style="schoolTheme"><Screen ref="screen" :id="id" :school="school" /></view>
+  <view :style="schoolTheme"><Screen v-if="allowed" ref="screen" :id="id" :school="school" /></view>
 </template>
