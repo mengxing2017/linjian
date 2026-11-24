@@ -37,6 +37,14 @@ export interface SchoolInput {
 }
 export type SchoolCreateInput = Omit<SchoolInput, 'latitude' | 'longitude'> & { latitude: number; longitude: number }
 export type SchoolUpdateInput = Partial<SchoolInput> & { revision: number }
+export interface SchoolRecommendationInput {
+  latitude: number
+  longitude: number
+  coordinate_system: 'gcj02'
+  scene: 'binding' | 'browsing'
+}
+export type OnboardingSchoolRecommendationInput = Omit<SchoolRecommendationInput, 'scene'> & { ticket: string }
+export type SchoolRecommendation = SchoolDisplay & { distance_m: number }
 export interface SchoolFilters {
   page?: number
   search?: string

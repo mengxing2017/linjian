@@ -1,13 +1,17 @@
 import type { Cancellation, Client } from '../../http/client'
 import { schoolPath } from './path'
 import { schoolQuery } from './query'
-import type { School, SchoolDisplay, SchoolFilters, SchoolCreateInput, SchoolUpdateInput } from './types'
+import type { School, SchoolDisplay, SchoolFilters, SchoolCreateInput, SchoolUpdateInput, SchoolRecommendation, SchoolRecommendationInput, OnboardingSchoolRecommendationInput } from './types'
 
 export function createSchoolsClient(
   client: Pick<Client, 'requestResource' | 'requestCollection' | 'requestBinary'>,
 ) {
   return {
     list: () => client.requestResource<SchoolDisplay[]>('/api/v1/schools'),
+    recommendations: (input: SchoolRecommendationInput, signal?: Cancellation) =>
+      client.requestCollection<SchoolRecommendation>('/api/v1/school-recommendations', signal, 'POST', input),
+    onboardingRecommendations: (input: OnboardingSchoolRecommendationInput, signal?: Cancellation) =>
+      client.requestCollection<SchoolRecommendation>('/api/v1/onboarding/school-recommendations', signal, 'POST', input),
     platform: (filters: SchoolFilters = {}, signal?: Cancellation) =>
       client.requestCollection<School>('/api/v1/platform/schools' + schoolQuery(filters), signal),
     directory: (filters: SchoolFilters = {}, signal?: Cancellation) =>

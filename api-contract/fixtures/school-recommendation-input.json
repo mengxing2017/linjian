@@ -1,0 +1,11 @@
+{
+  "data": {
+    "type": "school-recommendation-queries",
+    "attributes": {
+      "latitude": 23.1,
+      "longitude": 113.3,
+      "coordinate_system": "gcj02",
+      "scene": "binding"
+    }
+  }
+}

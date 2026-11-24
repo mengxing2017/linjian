@@ -202,6 +202,7 @@
       "ManagementMember",
       "MemberFilters",
       "MemberPermissions",
+      "OnboardingSchoolRecommendationInput",
       "PermissionCatalog",
       "PermissionDefinition",
       "PermissionEffect",
@@ -212,6 +213,8 @@
       "SchoolDisplay",
       "SchoolFilters",
       "SchoolInput",
+      "SchoolRecommendation",
+      "SchoolRecommendationInput",
       "SchoolUpdateInput"
     ],
     "values": [

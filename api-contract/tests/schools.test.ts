@@ -2,10 +2,27 @@ import { it, expect, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { createClient } from "../src/http/client";
 import { createSchoolsClient } from "../src/modules/schools";
+import type { SchoolRecommendationInput, OnboardingSchoolRecommendationInput } from '../src/modules/schools';
 const fixture = (s: string) =>
   JSON.parse(
     readFileSync(new URL(`../fixtures/${s}.json`, import.meta.url), "utf8"),
   );
+it('posts locations in JSON:API bodies and keeps private school data out of recommendation fixtures', async () => {
+  const transport = vi.fn().mockResolvedValue({ status: 200, headers: { 'content-type': 'application/vnd.api+json' }, body: fixture('school-recommendations') });
+  const api = createSchoolsClient(createClient(transport));
+  const signal = { aborted: false, addEventListener: vi.fn(), removeEventListener: vi.fn() };
+  const result = await api.recommendations(fixture('school-recommendation-input').data.attributes as SchoolRecommendationInput, signal);
+  expect(result.items[0].distance_m).toBe(120.5);
+  expect(result.items[0]).not.toHaveProperty('config');
+  expect(result.items[0]).not.toHaveProperty('logo_asset_id');
+  expect(JSON.parse(transport.mock.calls[0][0].body)).toEqual(fixture('school-recommendation-input'));
+  expect(transport.mock.calls[0][0]).toMatchObject({ path: '/api/v1/school-recommendations', method: 'POST', signal });
+  await api.onboardingRecommendations(fixture('onboarding-school-recommendation-input').data.attributes as OnboardingSchoolRecommendationInput);
+  expect(JSON.parse(transport.mock.calls[1][0].body)).toEqual(fixture('onboarding-school-recommendation-input'));
+  expect(transport.mock.calls[1][0].path).toBe('/api/v1/onboarding/school-recommendations');
+  transport.mockResolvedValueOnce({ status: 200, headers: { 'content-type': 'application/vnd.api+json' }, body: fixture('school-recommendations-empty') });
+  expect((await api.recommendations(fixture('school-recommendation-input').data.attributes)).items).toEqual([]);
+});
 it("uses complete school profiles and strict input wire fixtures", async () => {
   const transport = vi
     .fn()

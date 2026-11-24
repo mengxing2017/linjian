@@ -101,6 +101,7 @@ export function decodeResource(value: unknown): Record<string, unknown> {
 }
 /** Explicit aliases for action routes whose target resource differs from the URL leaf. */
 export function resourceType(path: string): string {
+  if (['/api/v1/school-recommendations', '/api/v1/onboarding/school-recommendations'].includes(path.split('?')[0])) return 'school-recommendation-queries';
   if (path.startsWith('/api/v1/auth/miniapp/onboarding')) return 'onboarding'
   if (path.startsWith('/api/v1/platform/legal-documents/')) return path.endsWith('/clear') ? 'legal-document-clears' : 'legal-documents'
   const advertisementPath = path.split('?')[0]
