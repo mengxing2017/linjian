@@ -1,0 +1,6 @@
+{
+  "data": [
+    { "type": "notifications", "id": "00000000-0000-4000-8000-000000000014", "attributes": { "school_id": "00000000-0000-4000-8000-000000000001", "account_id": "00000000-0000-4000-8000-000000000002", "kind": "moderation", "object_id": "00000000-0000-4000-8000-000000000003", "created_at": "2026-11-24T02:30:00Z", "read_at": null } }
+  ],
+  "meta": { "page": { "number": 1, "size": 20, "has_more": false } }
+}

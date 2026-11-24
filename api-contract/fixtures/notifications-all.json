@@ -1,0 +1,7 @@
+{
+  "data": [
+    { "type": "notifications", "id": "00000000-0000-4000-8000-000000000011", "attributes": { "school_id": "00000000-0000-4000-8000-000000000001", "account_id": "00000000-0000-4000-8000-000000000002", "kind": "like", "object_id": "00000000-0000-4000-8000-000000000003", "created_at": "2026-11-24T02:30:00Z", "read_at": null } },
+    { "type": "notifications", "id": "00000000-0000-4000-8000-000000000012", "attributes": { "school_id": "00000000-0000-4000-8000-000000000001", "account_id": "00000000-0000-4000-8000-000000000002", "kind": "future", "object_id": null, "created_at": "2026-11-23T02:30:00Z", "read_at": "2026-11-23T03:00:00Z" } }
+  ],
+  "meta": { "page": { "number": 1, "size": 20, "has_more": false } }
+}
