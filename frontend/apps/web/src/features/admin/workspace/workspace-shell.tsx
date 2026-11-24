@@ -17,6 +17,7 @@ import { GlobalResources } from './global-resources'
 import { BlockedWords } from './blocked-words'
 import { SiteSettings } from '../site-settings'
 import { MiniappRegistrationSettings } from '../miniapp-registration-settings'
+import { LegalDocuments } from '../legal-documents/legal-documents'
 import { SchoolWorkspacePage } from './school-workspace-page'
 import { browserClient, createSchoolPermissionsClient, type User } from './api'
 import { useQuery } from '@tanstack/react-query'
@@ -151,6 +152,8 @@ export function WorkspaceShell({ user, logout }: { user: User; logout: () => Pro
           return <BlockedWords canEdit />
         case 'site-settings':
           return <SiteSettings key={tab} />
+        case 'legal-documents':
+          return <LegalDocuments key={tab} />
         case 'miniapp-registration-settings':
           return <MiniappRegistrationSettings key={tab} />
       }

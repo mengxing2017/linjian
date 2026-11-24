@@ -14,6 +14,7 @@ import {
   DashboardOutlined,
   FileSearchOutlined,
   FormOutlined,
+  ReadOutlined,
   GlobalOutlined,
   IdcardOutlined,
   InfoCircleOutlined,
@@ -202,6 +203,7 @@ export const navigation: NavigationItem[] = [
     scope: 'global',
     capability: 'global.manage',
   },
+  { key: 'legal-documents', icon: <ReadOutlined />, label: '协议与政策', description: '维护平台用户协议、隐私政策及修订历史。', domain: 'administration', scope: 'global', capability: 'global.manage' },
   {
     key: 'miniapp-registration-settings',
     icon: <FormOutlined />,
