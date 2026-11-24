@@ -1,10 +1,12 @@
 import { ref, shallowRef } from 'vue'
 import { mergePageWindow } from '../../shared/page-window'
 import { feedPost } from './post-feed-card'
+import { mapConcurrent } from '../../shared/concurrency'
 import {
   normalizePostSearch,
   type communityApi,
   type CommunityPost,
+  type PostInteractionState,
   type Cancellation,
 } from './api'
 import { acknowledgePost, invalidatedPosts } from './post-invalidations'
@@ -227,34 +229,29 @@ export function createPostSearch(env: Environment) {
       for (const item of dirty) acknowledgePost(scope.key, scope.school, item.id, item.version)
       return
     }
-    for (const item of dirty) {
-      try {
-        const state = await env.api.interactionState(scope.school, item.id)
-        if (!current()) return
-        const latest = invalidatedPosts(scope.key, scope.school).find(
-          (entry) => entry.id === item.id,
-        )
-        if (latest?.version !== item.version) continue
-        posts.value = posts.value.map((post) =>
-          post.id === item.id ? { ...post, ...state } : post,
-        )
-        acknowledgePost(scope.key, scope.school, item.id, item.version)
-      } catch (cause) {
-        if (!current()) return
-        if (cause && typeof cause === 'object' && 'status' in cause && cause.status === 404) {
-          if (
-            invalidatedPosts(scope.key, scope.school).find((entry) => entry.id === item.id)
-              ?.version !== item.version
-          )
-            continue
-          posts.value = posts.value.filter((post) => post.id !== item.id)
-          acknowledgePost(scope.key, scope.school, item.id, item.version)
-        } else {
-          const message = env.failure(cause)
-          if (current()) error.value = message
-          return
-        }
-      }
+    if (!dirty.length) return
+    const results = await mapConcurrent(dirty, async item => {
+      try { return { item, state: await env.api.interactionState(scope.school, item.id), cause: undefined } }
+      catch (cause) { return { item, state: undefined, cause } }
+    }, current)
+    if (!current()) return
+    const latest = new Map(invalidatedPosts(scope.key, scope.school).map(item => [item.id, item.version]))
+    const changes = new Map<string, PostInteractionState | null>()
+    const failures: unknown[] = []
+    for (const { item, state, cause } of results) {
+      if (latest.get(item.id) !== item.version) continue
+      if (state) changes.set(item.id, state)
+      else if (cause && typeof cause === 'object' && 'status' in cause && cause.status === 404) changes.set(item.id, null)
+      else { failures.push(cause); continue }
+      acknowledgePost(scope.key, scope.school, item.id, item.version)
+    }
+    if (changes.size) posts.value = posts.value.flatMap(post => {
+      const change = changes.get(post.id)
+      return change === null ? [] : [change ? { ...post, ...change } : post]
+    })
+    if (failures.length) {
+      const message = env.failure(failures[0])
+      if (current()) error.value = message
     }
   }
   function sync() {

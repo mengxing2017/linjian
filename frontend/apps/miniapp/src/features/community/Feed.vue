@@ -2,6 +2,7 @@
 import { mergePageWindow } from '../../shared/page-window'
 import PageWindow from '../../shared/PageWindow.vue'
 import { feedPost } from './post-feed-card'
+import { mapConcurrent } from '../../shared/concurrency'
 import { recordPage } from '../statistics/activity'
 import HomeOperations from '../operations/HomeOperations.vue'
 import HomeShortcuts from '../operations/HomeShortcuts.vue'
@@ -13,7 +14,7 @@ let pageTurn = 0
 const shortcuts = shallowRef<InstanceType<typeof HomeShortcuts>>()
 const operations = shallowRef<InstanceType<typeof HomeOperations>>()
 import { shallowRef, ref, computed, watch, onUnmounted } from 'vue'
-import { communityApi, homeMenuApi, type HomeMenu, type CommunityPost, type FeedFilter } from './api'
+import { communityApi, homeMenuApi, type HomeMenu, type CommunityPost, type FeedFilter, type PostInteractionState } from './api'
 import { requireSchool, schoolContext, scopeKey } from '../school-context/context'
 import { invalidatedPosts, acknowledgePost, clearPostInvalidations } from './post-invalidations'
 import { session } from '../identity/session'
@@ -105,23 +106,34 @@ function selectTag(tag: string) {
 async function syncInvalidated(current: () => boolean) {
   const school = schoolContext.id
   const scope = `${scopeKey()}:${session.user?.id ?? ''}`
-  for (const dirty of invalidatedPosts(scope, school)) {
-    if (!posts.value.some(item => item.id === dirty.id)) continue
-    try {
-      const state = await communityApi.interactionState(school, dirty.id)
-      if (!current() || scope !== `${scopeKey()}:${session.user?.id ?? ''}`) return
+  const valid = () => current() && scope === `${scopeKey()}:${session.user?.id ?? ''}`
+  const ids = new Set(posts.value.map(item => item.id))
+  const dirty = invalidatedPosts(scope, school).filter(item => ids.has(item.id))
+  if (!dirty.length) return
+  const results = await mapConcurrent(dirty, async item => {
+    try { return { item, state: await communityApi.interactionState(school, item.id), cause: undefined } }
+    catch (cause) { return { item, state: undefined, cause } }
+  }, valid)
+  if (!valid()) return
+  const latest = new Map(invalidatedPosts(scope, school).map(item => [item.id, item.version]))
+  const changes = new Map<string, PostInteractionState | null>()
+  const failures: unknown[] = []
+  for (const { item, state, cause } of results) {
+    if (latest.get(item.id) !== item.version) continue
+    if (state) {
       const readable = mode.value === 'mine' || (state.audit_status === 'approved' && state.visibility === 'visible')
       const matches = readable && (mode.value !== 'collect' || state.collected) && (mode.value !== 'following' || state.author_followed)
-      posts.value = posts.value.flatMap(item => item.id !== dirty.id ? [item] : matches ? [{ ...item, audit_status: state.audit_status, visibility: state.visibility, like_count: state.like_count, comment_count: state.comment_count }] : [])
-      acknowledgePost(scope, school, dirty.id, dirty.version)
-    } catch (cause) {
-      if (!current() || scope !== `${scopeKey()}:${session.user?.id ?? ''}`) return
-      if (cause && typeof cause === 'object' && 'status' in cause && cause.status === 404) {
-        posts.value = posts.value.filter(item => item.id !== dirty.id)
-        acknowledgePost(scope, school, dirty.id, dirty.version)
-      } else throw cause
-    }
+      changes.set(item.id, matches ? state : null)
+    } else if (cause && typeof cause === 'object' && 'status' in cause && cause.status === 404) {
+      changes.set(item.id, null)
+    } else { failures.push(cause); continue }
+    acknowledgePost(scope, school, item.id, item.version)
   }
+  if (changes.size) posts.value = posts.value.flatMap(item => {
+    const change = changes.get(item.id)
+    return change === null ? [] : [change ? { ...item, ...change } : item]
+  })
+  if (failures.length) throw failures[0]
 }
 function detail(post: CommunityPost) {
   navigate(`/pages/index/detail?school=${schoolContext.id}&id=${post.id}`)
@@ -140,7 +152,8 @@ defineExpose({
     const activeSchool = schoolContext.id
     const scope = `${scopeKey()}:${session.user?.id ?? ''}`
     const dirty = invalidatedPosts(scope, activeSchool)
-    const queryChanged = dirty.some(item => item.content || (mode.value === 'following' && item.authorId) || (mode.value === 'collect' && !posts.value.some(post => post.id === item.id)))
+    const ids = new Set(posts.value.map(post => post.id))
+    const queryChanged = dirty.some(item => item.content || (mode.value === 'following' && item.authorId) || (mode.value === 'collect' && !ids.has(item.id)))
     await (posts.value.length && !queryChanged
       ? run(syncInvalidated)
       : load())
