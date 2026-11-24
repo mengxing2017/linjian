@@ -37,6 +37,8 @@ it('bridges native instances to Vue state without duplicating business state or 
   app.linjianTabbar!.attach(first)
   expect(first.setData).toHaveBeenLastCalledWith(expect.objectContaining({ selected: 'home', ready: true, badge: '99+', theme: '--primary:#5b8ff9' }))
   expect(first.setData.mock.lastCall![0].items.map((item: { id: string }) => item.id)).toEqual(['home', 'following', 'publish', 'messages', 'profile'])
+  expect(first.setData.mock.lastCall![0].items[0]).toEqual(expect.objectContaining({ icon: '/static/icons/home-neutral.png', selectedIcon: '/static/icons/home-primary.png' }))
+  expect(first.setData.mock.lastCall![0].items[2]).toEqual(expect.objectContaining({ icon: '/static/icons/add-white.png', selectedIcon: '/static/icons/add-white.png' }))
   route = 'pages/user/message'
   app.linjianTabbar!.attach(second)
   expect(second.setData).toHaveBeenLastCalledWith(expect.objectContaining({ selected: 'messages' }))
