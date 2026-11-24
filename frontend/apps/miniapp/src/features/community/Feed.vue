@@ -43,6 +43,7 @@ watch(
   },
 )
 const school = computed(() => schoolContext.school)
+const ownPostsPage = computed(() => props.lockedMode && props.initial === 'mine')
 const hotPostsActive = computed(() => pageVisible.value && !!session.user && !!school.value && isHotPostsHome(!!props.homePage, !!props.searchPage, mode.value, search.value, selectedTag.value))
 const { busy, error, run } = usePage(() => {
   clearPostInvalidations()
@@ -64,7 +65,7 @@ function load(reset = true, retryAfterScopeRefresh = true, targetPage?: number, 
       user = session.user?.id
     const scope = `${scopeKey()}:${user ?? ''}`
     const dirty = invalidatedPosts(scope, id)
-    if (reset) {
+    if (reset && !ownPostsPage.value) {
       const loaded = await homeMenuApi.public(id)
       if (!current() || generation !== schoolContext.generation || id !== schoolContext.id || user !== session.user?.id) return
       menu.value = loaded
@@ -72,13 +73,13 @@ function load(reset = true, retryAfterScopeRefresh = true, targetPage?: number, 
     }
     const next = targetPage ?? (reset ? 1 : page.value + 1)
     const kind: FeedFilter['kind'] =
-      mode.value === 'collect' || mode.value === 'following' ? mode.value : undefined
+      !ownPostsPage.value && (mode.value === 'collect' || mode.value === 'following') ? mode.value : undefined
     const response = await communityApi.posts(id, {
       page: next,
       search: search.value,
-      mine: mode.value === 'mine',
+      mine: ownPostsPage.value || mode.value === 'mine',
       kind,
-      tag: selectedTag.value,
+      tag: ownPostsPage.value ? '' : selectedTag.value,
     })
     if (
       current() &&
@@ -94,7 +95,7 @@ function load(reset = true, retryAfterScopeRefresh = true, targetPage?: number, 
   })
 }
 function setMode(value: typeof mode.value) {
-  if (busy.value) return
+  if (busy.value || props.lockedMode) return
   mode.value = value
   void load()
 }
@@ -177,7 +178,7 @@ defineExpose({
       <text class="heading">{{ school?.name || '校园社区' }}</text>
     </view>
     <HotPosts v-if="homePage" ref="hotPosts" :active="hotPostsActive" />
-    <text v-if="lockedMode" class="heading">关注动态</text>
+    <text v-if="lockedMode" class="heading">{{ ownPostsPage ? '我的发布' : '关注动态' }}</text>
     <scroll-view v-if="!lockedMode" scroll-x class="feed-filters" :show-scrollbar="false">
     <view class="filter-strip tabs">
       <button
@@ -208,13 +209,13 @@ defineExpose({
         size="mini"
         :disabled="busy"
         :class="{ selected: mode === 'mine' }"
-        @tap="setMode('mine')"
+        @tap="navigate('/pages/index/search?view=mine')"
       >
         我的发布
       </button>
     </view>
     </scroll-view>
-    <scroll-view v-if="menu && (menu.settings.latest_visible || menu.tags.length)" scroll-x class="feed-filters" :show-scrollbar="false">
+    <scroll-view v-if="!ownPostsPage && menu && (menu.settings.latest_visible || menu.tags.length)" scroll-x class="feed-filters" :show-scrollbar="false">
       <view class="filter-strip">
         <button v-if="menu.settings.latest_visible" size="mini" :disabled="busy" :class="{selected: !selectedTag}" @tap="selectTag('')">{{ menu.settings.latest_label }}</button>
         <button v-for="tag in menu.tags" :key="tag.id" size="mini" :disabled="busy" :class="{selected: selectedTag === tag.name}" @tap="selectTag(tag.name)"><text v-if="tag.menu_status === 'hot'" class="hot-tag">热</text>{{ tag.name }}</button>
