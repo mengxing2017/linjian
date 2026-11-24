@@ -8,14 +8,16 @@ export interface PostContent {
 export type CreatePostInput = Omit<PostContent, 'title'> & { title?: string }
 export type UpdatePostInput = PostContent & { revision: number }
 
-const invisible = /[\s\p{Cc}\u200b-\u200d\u2060\ufeff\ufe00-\ufe0f\u{e0100}-\u{e01ef}]/gu
-const trimText = (value: string) => value.replace(/^\p{White_Space}+|\p{White_Space}+$/gu, '')
+const invisible = /[\s\u0000-\u001f\u007f-\u009f\u200b-\u200d\u2060\ufeff\ufe00-\ufe0f\u{e0100}-\u{e01ef}]/gu
+const leadingTrailingSpace = /^[\u0009-\u000d\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+|[\u0009-\u000d\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+$/g
+const singleLineForbidden = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/
+const trimText = (value: string) => value.replace(leadingTrailingSpace, '')
 
 export function postFieldError(field: 'title' | 'content', input: string): string | undefined {
   const value = trimText(input)
   const meaningful = value.replace(invisible, '').length > 0
   if (field === 'title') {
-    if (/[\p{Cc}\u2028\u2029]/u.test(value)) return '标题必须为单行文本'
+    if (singleLineForbidden.test(value)) return '标题必须为单行文本'
     if (Array.from(value).length > 200) return '标题最多 200 字'
     if (value && !meaningful) return '标题不能仅包含不可见字符'
   } else {

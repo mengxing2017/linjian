@@ -9,5 +9,5 @@ export interface LegalDocument extends LegalSummary { content: string | null; up
 export interface LegalRevision { id: string; revision: number; content: string | null; updated_at: string; updated_by_name: string }
 export const legalTitles: Record<LegalDocumentKind, string> = { user_agreement: '用户协议', privacy_policy: '隐私政策' }
 export function validLegalContent(content: string) {
-  return Array.from(content).length <= 50000 && content.replace(/[\p{White_Space}\u200b-\u200f\u2060\ufeff]/gu, '').length > 0
+  return Array.from(content).length <= 50000 && content.replace(/[\u0009-\u000d\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\u200b-\u200f\u2060\ufeff]/g, '').length > 0
 }

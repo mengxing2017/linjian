@@ -64,13 +64,13 @@ export const advertisementStatusLabels: Record<AdvertisementStatus, string> = {
 }
 
 export function normalizeAdvertisement(value: string): string {
-  return value.replace(/^\p{White_Space}+|\p{White_Space}+$/gu, '')
+  return value.replace(/^[\u0009-\u000d\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+|[\u0009-\u000d\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+$/g, '')
 }
 
 export function advertisementContentError(value: string): string | null {
   const content = normalizeAdvertisement(value)
   const length = Array.from(content).length
   if (length < 1 || length > 50) return '广告文案须为 1–50 个 Unicode 字符'
-  if (/[\p{Cc}\u2028\u2029\ufeff\ud800-\udfff]/u.test(content)) return '广告文案不能包含换行或控制字符'
+  if (/[\u0000-\u001f\u007f-\u009f\u2028\u2029\ufeff\ud800-\udfff]/u.test(content)) return '广告文案不能包含换行或控制字符'
   return null
 }
