@@ -29,6 +29,8 @@ Web 默认 `http://localhost:5173`，通过 Vite 代理请求 `LINJIAN_DEV_API_U
 
 ## 微信小程序配置
 
+小程序本地图标的压缩迁入、语义映射、来源说明与验证流程见 `apps/miniapp/ICONS.md`。仅使用通过无损压缩和逐文件体积校验的项目内资源，普通构建不访问原项目。
+
 1. 将 `apps/miniapp/.env.example` 复制为同目录 `.env.local`，配置 `VITE_LINJIAN_API_BASE_URL` 为实际 API 的 HTTPS origin，不带路径，不带凭据。这里使用与 Web 相同的 Rust API，不接 PHP 或 uniCloud。
 2. 在 `apps/miniapp/src/manifest.json` 的 `mp-weixin.appid` 中设置自己的小程序 AppID（写入构建产物）；本地调试的 appid 只放在 `apps/miniapp/project.private.config.json`（不存在时新建，该文件已被 `.gitignore` 忽略）。`apps/miniapp/project.config.json` 允许提交，禁止写入 appid，`pnpm lint` 与 `make check-miniapp` 会校验。仓库不填示例真实身份，不包含 AppSecret。后端配置对应的 `LINJIAN_WX_APP_ID`、`LINJIAN_WX_SECRET`（准确配置名见根 env.example）。
 3. 微信后台配置对应请求域名；图片通过 `uni.request` 认证读取原始字节后写入本地临时文件，私有图片不依赖浏览器 Cookie，不向第三方图片地址发送 Bearer。
