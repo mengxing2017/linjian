@@ -57,10 +57,10 @@ defineExpose({
     <template v-else>
       <text class="brand">Linjian</text>
       <text class="heading">欢迎来到校园社区</text>
-      <text class="muted">使用微信身份登录，首次登录需要确认协议并选择学校。</text>
+      <text class="muted">使用微信身份登录，已入驻用户直接进入校园社区。</text>
       <text v-if="error" class="error">{{ error }}</text>
       <button class="primary" :loading="busy" :disabled="busy" @tap="submit">微信登录并进入</button>
-      <text class="muted">首次登录会先验证微信身份，再确认协议与学校。</text>
+      <text class="muted">仅首次入驻需要在下一页选择学校并确认协议。</text>
     </template>
   </view>
 </template>

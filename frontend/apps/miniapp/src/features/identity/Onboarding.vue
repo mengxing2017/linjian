@@ -53,7 +53,7 @@ onUnmounted(hide)
     <text class="muted">{{ bound ? '使用微信身份继续登录。' : '选择你的学校，确认协议后完成入驻。' }}</text>
     <view v-if="progress && !bound" class="card">
       <text class="title">选择学校</text>
-      <text class="muted">首次推荐会验证微信身份以获取临时入驻凭据，不代表同意项目协议、完成登录或绑定学校。</text>
+      <text class="muted">微信身份已验证，选择学校并完成入驻后才会绑定学校。</text>
       <SchoolRecommendations ref="recommendations" :request="recommend" :disabled="busy" @choose="chooseRecommendation" />
       <input v-model="query" class="input" :disabled="busy" placeholder="搜索学校名称、简称或地区" />
       <button :disabled="busy" @tap="find()">搜索学校</button>
