@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { restoreSession, session } from './session'
 import { credentials } from '../../app/credentials'
 import { form } from './onboarding-form'
-const { progress, busy, error } = form
+const { progress, bound, busy, error } = form
 let entry = 0
 let checkingSession: Promise<void> | undefined
 const checking = ref(!!credentials.token)
@@ -30,7 +30,7 @@ function checkSession() {
 async function submit() {
   await form.begin()
   if (session.user?.bound_school_id) return
-  if (progress.value) await uni.redirectTo({ url: '/pages/user/onboarding' })
+  if (progress.value && !bound.value) await uni.redirectTo({ url: '/pages/user/onboarding' })
 }
 defineExpose({
   show: async () => {
@@ -42,7 +42,7 @@ defineExpose({
       try { await goHome() } finally { checking.value = false }
       return
     }
-    if (progress.value) await uni.redirectTo({ url: '/pages/user/onboarding' })
+    if (progress.value && !bound.value) await uni.redirectTo({ url: '/pages/user/onboarding' })
   },
 })
 </script>

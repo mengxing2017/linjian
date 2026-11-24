@@ -53,25 +53,39 @@ export function createOnboarding(dependencies: {
     if (!current()) return false
     if (value.state === 'ready') { await dependencies.ready(value); return false }
     apply(value)
+    if (!value.first_login && value.school_id) {
+      const result = await complete(value.ticket, value.school_id)
+      if (!current()) return false
+      if (result.state !== 'ready') throw new Error('登录尚未完成，请重试')
+      await dependencies.ready(result)
+      return false
+    }
     return true
+  }
+  function complete(ticket: string, school: string) {
+    const nextFingerprint = `${ticket}:${school}`
+    if (!key || fingerprint !== nextFingerprint) { key = dependencies.requestKey(); fingerprint = nextFingerprint }
+    return dependencies.identity.onboarding('complete', { ticket, school_id: school, request_key: key })
   }
   function show() {
     return run(async current => {
-      const rows = await dependencies.documents.list()
-      if (!current()) return
-      reconcile(rows); loaded.value = true
       if (progress.value) {
         const result = await dependencies.identity.onboarding('status', { ticket: progress.value.ticket })
         if (!(await receive(result, current))) return
       }
+      const rows = await dependencies.documents.list()
+      if (!current()) return
+      reconcile(rows); loaded.value = true
       const rowsSchools = await dependencies.identity.onboardingSchools(query.value, 1)
       if (current()) { schools.value = rowsSchools; page.value = 1; more.value = rowsSchools.length === 20 }
     })
   }
   async function begin() {
     return run(async current => {
-      if (progress.value) return
-      const result = await dependencies.start()
+      if (progress.value && !bound.value) return
+      const result = progress.value
+        ? await dependencies.identity.onboarding('status', { ticket: progress.value.ticket })
+        : await dependencies.start()
       await receive(result, current)
     })
   }
@@ -88,9 +102,7 @@ export function createOnboarding(dependencies: {
       const confirmation = await dependencies.identity.onboarding('confirm', { ticket, acceptances: documents.value.filter(row => checked.value[row.kind] === row.revision).map(row => ({ kind: row.kind, revision: row.revision })) })
       if (!(await receive(confirmation, current))) return
       if (progress.value?.state === 'consent_required') throw new Error('协议已更新，请重新阅读并确认')
-      const nextFingerprint = `${ticket}:${selected.value}`
-      if (!key || fingerprint !== nextFingerprint) { key = dependencies.requestKey(); fingerprint = nextFingerprint }
-      const result = await dependencies.identity.onboarding('complete', { ticket, school_id: selected.value, request_key: key })
+      const result = await complete(ticket, selected.value)
       if (await receive(result, current)) throw new Error('协议已更新，请重新阅读并确认')
     })
   }

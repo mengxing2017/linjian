@@ -39,6 +39,7 @@ defineExpose({
     visible = true
     if (session.user?.bound_school_id) { await uni.reLaunch({ url: '/pages/index/index' }); return }
     if (!progress.value) { await uni.redirectTo({ url: '/pages/user/login' }); return }
+    if (bound.value) { await uni.redirectTo({ url: '/pages/user/login' }); return }
     return form.show()
   },
   hide,
