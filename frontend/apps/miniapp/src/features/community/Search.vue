@@ -5,7 +5,7 @@ import { createPostSearch } from './use-post-search'
 import { requireSchool, schoolContext, scopeKey, onScopeChange } from '../school-context/context'
 import { session } from '../identity/session'
 import { handlePageError, navigate } from '../../shared/use-page'
-import PrivateImage from '../media/PrivateImage.vue'
+import PostFeedCard from './PostFeedCard.vue'
 const focus = ref(false)
 const search = createPostSearch({
   api: communityApi,
@@ -70,7 +70,7 @@ defineExpose({
 })
 </script>
 <template>
-  <view class="page post-search">
+  <view class="page compact-page post-search">
     <text class="muted">当前学校：{{ school?.name || '学校暂不可用' }}</text>
     <view class="row search-bar">
       <input
@@ -99,13 +99,8 @@ defineExpose({
     <text v-else-if="page && !posts.length" class="search-status">
       暂无相关帖子，换个关键词试试
     </text>
-    <view v-for="post in posts" :key="post.id" class="card post-card" @tap="detail(post)">
-      <text class="muted">{{ post.author_name || '校园成员' }}</text>
-      <text v-if="post.title" class="title">{{ post.title }}</text>
-      <text class="summary">{{ post.content }}</text>
-      <PrivateImage v-if="post.images[0]" :school="schoolContext.id" :source="post.images[0]" />
-      <text class="muted">{{ post.published_at_text }}</text>
-      <text class="muted">♡ {{ post.like_count }} · 评论 {{ post.comment_count }}</text>
+    <view class="search-results">
+      <PostFeedCard v-for="post in posts" :key="post.id" :post="post" :school="schoolContext.id" @open="detail" />
     </view>
     <text v-if="loadingMore" class="search-status">加载中…</text>
     <view v-else-if="moreError" class="search-status">
@@ -120,21 +115,14 @@ defineExpose({
 </template>
 <style scoped>
 .search-bar {
-  margin-top: 24rpx;
+  flex-wrap: nowrap;
 }
+.search-bar .input { width: auto; min-width: 0; }
+.search-bar button { flex-shrink: 0; min-height: 44px; }
 .search-status {
   display: block;
   text-align: center;
   padding: 32rpx 0;
 }
-.post-card {
-  margin-top: 24rpx;
-}
-.summary {
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  white-space: pre-wrap;
-}
+.search-results { display: flex; flex-direction: column; gap: var(--linjian-space-list); }
 </style>

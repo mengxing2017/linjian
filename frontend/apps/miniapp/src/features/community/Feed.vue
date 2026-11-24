@@ -9,7 +9,6 @@ const pageVisible = ref(false)
 let pageTurn = 0
 const shortcuts = shallowRef<InstanceType<typeof HomeShortcuts>>()
 const operations = shallowRef<InstanceType<typeof HomeOperations>>()
-import { postVisibilityLabel } from './post-status'
 import { shallowRef, ref, computed, watch, onUnmounted } from 'vue'
 import { communityApi, homeMenuApi, type HomeMenu, type CommunityPost, type FeedFilter } from './api'
 import { requireSchool, schoolContext, scopeKey } from '../school-context/context'
@@ -18,7 +17,7 @@ import { session } from '../identity/session'
 import { usePage, navigate } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
 import AppIcon from '../../shared/AppIcon.vue'
-import PrivateImage from '../media/PrivateImage.vue'
+import PostFeedCard from './PostFeedCard.vue'
 import SchoolHeader from '../school-context/SchoolHeader.vue'
 const props = defineProps<{
   initial?: 'feed' | 'following' | 'mine' | 'collect'
@@ -151,21 +150,21 @@ defineExpose({
 })
 </script>
 <template>
-  <view class="page">
-    <HomeOperations v-if="!searchPage && !homePage" ref="operations" />
-    <SchoolHeader :school="school" :searchable="homePage" @search="navigate('/pages/index/search')" />
-    <HomeOperations v-if="!searchPage && homePage" ref="operations" />
-    <HomeShortcuts v-if="!searchPage" ref="shortcuts" />
+  <view class="page compact-page feed-page">
+    <SchoolHeader v-if="homePage" :school="school" compact searchable @search="navigate('/pages/index/search')" @change-school="navigate('/pages/plugin/index')" />
+    <HomeOperations v-if="homePage && !searchPage" ref="operations" />
+    <HomeShortcuts v-if="homePage && !searchPage" ref="shortcuts" />
     <text v-if="session.user?.bound_school_id && !schoolContext.schools.length">
       学校暂不可用，请联系管理员
     </text>
-    <view class="row spread">
+    <view v-if="!homePage && !lockedMode" class="row spread">
       <text class="heading">{{ school?.name || '校园社区' }}</text>
       <button size="mini" @tap="navigate('/pages/plugin/index')"><AppIcon name="school" :size="28" />选校</button>
     </view>
     <HotPosts v-if="homePage" ref="hotPosts" :active="hotPostsActive" />
     <text v-if="lockedMode" class="heading">关注动态</text>
-    <view v-if="!lockedMode" class="row tabs">
+    <scroll-view v-if="!lockedMode" scroll-x class="feed-filters" :show-scrollbar="false">
+    <view class="filter-strip tabs">
       <button
         size="mini"
         :disabled="busy"
@@ -199,14 +198,14 @@ defineExpose({
         我的发布
       </button>
     </view>
-    <scroll-view v-if="menu" scroll-x class="row">
-      <button v-if="menu.settings.latest_visible" size="mini" :class="{selected: !selectedTag}" @tap="selectTag('')">{{ menu.settings.latest_label }}</button>
-      <button v-for="tag in menu.tags" :key="tag.id" size="mini" :class="{selected: selectedTag === tag.name}" @tap="selectTag(tag.name)">{{ tag.name }}</button>
     </scroll-view>
-    <view v-if="menu?.tags.some(tag => tag.menu_status === 'hot')" class="row">
-      <text>热门：</text><button v-for="tag in menu.tags.filter(tag => tag.menu_status === 'hot')" :key="tag.id" size="mini" @tap="selectTag(tag.name)">{{ tag.name }}</button>
-    </view>
-    <view v-if="!homePage" class="row">
+    <scroll-view v-if="menu && (menu.settings.latest_visible || menu.tags.length)" scroll-x class="feed-filters" :show-scrollbar="false">
+      <view class="filter-strip">
+        <button v-if="menu.settings.latest_visible" size="mini" :disabled="busy" :class="{selected: !selectedTag}" @tap="selectTag('')">{{ menu.settings.latest_label }}</button>
+        <button v-for="tag in menu.tags" :key="tag.id" size="mini" :disabled="busy" :class="{selected: selectedTag === tag.name}" @tap="selectTag(tag.name)"><text v-if="tag.menu_status === 'hot'" class="hot-tag">热</text>{{ tag.name }}</button>
+      </view>
+    </scroll-view>
+    <view v-if="!homePage" class="row feed-search">
       <input
         v-model="search"
         :disabled="busy"
@@ -217,30 +216,19 @@ defineExpose({
       />
       <button size="mini" @tap="load()"><AppIcon name="search" :size="28" />搜索</button>
     </view>
-    <view class="waterfall">
-      <view v-for="post in posts" :key="post.id" class="card post-card" @tap="detail(post)">
-        <text v-if="post.title" class="title">{{ post.title }}</text>
-        <text class="summary">{{ post.content }}</text>
-        <text class="muted">查看全文</text>
-        <PrivateImage v-if="post.images[0]" :school="schoolContext.id" :source="post.images[0]" />
-        <text class="muted">发布时间：{{ post.published_at_text }}</text>
-        <view class="row spread muted">
-          <text>{{ post.author_name || '校园成员' }}</text>
-          <view class="row"><text><AppIcon name="like" :size="26" />{{ post.like_count }}</text><text><AppIcon name="comment" :size="26" />{{ post.comment_count }}</text></view>
-        </view>
-        <text v-if="mode === 'mine'" class="muted">状态：{{ postVisibilityLabel(post.visibility) }}</text>
-        <text v-if="mode === 'mine'" class="muted">
-          {{
-            post.audit_status === 'pending'
-              ? '待审核'
-              : post.audit_status === 'rejected'
-                ? '未通过审核'
-                : '已通过审核'
-          }}
-        </text>
-      </view>
+    <view class="feed-list">
+      <PostFeedCard v-for="post in posts" :key="post.id" :post="post" :school="schoolContext.id" :mine="mode === 'mine'" @open="detail" />
     </view>
     <PageStatus :busy="busy" :error="error" :empty="!posts.length" @retry="load()" />
     <button v-if="more" :disabled="busy" @tap="load(false)">加载更多</button>
   </view>
 </template>
+<style scoped>
+.feed-list { display: flex; flex-direction: column; gap: var(--linjian-space-list); margin-top: 12rpx; }
+.feed-filters { width: 100%; }
+.filter-strip { display: flex; flex-wrap: nowrap; align-items: center; gap: 8rpx; }
+.filter-strip button { flex-shrink: 0; min-height: 44px; margin: 0; padding: 0 16rpx; display: flex; align-items: center; line-height: 1.4; white-space: nowrap; }
+.feed-search { flex-wrap: nowrap; }
+.feed-search .input { width: auto; min-width: 0; }
+.hot-tag { margin-right: 8rpx; color: #b45309; font-size: var(--linjian-font-caption); }
+</style>
