@@ -52,9 +52,9 @@ const { busy, error, run } = usePage(() => {
   menu.value = undefined
   selectedTag.value = ''
 })
-function load(reset = true, retryAfterScopeRefresh = true, targetPage?: number): Promise<void> {
+function load(reset = true, retryAfterScopeRefresh = true, targetPage?: number, schoolReady = false): Promise<void> {
   return run(async (current) => {
-    if (!(await requireSchool())) return
+    if (!schoolReady && !(await requireSchool())) return
     if (!current()) {
       if (retryAfterScopeRefresh) void load(true, false)
       return
@@ -156,7 +156,7 @@ defineExpose({
     const queryChanged = dirty.some(item => item.content || (mode.value === 'following' && item.authorId) || (mode.value === 'collect' && !ids.has(item.id)))
     await (posts.value.length && !queryChanged
       ? run(syncInvalidated)
-      : load())
+      : load(true, true, undefined, true))
     if (!error.value && activeSchool === schoolContext.id) recordPage('feed_open', activeSchool)
   },
   refresh: async () => { await Promise.all([load(), hotPosts.value?.refresh(), operations.value?.refresh(), shortcuts.value?.refresh()]) },
