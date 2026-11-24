@@ -22,7 +22,7 @@ async function settle() {
   await nextTick()
 }
 
-it('puts search and school switching in the compact header without changing the default header', () => {
+it('puts search in the compact header without offering school switching', () => {
   const header = component(
     new URL('../src/features/school-context/SchoolHeader.vue', import.meta.url),
     {
@@ -39,20 +39,17 @@ it('puts search and school switching in the compact header without changing the 
       '@linjian/china-regions': { formatRegion: () => '测试地区' },
     },
   )
-  const search = vi.fn(),
-    changeSchool = vi.fn()
+  const search = vi.fn()
   const school = { id: 'school', name: '非常长的学校全称'.repeat(10), revision: 1 }
   const mounted = mount(header, {
     school,
     compact: true,
     searchable: true,
     onSearch: search,
-    onChangeSchool: changeSchool,
   })
   tap(findAll(mounted.root, (target) => target.props['aria-label'] === '搜索帖子')[0])
-  tap(findAll(mounted.root, (target) => target.props['aria-label'] === '选择学校')[0])
+  expect(findAll(mounted.root, (target) => target.props['aria-label'] === '选择学校')).toHaveLength(0)
   expect(search).toHaveBeenCalledOnce()
-  expect(changeSchool).toHaveBeenCalledOnce()
   expect(text(mounted.root)).toContain(school.name)
   mounted.unmount()
   const regular = mount(header, { school })
