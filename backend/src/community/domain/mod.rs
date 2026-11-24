@@ -3,6 +3,7 @@ pub mod notification_query;
 pub mod notification_summary;
 pub mod post_search;
 pub mod post_seed;
+pub mod post_tags;
 pub mod post_text;
 pub mod public_post;
 use crate::business::{Result, require, text};
