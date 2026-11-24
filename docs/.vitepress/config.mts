@@ -25,6 +25,7 @@ export default defineConfig({
           { text: '学校信息与主题', link: '/guide/school-profiles' },
           { text: '学校成员与业务权限', link: '/guide/member-permissions' },
           { text: '小程序用户与登录', link: '/guide/miniapp-users' },
+          { text: '协议管理与首次入驻', link: '/guide/legal-documents-onboarding' },
           { text: '换校与学生证明审核', link: '/guide/miniapp-school-changes' },
           { text: '内容全文审核', link: '/guide/content-review' },
           { text: '学校消息尾部广告', link: '/guide/message-advertisements' },
