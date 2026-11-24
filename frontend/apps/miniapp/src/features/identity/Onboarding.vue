@@ -62,7 +62,7 @@ onUnmounted(hide)
       <button v-if="more" :disabled="busy" @tap="find(false)">更多学校</button>
       <text v-if="selected" class="muted">已选择：{{ schools.find(row => row.id === selected)?.name || recommendedName }}</text>
     </view>
-    <view v-if="documents.length" class="card">
+    <view v-if="progress?.first_login && !bound && documents.length" class="card">
       <text class="title">协议与政策</text>
       <checkbox-group @change="toggle">
         <view v-for="document in documents" :key="`${document.kind}:${document.revision}`" class="row">
@@ -70,7 +70,6 @@ onUnmounted(hide)
           <text class="selected" @tap.stop="open(document.kind)">《{{ legalTitles[document.kind] }}》</text>
         </view>
       </checkbox-group>
-      <text v-if="progress?.first_login === false" class="muted">你已完成首次登录，本次不要求重复确认。</text>
     </view>
     <text v-if="error" class="error">{{ error }}</text>
     <button v-if="error" :disabled="busy" @tap="form.show">重新读取并核对状态</button>
