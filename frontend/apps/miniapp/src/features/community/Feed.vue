@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { mergePageWindow } from '../../shared/page-window'
 import PageWindow from '../../shared/PageWindow.vue'
+import { feedPost } from './post-feed-card'
 import { recordPage } from '../statistics/activity'
 import HomeOperations from '../operations/HomeOperations.vue'
 import HomeShortcuts from '../operations/HomeShortcuts.vue'
@@ -84,7 +85,7 @@ function load(reset = true, retryAfterScopeRefresh = true, targetPage?: number):
       id === schoolContext.id &&
       user === session.user?.id
     ) {
-      posts.value = mergePageWindow(reset ? [] : posts.value, reset ? 0 : page.value, response.items, next)
+      posts.value = mergePageWindow(reset ? [] : posts.value, reset ? 0 : page.value, response.items.map(feedPost), next)
       page.value = next
       more.value = !!response.page?.has_more
       if (reset) dirty.forEach(item => acknowledgePost(scope, id, item.id, item.version))

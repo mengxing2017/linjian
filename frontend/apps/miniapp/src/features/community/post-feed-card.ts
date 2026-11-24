@@ -1,6 +1,23 @@
 import type { CommunityPost } from './api'
 import { postVisibilityLabel } from './post-status'
 
+export const FEED_SUMMARY_LENGTH = 240
+
+export function feedExcerpt(value: string, limit = FEED_SUMMARY_LENGTH) {
+  let excerpt = ''
+  let count = 0
+  for (const character of value) {
+    if (count === limit) return `${excerpt}…`
+    excerpt += character
+    count++
+  }
+  return excerpt
+}
+
+export function feedPost(post: CommunityPost): CommunityPost {
+  return { ...post, content: feedExcerpt(post.content) }
+}
+
 export function postFeedCopy(post: Pick<CommunityPost, 'title' | 'content'>) {
   const title = post.title?.trim() ?? ''
   const content = post.content.trim()
@@ -8,7 +25,7 @@ export function postFeedCopy(post: Pick<CommunityPost, 'title' | 'content'>) {
   const normalizedContent = content.replace(/\s+/g, '')
   return {
     title: content && normalizedTitle !== normalizedContent ? title : '',
-    summary: content || title,
+    summary: feedExcerpt(content || title),
   }
 }
 

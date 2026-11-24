@@ -1,5 +1,6 @@
 import { ref, shallowRef } from 'vue'
 import { mergePageWindow } from '../../shared/page-window'
+import { feedPost } from './post-feed-card'
 import {
   normalizePostSearch,
   type communityApi,
@@ -127,7 +128,7 @@ export function createPostSearch(env: Environment) {
       if (!current()) return
       if (!response.page || response.page.number !== next)
         throw new Error('搜索分页信息异常，请重试')
-      posts.value = mergePageWindow(posts.value, page.value, response.items, next)
+      posts.value = mergePageWindow(posts.value, page.value, response.items.map(feedPost), next)
       page.value = next
       hasMore.value = response.page.has_more
       succeeded = true
