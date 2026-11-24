@@ -1,0 +1,12 @@
+{
+  "files": [
+    "home-neutral.png", "home-primary.png", "hotfill-neutral.png", "hotfill-primary.png",
+    "notice-neutral.png", "notice-primary.png", "my-neutral.png", "my-primary.png",
+    "add-white.png", "people-neutral.png", "locationfill-neutral.png", "form-neutral.png",
+    "edit-neutral.png", "favorfill-primary.png", "attentionfavor-neutral.png", "attentionfavor-primary.png",
+    "messagefill-neutral.png", "all-neutral.png", "infofill-neutral.png", "service-neutral.png",
+    "group-neutral.png", "shop-neutral.png", "shield-neutral.png", "right-neutral.png",
+    "search-neutral.png", "appreciate-neutral.png", "appreciate-danger.png", "comment-neutral.png",
+    "cameraadd-neutral.png", "send-white.png", "close-neutral.png", "delete-neutral.png"
+  ]
+}
