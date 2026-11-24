@@ -242,6 +242,7 @@ pub trait Store: Clone + Send + Sync + 'static {
         a: &Actor,
         s: Uuid,
         page: Page,
+        kind: Option<crate::community::domain::notification_query::NotificationKind>,
     ) -> impl std::future::Future<Output = Result<Vec<Value>>> + Send;
     fn notification_summary(
         &self,

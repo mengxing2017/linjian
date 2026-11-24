@@ -205,7 +205,10 @@ impl<R: Store> Service<R> {
     }
     pub async fn notifications(&self, a: &Actor, s: Uuid, page: Page) -> Result<Vec<Value>> {
         a.authorize(s, "member")?;
-        self.0.notifications(a, s, page).await
+        let kind = crate::community::domain::notification_query::NotificationKind::parse(
+            page.kind.as_deref(),
+        )?;
+        self.0.notifications(a, s, page, kind).await
     }
     pub async fn notification_summary(
         &self,

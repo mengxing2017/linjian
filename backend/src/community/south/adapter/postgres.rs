@@ -389,13 +389,19 @@ impl Repository {
             .await?;
         Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',a.id,'display_name',coalesce((SELECT nickname FROM miniapp_users WHERE account_id=a.id),a.display_name)) FROM follows f JOIN accounts a ON a.id=f.target_id WHERE f.school_id=$1 AND f.follower_id=$2").bind(s).bind(a.id).fetch_all(&self.0).await?)
     }
-    pub async fn notifications(&self, a: &Actor, s: Uuid, page: Page) -> Result<Vec<Value>> {
+    pub async fn notifications(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        page: Page,
+        kind: Option<crate::community::domain::notification_query::NotificationKind>,
+    ) -> Result<Vec<Value>> {
         crate::schools::south::adapter::postgres::Repository(self.0.clone())
             .require_active(s)
             .await?;
         let (limit, offset) = page.fetch_bounds()?;
         let query = format!(
-            "SELECT to_jsonb(n) FROM notifications n WHERE {} ORDER BY created_at DESC,id DESC LIMIT $3 OFFSET $4",
+            "SELECT to_jsonb(n) FROM notifications n WHERE ({}) AND ($5::text IS NULL OR n.kind=$5) ORDER BY created_at DESC,id DESC LIMIT $3 OFFSET $4",
             include_str!("postgres/notification_visibility.sql")
         );
         Ok(sqlx::query_scalar(&query)
@@ -403,6 +409,7 @@ impl Repository {
             .bind(a.id)
             .bind(limit)
             .bind(offset)
+            .bind(kind.map(|value| value.as_str()))
             .fetch_all(&self.0)
             .await?)
     }
@@ -641,8 +648,14 @@ impl crate::community::south::port::Store for Repository {
     async fn follows(&self, a: &Actor, s: Uuid) -> Result<Vec<Value>> {
         Repository::follows(self, a, s).await
     }
-    async fn notifications(&self, a: &Actor, s: Uuid, page: Page) -> Result<Vec<Value>> {
-        Repository::notifications(self, a, s, page).await
+    async fn notifications(
+        &self,
+        a: &Actor,
+        s: Uuid,
+        page: Page,
+        kind: Option<crate::community::domain::notification_query::NotificationKind>,
+    ) -> Result<Vec<Value>> {
+        Repository::notifications(self, a, s, page, kind).await
     }
     async fn notification_summary(
         &self,
