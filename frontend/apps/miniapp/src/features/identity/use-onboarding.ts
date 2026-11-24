@@ -89,6 +89,17 @@ export function createOnboarding(dependencies: {
   }
   function find(reset = true) { return run(async current => { await search(reset, current) }) }
   function choose(id: string) { if (!bound.value) selected.value = id }
+  async function recommendationTicket() {
+    const turn = generation
+    if (!progress.value) {
+      const result = await dependencies.start()
+      if (turn !== generation) throw new Error('推荐已取消')
+      if (result.state === 'ready') throw new Error('账号已有绑定学校，请继续原登录流程')
+      apply(result)
+    }
+    if (!progress.value?.ticket || bound.value) throw new Error('请先继续微信登录，再选择学校')
+    return progress.value.ticket
+  }
   function toggle(values: string[]) {
     checked.value = Object.fromEntries(documents.value.filter(row => values.includes(row.kind)).map(row => [row.kind, row.revision]))
   }
@@ -99,5 +110,5 @@ export function createOnboarding(dependencies: {
     if (ticket) { try { await dependencies.identity.cancelOnboarding(ticket) } catch { if (turn === generation) error.value = '本次登录已在本机取消，请重新开始；服务端取消未确认。' } }
   }
   function dispose() { generation++; progress.value = undefined; checked.value = {}; busy.value = false }
-  return { documents, schools, selected, bound, query, more, checked, progress, busy, error, loaded, missing, show, submit, find, choose, toggle, cancel, dispose }
+  return { documents, schools, selected, bound, query, more, checked, progress, busy, error, loaded, missing, show, submit, find, choose, toggle, cancel, dispose, recommendationTicket }
 }

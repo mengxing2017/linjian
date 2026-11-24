@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { validateLocationConfig } from './check-miniapp-location.mjs'
 
 // project.config.json 允许提交，因此不能包含环境相关的 appid。
 // 个人 appid 放在 project.private.config.json（已被 .gitignore 忽略）。
@@ -24,3 +25,5 @@ if (typeof config.appid === 'string' && config.appid && config.appid !== 'touris
   )
   process.exit(1)
 }
+const manifest = JSON.parse(readFileSync(fileURLToPath(new URL('../apps/miniapp/src/manifest.json', import.meta.url)), 'utf8'))
+validateLocationConfig(manifest['mp-weixin'])

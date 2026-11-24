@@ -19,6 +19,17 @@ it('loads documents and schools without authenticating or binding', async () => 
   expect(dependencies.start).not.toHaveBeenCalled()
   expect(identity.onboarding).not.toHaveBeenCalled()
 })
+it('obtains only an onboarding ticket for recommendations and still requires a manual school selection', async () => {
+  const { form, dependencies, identity } = setup()
+  await form.show()
+  expect(await form.recommendationTicket()).toBe(pending.ticket)
+  expect(form.selected.value).toBe('')
+  expect(identity.onboarding).not.toHaveBeenCalled()
+  expect(dependencies.ready).not.toHaveBeenCalled()
+  expect(form.checked.value).toEqual({})
+  form.choose('outside-the-nearest-five')
+  expect(form.selected.value).toBe('outside-the-nearest-five')
+})
 it('does not complete first login with one or both unchecked', async () => {
   const { form, dependencies, identity } = setup()
   await form.show(); form.choose('school'); form.toggle(['user_agreement'])

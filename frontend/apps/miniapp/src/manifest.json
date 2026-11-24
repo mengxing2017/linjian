@@ -9,7 +9,13 @@
     "setting": {
       "urlCheck": true
     },
-    "usingComponents": true
+    "usingComponents": true,
+    "permission": {
+      "scope.userLocation": {
+        "desc": "仅使用本次位置推荐最近的学校，不自动绑定，也可手动搜索学校"
+      }
+    },
+    "requiredPrivateInfos": ["getLocation"]
   },
   "uniStatistics": {
     "enable": false

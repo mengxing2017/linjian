@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { shallowRef, ref, computed } from 'vue'
+import { shallowRef, ref, computed, onUnmounted, watch } from 'vue'
 import { resumeReturnTarget } from '../identity/resume-target'
 import { bindSchool, loadSchools, schoolContext, selectSchool } from './context'
-import { schoolsApi, type SchoolDisplay } from './api'
+import { schoolsApi, type SchoolDisplay, type Cancellation } from './api'
 import { session, restoreSession } from '../identity/session'
 import { usePage, confirm, navigate } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
 import BrandImage from './BrandImage.vue'
 import RegionPicker from './RegionPicker.vue'
+import SchoolRecommendations from './SchoolRecommendations.vue'
+import type { Coordinates } from './location'
+import { credentials } from '../../app/credentials'
+import { scopeKey } from './context'
 import { formatRegion } from '@linjian/china-regions'
 const directory = shallowRef<SchoolDisplay[]>([]),
   search = ref(''),
@@ -15,6 +19,15 @@ const directory = shallowRef<SchoolDisplay[]>([]),
   city = ref(''),
   page = ref(1),
   more = ref(false)
+const recommendations = ref<InstanceType<typeof SchoolRecommendations>>()
+let visible = true
+function hide() { visible = false; recommendations.value?.clear() }
+onUnmounted(hide)
+watch([search, province, city], () => recommendations.value?.clear())
+async function recommend(coordinates: Coordinates, signal: Cancellation) {
+  const result = await schoolsApi.recommendations({ ...coordinates, scene: session.user?.bound_school_id ? 'browsing' : 'binding' }, signal)
+  return result.items
+}
 const { busy, error, run } = usePage(() => {
   directory.value = []
   more.value = false
@@ -30,6 +43,7 @@ const choices = computed(() =>
     : directory.value,
 )
 function load(reset = true) {
+  recommendations.value?.clear()
   return run(async (current) => {
     await restoreSession()
     if (!session.user) {
@@ -53,22 +67,29 @@ function load(reset = true) {
   })
 }
 function choose(id: string, name: string) {
-  void run(async () => {
+  recommendations.value?.clear()
+  const revision = credentials.revision, scope = scopeKey()
+  void run(async (current) => {
+    const valid = () => current() && visible && revision === credentials.revision && scope === scopeKey()
+    if (!valid()) return
     if (session.user?.bound_school_id) selectSchool(id)
     else {
       if (!(await confirm(`确认绑定 ${name}？绑定后不能自行换校。`))) return
+      if (!valid()) return
       await bindSchool(id)
     }
+    if (!visible || revision !== credentials.revision) return
     if (!(await resumeReturnTarget())) uni.reLaunch({ url: '/pages/index/index' })
   })
 }
-defineExpose({ show: () => load() })
+defineExpose({ show: () => { visible = true; return load() }, hide })
 </script>
 <template>
   <view class="page">
     <text class="heading">{{ session.user?.bound_school_id ? '选择学校' : '绑定学校' }}</text>
     <text class="muted">选择浏览范围不会增加学校权限；绑定后不能自行换校。</text>
     <button v-if="session.user?.bound_school_id" @tap="navigate('/pages/user/schoolChange')">申请更换学校 / 查询结果</button>
+    <SchoolRecommendations ref="recommendations" :request="recommend" :disabled="busy" @choose="school => choose(school.id, school.name)" />
     <input v-model="search" class="input" placeholder="搜索名称 / 简称 / 区域" />
     <RegionPicker v-model:province="province" v-model:city="city" />
     <button :disabled="busy" @tap="load()">搜索学校</button>

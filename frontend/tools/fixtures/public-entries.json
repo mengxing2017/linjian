@@ -434,7 +434,7 @@
     "values": ["homeMenuApi", "resourcesApi"]
   },
   "apps/miniapp/src/features/school-context/api/index.ts": {
-    "types": ["School", "SchoolDisplay"],
+    "types": ["Cancellation", "OnboardingSchoolRecommendationInput", "School", "SchoolDisplay", "SchoolRecommendation", "SchoolRecommendationInput"],
     "values": ["schoolsApi"]
   },
   "apps/miniapp/src/features/statistics/api/index.ts": {

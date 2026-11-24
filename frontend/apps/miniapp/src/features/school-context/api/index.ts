@@ -1,3 +1,5 @@
 export type { SchoolDisplay as School } from '@linjian/api-contract/schools'
 export type { SchoolDisplay } from '@linjian/api-contract/schools'
+export type { SchoolRecommendation, SchoolRecommendationInput, OnboardingSchoolRecommendationInput } from '@linjian/api-contract/schools'
+export type { Cancellation } from '@linjian/api-contract/client'
 export { schoolsApi } from './client'
