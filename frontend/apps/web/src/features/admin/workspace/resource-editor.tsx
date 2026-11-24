@@ -32,8 +32,10 @@ export function ResourceEditor({item,school,onSaved}:{item?:Row;school?:string;o
  </>}
  <label>排序<InputNumber value={form.sort_order} onChange={v=>change({sort_order:Number(v)})}/></label>
  <label>启用<Switch checked={form.active} onChange={active=>change({active})}/></label>
- <label>生效时间<LocalDateTimePicker value={localDate(form.starts_at)} onChange={value=>change({starts_at:value?new Date(value).toISOString():null})}/></label>
- <label>失效时间<LocalDateTimePicker value={localDate(form.ends_at)} onChange={value=>change({ends_at:value?new Date(value).toISOString():null})}/></label>
+ <div className="form-pair">
+ <label>生效时间<LocalDateTimePicker aria-label="生效时间" value={localDate(form.starts_at)} onChange={value=>change({starts_at:value?new Date(value).toISOString():null})}/></label>
+ <label>失效时间<LocalDateTimePicker aria-label="失效时间" value={localDate(form.ends_at)} onChange={value=>change({ends_at:value?new Date(value).toISOString():null})}/></label>
+ </div>
  </div>
  <Button type="primary" loading={busy} onClick={()=>void run(async()=>setPreview(await product.resources.preview(school,form)))}>预览</Button>
  </>:<>
