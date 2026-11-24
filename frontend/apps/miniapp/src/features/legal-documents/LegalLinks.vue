@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import MenuItem from '../../shared/MenuItem.vue'
+import { documentIcon } from '../../shared/icons'
 import { legalDocuments, legalTitles, type LegalSummary } from './api'
 const documents = ref<LegalSummary[]>([])
 const error = ref('')
@@ -15,7 +17,7 @@ defineExpose({ show, hide: () => { generation++ } })
 </script>
 <template>
   <view v-if="documents.length" class="card menu">
-    <button v-for="document in documents" :key="document.kind" @tap="open(document.kind)">{{ legalTitles[document.kind] }} ›</button>
+    <MenuItem v-for="document in documents" :key="document.kind" :title="legalTitles[document.kind]" :icon="documentIcon(document.kind)" @activate="open(document.kind)" />
   </view>
   <view v-if="error" class="card"><text class="error">协议与政策加载失败：{{ error }}</text><button @tap="show">重试</button></view>
 </template>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import AppIcon from '../../shared/AppIcon.vue'
 import { invalidatePost } from './post-invalidations'
 import { postDraftKey } from './post-draft'
 import { communityApi, homeMenuApi, normalizePostContent, type HomeMenuTag, type Post } from './api'
@@ -278,7 +279,7 @@ defineExpose({ show: load, hide: () => { visible = false; exit.saveOnHide(); pho
         <button size="mini" :disabled="busy || uploading || submitting" @tap="discard">丢弃草稿</button>
       </view>
       <text v-if="error" class="error">{{ error }}</text>
-      <button class="primary" :disabled="busy || submitting || uploading" :loading="submitting" @tap="submit">发布</button>
+      <button class="primary" :disabled="busy || submitting || uploading" :loading="submitting" @tap="submit"><AppIcon name="send" :size="32" />发布</button>
       <text class="muted">网络中断时请先在“我的发布”核对结果，再决定是否重新提交。</text>
       <text class="muted">首次发布需通过微信验证手机号；暂不验证仍可浏览和保存正文草稿。</text>
       <text class="muted">点击“取消”可选择保存或放弃；使用系统返回时自动保存本地草稿，草稿图片恢复时会重新核验。</text>

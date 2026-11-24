@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onUnmounted, shallowRef } from 'vue'
 import CustomerContacts from '../operations/CustomerContacts.vue'
+import MenuItem from '../../shared/MenuItem.vue'
 import Avatar from '../miniapp-users/Avatar.vue'
 import { miniappUserApi, type MiniappUser } from '../miniapp-users/api'
 import { session, restoreSession, logout } from '../identity/session'
@@ -60,17 +61,17 @@ defineExpose({ show: page.show, hide: page.hide })
     <PageStatus :busy="busy" :error="error" @retry="page.reloadProfile" />
     <text v-if="signoutError" class="error">{{ signoutError }}</text>
     <view v-if="session.user" class="card menu">
-      <button @tap="navigate('/pages/user/userInfo')">个人信息</button>
-      <button @tap="navigate('/pages/plugin/index')">学校</button>
-      <button v-if="session.user.bound_school_id" @tap="navigate('/pages/user/schoolChange')">换校申请与审核结果</button>
-      <button @tap="navigate('/pages/index/search?view=mine')">我的发布</button>
-      <button @tap="navigate('/pages/index/search?view=collect')">我的收藏</button>
-      <button @tap="navigate('/pages/user/attentions')">我的关注</button>
-      <button @tap="navigate('/pages/user/message')">消息</button>
-      <button @tap="navigate('/pages/index/category')">校园服务</button>
-      <button @tap="navigate('/pages/user/legal')">学校说明</button>
-      <button @tap="navigate('/pages/user/feedback')">投诉反馈</button>
-      <button :disabled="signingOut" @tap="signout">退出登录</button>
+      <MenuItem title="个人信息" icon="person" @activate="navigate('/pages/user/userInfo')" />
+      <MenuItem title="学校" icon="school" @activate="navigate('/pages/plugin/index')" />
+      <MenuItem v-if="session.user.bound_school_id" title="换校申请与审核结果" icon="application" @activate="navigate('/pages/user/schoolChange')" />
+      <MenuItem title="我的发布" icon="posts" @activate="navigate('/pages/index/search?view=mine')" />
+      <MenuItem title="我的收藏" icon="collection" @activate="navigate('/pages/index/search?view=collect')" />
+      <MenuItem title="我的关注" icon="attention" @activate="navigate('/pages/user/attentions')" />
+      <MenuItem title="消息" icon="inbox" @activate="navigate('/pages/user/message')" />
+      <MenuItem title="校园服务" icon="services" @activate="navigate('/pages/index/category')" />
+      <MenuItem title="学校说明" icon="info" @activate="navigate('/pages/user/legal')" />
+      <MenuItem title="投诉反馈" icon="posts" @activate="navigate('/pages/user/feedback')" />
+      <MenuItem title="退出登录" :arrow="false" danger :disabled="signingOut" @activate="signout" />
     </view>
   </view>
 </template>

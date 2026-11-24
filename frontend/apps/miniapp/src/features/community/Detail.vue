@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppIcon from '../../shared/AppIcon.vue'
 import { onUnmounted, ref, watch, nextTick } from 'vue'
 import { recordPage } from '../statistics/activity'
 import { postVisibilityLabel } from './post-status'
@@ -152,17 +153,17 @@ defineExpose({
         <view class="row"><text v-for="tag in post.tags" :key="tag" class="tag">#{{ tag }}</text></view>
         <text class="muted">{{ post.audit_status === 'approved' ? '已通过审核' : post.audit_status === 'pending' ? '待审核' : '未通过审核' }}</text>
         <view class="row post-actions">
-          <button size="mini" :disabled="busy || !canInteract" @tap="detail.react('like')">{{ interaction?.liked ? '取消点赞' : '点赞' }} {{ post.like_count }}</button>
-          <button size="mini" :disabled="!canInteract" @tap="focusComment()">评论 {{ post.comment_count }}</button>
+          <button size="mini" :disabled="busy || !canInteract" @tap="detail.react('like')"><AppIcon name="like" :selected="!!interaction?.liked" :size="28" />{{ interaction?.liked ? '取消点赞' : '点赞' }} {{ post.like_count }}</button>
+          <button size="mini" :disabled="!canInteract" @tap="focusComment()"><AppIcon name="comment" :size="28" />评论 {{ post.comment_count }}</button>
           <button v-if="canShare" size="mini" open-type="share">分享给好友/群</button>
           <button v-else size="mini" disabled>暂不可分享</button>
         </view>
         <text v-if="!canInteract" class="muted">当前帖子或账号状态不支持互动，请刷新核对。</text>
         <view class="row">
-          <button size="mini" :disabled="busy || !canInteract" @tap="detail.react('collect')">{{ interaction?.collected ? '取消收藏' : '收藏' }}</button>
-          <button v-if="post.author_id !== session.user?.id" size="mini" :disabled="busy || !canInteract" @tap="detail.follow()">{{ interaction?.author_followed ? '取消关注' : '关注作者' }}</button>
-          <button v-if="post.author_id === session.user?.id" size="mini" :disabled="busy" @tap="navigate(`/pages/community/edit?school=${props.school}&id=${props.id}`)">编辑</button>
-          <button v-if="post.author_id === session.user?.id" size="mini" :disabled="busy || auxiliaryBusy" @tap="remove">删除</button>
+          <button size="mini" :disabled="busy || !canInteract" @tap="detail.react('collect')"><AppIcon name="collection" :selected="!!interaction?.collected" :size="28" />{{ interaction?.collected ? '取消收藏' : '收藏' }}</button>
+          <button v-if="post.author_id !== session.user?.id" size="mini" :disabled="busy || !canInteract" @tap="detail.follow()"><AppIcon name="attention" :selected="!!interaction?.author_followed" :size="28" />{{ interaction?.author_followed ? '取消关注' : '关注作者' }}</button>
+          <button v-if="post.author_id === session.user?.id" size="mini" :disabled="busy" @tap="navigate(`/pages/community/edit?school=${props.school}&id=${props.id}`)"><AppIcon name="posts" :size="28" />编辑</button>
+          <button v-if="post.author_id === session.user?.id" size="mini" :disabled="busy || auxiliaryBusy" @tap="remove"><AppIcon name="delete" :size="28" />删除</button>
         </view>
       </view>
       <view class="card">

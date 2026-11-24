@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import AppIcon from '../../shared/AppIcon.vue'
 import type { SchoolDisplay } from './api'
 import BrandImage from './BrandImage.vue'
 import { defaultTheme, themeColor } from './branding'
@@ -56,7 +57,7 @@ const style = computed(() => {
             aria-label="搜索帖子"
             @tap.stop="emit('search')"
           >
-            <text class="search-icon" />
+            <AppIcon name="search" :size="32" />
             搜索
           </button>
         </view>
@@ -116,23 +117,5 @@ const style = computed(() => {
 }
 .school-search::after {
   border: 0;
-}
-.search-icon {
-  width: 22rpx;
-  height: 22rpx;
-  margin-right: 8rpx;
-  border: 3rpx solid currentColor;
-  border-radius: 50%;
-  position: relative;
-}
-.search-icon::after {
-  content: '';
-  position: absolute;
-  width: 12rpx;
-  height: 3rpx;
-  right: -10rpx;
-  bottom: -5rpx;
-  background: currentColor;
-  transform: rotate(45deg);
 }
 </style>

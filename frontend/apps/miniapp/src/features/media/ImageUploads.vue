@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
+import AppIcon from '../../shared/AppIcon.vue'
 import { uploadImage } from './files'
 import { uploadKey, type UploadPurpose } from './api'
 import PrivateImage from './PrivateImage.vue'
@@ -75,7 +76,7 @@ function choose() {
   <view class="image-grid">
     <view v-for="(src, i) in modelValue" :key="src">
       <PrivateImage :school="schoolContext.id" :source="src" />
-      <button size="mini" :disabled="busy || disabled" @tap="result = ''; emit('update:modelValue', modelValue.filter((_, n) => n !== i))">移除</button>
+      <button size="mini" :disabled="busy || disabled" @tap="result = ''; emit('update:modelValue', modelValue.filter((_, n) => n !== i))"><AppIcon name="close" :size="28" />移除</button>
       <button v-if="i > 0" size="mini" :disabled="busy || disabled" @tap="emit('update:modelValue', [...modelValue.slice(0, i - 1), src, modelValue[i - 1]!, ...modelValue.slice(i + 1)])">前移</button>
     </view>
     <view v-for="item in failed" :key="item.key">
@@ -84,7 +85,7 @@ function choose() {
       <button size="mini" :disabled="busy || disabled" @tap="result = ''; failed = failed.filter(v => v.key !== item.key)">移除失败项</button>
     </view>
   </view>
-  <button :disabled="busy || disabled || modelValue.length + failed.length >= 9" @tap="choose">选择图片（{{ modelValue.length }}/9）</button>
+  <button :disabled="busy || disabled || modelValue.length + failed.length >= 9" @tap="choose"><AppIcon name="camera" />选择图片（{{ modelValue.length }}/9）</button>
   <text v-if="busy">图片上传中…</text>
   <text v-if="result">{{ result }}</text>
   <text v-if="error">{{ error }}</text>

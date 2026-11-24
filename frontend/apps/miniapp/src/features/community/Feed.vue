@@ -17,6 +17,7 @@ import { invalidatedPosts, acknowledgePost, clearPostInvalidations } from './pos
 import { session } from '../identity/session'
 import { usePage, navigate } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
+import AppIcon from '../../shared/AppIcon.vue'
 import PrivateImage from '../media/PrivateImage.vue'
 import SchoolHeader from '../school-context/SchoolHeader.vue'
 const props = defineProps<{
@@ -160,7 +161,7 @@ defineExpose({
     </text>
     <view class="row spread">
       <text class="heading">{{ school?.name || '校园社区' }}</text>
-      <button size="mini" @tap="navigate('/pages/plugin/index')">选校</button>
+      <button size="mini" @tap="navigate('/pages/plugin/index')"><AppIcon name="school" :size="28" />选校</button>
     </view>
     <HotPosts v-if="homePage" ref="hotPosts" :active="hotPostsActive" />
     <text v-if="lockedMode" class="heading">关注动态</text>
@@ -214,7 +215,7 @@ defineExpose({
         confirm-type="search"
         @confirm="load()"
       />
-      <button size="mini" @tap="load()">搜索</button>
+      <button size="mini" @tap="load()"><AppIcon name="search" :size="28" />搜索</button>
     </view>
     <view class="waterfall">
       <view v-for="post in posts" :key="post.id" class="card post-card" @tap="detail(post)">
@@ -225,7 +226,7 @@ defineExpose({
         <text class="muted">发布时间：{{ post.published_at_text }}</text>
         <view class="row spread muted">
           <text>{{ post.author_name || '校园成员' }}</text>
-          <text>♡ {{ post.like_count }} · 评论 {{ post.comment_count }}</text>
+          <view class="row"><text><AppIcon name="like" :size="26" />{{ post.like_count }}</text><text><AppIcon name="comment" :size="26" />{{ post.comment_count }}</text></view>
         </view>
         <text v-if="mode === 'mine'" class="muted">状态：{{ postVisibilityLabel(post.visibility) }}</text>
         <text v-if="mode === 'mine'" class="muted">

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onUnmounted } from 'vue'
+import MenuItem from '../../shared/MenuItem.vue'
 import { operationsApi } from './api'
 import { imagePath } from '../media/files'
 import { scopeKey, onScopeChange } from '../school-context/context'
@@ -40,7 +41,7 @@ defineExpose({ prepare: contacts.prepare, show: contacts.show, hide: contacts.hi
       <button @tap="retry">重试平台服务</button>
     </view>
     <view v-else-if="state === 'ready'">
-      <button v-for="entry in contactEntries" :key="entry.kind" @tap="contacts.open(entry.kind)">{{ entry.title }}</button>
+      <MenuItem v-for="entry in contactEntries" :key="entry.kind" :title="entry.title" :icon="entry.kind" @activate="contacts.open(entry.kind)" />
       <view v-if="selected">
         <text class="heading">{{ title }}</text>
         <text v-if="imageState === 'loading'" class="muted">二维码加载中…</text>
