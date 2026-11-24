@@ -68,10 +68,40 @@ it('keeps an unchanged selection on reading return and clears only changed versi
 it('allows existing successful users without repeated consent and preserves their school', async () => {
   const existing = { ...pending, first_login: false, state: 'school_required' as const, school_id: 'school' }
   const { form, identity, dependencies } = setup(existing)
-  identity.onboarding.mockResolvedValueOnce(existing).mockResolvedValueOnce(ready)
-  await form.show(); form.choose('wrong-school'); await form.submit()
-  expect(identity.onboarding.mock.calls[1][1]).toMatchObject({ school_id: 'school' })
+  identity.onboarding.mockResolvedValueOnce(ready)
+  dependencies.documents.list.mockRejectedValue(new Error('documents unavailable'))
+  await form.begin()
+  form.choose('wrong-school')
+  expect(form.selected.value).toBe('school')
+  expect(identity.onboarding.mock.calls).toEqual([['complete', { ticket: 'ticket', school_id: 'school', request_key: 'request-key' }]])
+  expect(dependencies.documents.list).not.toHaveBeenCalled()
+  expect(identity.onboardingSchools).not.toHaveBeenCalled()
   expect(dependencies.ready).toHaveBeenCalledOnce()
+})
+it('retries an existing login with the same completion key after a lost response', async () => {
+  const existing = { ...pending, first_login: false, state: 'school_required' as const, school_id: 'school' }
+  const { form, identity, dependencies } = setup(existing)
+  identity.onboarding.mockRejectedValueOnce(new Error('response lost'))
+  await form.begin()
+  expect(form.error.value).toBe('response lost')
+  expect(dependencies.ready).not.toHaveBeenCalled()
+  identity.onboarding.mockResolvedValueOnce(existing).mockResolvedValueOnce(ready)
+  await form.begin()
+  expect(identity.onboarding.mock.calls.map(([action]) => action)).toEqual(['complete', 'status', 'complete'])
+  expect(identity.onboarding.mock.calls[2][1]).toEqual(identity.onboarding.mock.calls[0][1])
+  expect(dependencies.start).toHaveBeenCalledOnce()
+  expect(dependencies.ready).toHaveBeenCalledWith(ready)
+})
+it('recovers an existing login via status without loading onboarding resources', async () => {
+  const existing = { ...pending, first_login: false, state: 'school_required' as const, school_id: 'school' }
+  const { form, identity, dependencies } = setup(existing)
+  identity.onboarding.mockRejectedValueOnce(new Error('response lost'))
+  await form.begin()
+  identity.onboarding.mockResolvedValueOnce(ready)
+  await form.show()
+  expect(dependencies.ready).toHaveBeenCalledWith(ready)
+  expect(dependencies.documents.list).not.toHaveBeenCalled()
+  expect(identity.onboardingSchools).not.toHaveBeenCalled()
 })
 it('retains server-confirmed versions after binding fails and recovers ready via status', async () => {
   const { form, identity, dependencies } = setup()
