@@ -5,8 +5,8 @@ import { PermissionFixture } from '../../../test/permissions'
 import { OperationServices } from './services'
 import { OperationReports } from './reports'
 import { SchoolMarketing } from './marketing'
-import { serviceApi } from './api'
-vi.mock('./api',()=>({serviceApi:{list:vi.fn(),options:vi.fn(),preview:vi.fn(),save:vi.fn(),override:vi.fn(),marketingSettings:vi.fn(),marketingSetting:vi.fn()}}))
+import { serviceApi, type OperationReport } from './api'
+vi.mock('./api',()=>({serviceApi:{list:vi.fn(),options:vi.fn(),preview:vi.fn(),save:vi.fn(),override:vi.fn(),report:vi.fn(),marketingSettings:vi.fn(),marketingSetting:vi.fn()}}))
 vi.mock('./media-picker',()=>({MediaPicker:({onBusyChange}:{onBusyChange?:(busy:boolean)=>void})=> <div>本校服务素材<button onClick={()=>onBusyChange?.(true)}>模拟图片上传</button></div>}))
 vi.mock('../../school-context',()=>({useSchools:()=>({data:[{id:'school',name:'学校'}]})}))
 class Resize { observe(){} unobserve(){} disconnect(){} }
