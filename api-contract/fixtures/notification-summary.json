@@ -1,0 +1,10 @@
+{
+  "data": {
+    "type": "notification-summaries",
+    "id": "40000000-0000-0000-0000-000000000001",
+    "attributes": {
+      "school_id": "40000000-0000-0000-0000-000000000001",
+      "unread_count": 103
+    }
+  }
+}
