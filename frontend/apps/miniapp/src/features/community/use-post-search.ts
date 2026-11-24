@@ -1,4 +1,5 @@
 import { ref, shallowRef } from 'vue'
+import { mergePageWindow } from '../../shared/page-window'
 import {
   normalizePostSearch,
   type communityApi,
@@ -126,16 +127,7 @@ export function createPostSearch(env: Environment) {
       if (!current()) return
       if (!response.page || response.page.number !== next)
         throw new Error('搜索分页信息异常，请重试')
-      const merged = next === 1 ? [] : posts.value
-      const seen = new Set(merged.map((item) => item.id))
-      posts.value = [
-        ...merged,
-        ...response.items.filter((item) => {
-          if (seen.has(item.id)) return false
-          seen.add(item.id)
-          return true
-        }),
-      ]
+      posts.value = mergePageWindow(posts.value, page.value, response.items, next)
       page.value = next
       hasMore.value = response.page.has_more
       succeeded = true
@@ -197,6 +189,10 @@ export function createPostSearch(env: Environment) {
     if (!ready.value || !hasMore.value || !page.value || loading.value || loadingMore.value)
       return Promise.resolve()
     return read(page.value + 1)
+  }
+  function loadPage(target: number) {
+    if (!ready.value || loading.value || loadingMore.value || target < 1 || target >= page.value) return Promise.resolve()
+    return read(target)
   }
   async function syncInvalidated() {
     if (
@@ -305,6 +301,7 @@ export function createPostSearch(env: Environment) {
     submit,
     refresh,
     loadMore,
+    loadPage,
     sync,
     show,
     scopeChanged,

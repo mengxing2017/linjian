@@ -1,4 +1,5 @@
 import { computed, shallowReactive } from 'vue'
+import { mergePageWindow } from '../../shared/page-window'
 import type { Notification, NotificationFilter, NotificationKind } from './api'
 
 export type NotificationTab = 'all' | NotificationKind
@@ -64,14 +65,14 @@ export function createNotificationList(options: {
     list.loading = false
     list.loadingMore = false
   }
-  async function load(resetPage = true) {
+  async function load(resetPage = true, targetPage?: number) {
     if (disposed || !visible) return
     const active = sync()
     if (!active) return
     const tab = state.activeTab, list = state.categories[tab]
-    if (!resetPage && (list.loading || list.loadingMore || !list.loaded || list.stale || !list.hasMore)) return
+    if (!resetPage && (list.loading || list.loadingMore || !list.loaded || list.stale || (!targetPage && !list.hasMore))) return
     if (resetPage) invalidate(tab)
-    const version = ++list.requestVersion, turn = epoch, page = resetPage ? 1 : list.page + 1
+    const version = ++list.requestVersion, turn = epoch, page = targetPage ?? (resetPage ? 1 : list.page + 1)
     const accepts = () => valid(turn, active.key) && visible && state.activeTab === tab && list.requestVersion === version
     list.loading = resetPage
     list.loadingMore = !resetPage
@@ -81,7 +82,7 @@ export function createNotificationList(options: {
     try {
       const result = await options.read(active.school, page, tab === 'all' ? {} : { kind: tab })
       if (!accepts()) return
-      const items = resetPage ? result.items : [...list.items, ...result.items]
+      const items = mergePageWindow(resetPage ? [] : list.items, resetPage ? 0 : list.page, result.items, page)
       list.items = [...new Map(items.map(item => {
         const readAt = acknowledgedReads.get(item.id)
         return [item.id, readAt && !item.read_at ? { ...item, read_at: readAt } : item]
@@ -90,6 +91,8 @@ export function createNotificationList(options: {
       list.hasMore = !!result.page?.has_more
       list.loaded = true
       list.stale = false
+      const retained = new Set(notificationTabs.flatMap(entry => state.categories[entry.id].items.map(item => item.id)))
+      for (const id of acknowledgedReads.keys()) if (!retained.has(id)) acknowledgedReads.delete(id)
     } catch (error) {
       if (!accepts()) return
       const message = options.failure(error)
@@ -185,7 +188,7 @@ export function createNotificationList(options: {
     reset()
     disposed = true
   }
-  return { state, current, select, read, show, hide, refresh, reset, dispose, loadMore: () => load(false), retry: () => load() }
+  return { state, current, select, read, show, hide, refresh, reset, dispose, loadMore: () => load(false), loadPage: (page: number) => load(false, page), retry: () => load() }
 }
 
 export function formatNotificationTime(value: string, now = new Date()) {

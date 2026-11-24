@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { mergePageWindow } from '../../shared/page-window'
+import PageWindow from '../../shared/PageWindow.vue'
 import { recordPage } from '../statistics/activity'
 import HomeOperations from '../operations/HomeOperations.vue'
 import HomeShortcuts from '../operations/HomeShortcuts.vue'
@@ -48,7 +50,7 @@ const { busy, error, run } = usePage(() => {
   menu.value = undefined
   selectedTag.value = ''
 })
-function load(reset = true, retryAfterScopeRefresh = true): Promise<void> {
+function load(reset = true, retryAfterScopeRefresh = true, targetPage?: number): Promise<void> {
   return run(async (current) => {
     if (!(await requireSchool())) return
     if (!current()) {
@@ -66,7 +68,7 @@ function load(reset = true, retryAfterScopeRefresh = true): Promise<void> {
       menu.value = loaded
       if (selectedTag.value && !loaded.tags.some(tag => tag.name === selectedTag.value)) selectedTag.value = ''
     }
-    const next = reset ? 1 : page.value + 1
+    const next = targetPage ?? (reset ? 1 : page.value + 1)
     const kind: FeedFilter['kind'] =
       mode.value === 'collect' || mode.value === 'following' ? mode.value : undefined
     const response = await communityApi.posts(id, {
@@ -82,7 +84,7 @@ function load(reset = true, retryAfterScopeRefresh = true): Promise<void> {
       id === schoolContext.id &&
       user === session.user?.id
     ) {
-      posts.value = reset ? response.items : [...posts.value, ...response.items]
+      posts.value = mergePageWindow(reset ? [] : posts.value, reset ? 0 : page.value, response.items, next)
       page.value = next
       more.value = !!response.page?.has_more
       if (reset) dirty.forEach(item => acknowledgePost(scope, id, item.id, item.version))
@@ -217,10 +219,11 @@ defineExpose({
       <button size="mini" @tap="load()"><AppIcon name="search" :size="28" />搜索</button>
     </view>
     <view class="feed-list">
+      <PageWindow :page="page" :busy="busy" @previous="target => load(false, true, target)" />
       <PostFeedCard v-for="post in posts" :key="post.id" :post="post" :school="schoolContext.id" :mine="mode === 'mine'" @open="detail" />
     </view>
     <PageStatus :busy="busy" :error="error" :empty="!posts.length" @retry="load()" />
-    <button v-if="more" :disabled="busy" @tap="load(false)">加载更多</button>
+    <button v-if="more" :disabled="busy" @tap="load(false)">{{ page % 3 === 0 ? '下一组' : '加载更多' }}</button>
   </view>
 </template>
 <style scoped>

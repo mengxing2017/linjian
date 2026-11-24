@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageWindow from '../../shared/PageWindow.vue'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { communityApi, type CommunityPost } from './api'
 import { createPostSearch } from './use-post-search'
@@ -100,6 +101,7 @@ defineExpose({
       暂无相关帖子，换个关键词试试
     </text>
     <view class="search-results">
+      <PageWindow :page="page" :busy="loading || loadingMore" @previous="search.loadPage" />
       <PostFeedCard v-for="post in posts" :key="post.id" :post="post" :school="schoolContext.id" @open="detail" />
     </view>
     <text v-if="loadingMore" class="search-status">加载中…</text>
@@ -107,7 +109,7 @@ defineExpose({
       <text>{{ moreError }}</text>
       <button size="mini" @tap="search.loadMore()">重试加载</button>
     </view>
-    <button v-else-if="hasMore" :disabled="loading" @tap="search.loadMore()">加载更多</button>
+    <button v-else-if="hasMore" :disabled="loading" @tap="search.loadMore()">{{ page % 3 === 0 ? '下一组' : '加载更多' }}</button>
     <text v-else-if="page && posts.length && !loading && !error" class="search-status">
       没有更多帖子了
     </text>

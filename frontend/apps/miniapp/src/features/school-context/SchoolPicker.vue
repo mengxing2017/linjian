@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { mergePageWindow } from '../../shared/page-window'
+import PageWindow from '../../shared/PageWindow.vue'
 import { shallowRef, ref, computed, onUnmounted, watch } from 'vue'
 import { resumeReturnTarget } from '../identity/resume-target'
 import { bindSchool, loadSchools, schoolContext, selectSchool } from './context'
@@ -42,7 +44,7 @@ const choices = computed(() =>
       )
     : directory.value,
 )
-function load(reset = true) {
+function load(reset = true, targetPage?: number) {
   recommendations.value?.clear()
   return run(async (current) => {
     await restoreSession()
@@ -52,7 +54,7 @@ function load(reset = true) {
     }
     await loadSchools()
     if (session.user.bound_school_id) return
-    const next = reset ? 1 : page.value + 1
+    const next = targetPage ?? (reset ? 1 : page.value + 1)
     const result = await schoolsApi.directory({
       page: next,
       search: search.value,
@@ -60,7 +62,7 @@ function load(reset = true) {
       city: city.value,
     })
     if (current()) {
-      directory.value = reset ? result.items : [...directory.value, ...result.items]
+      directory.value = mergePageWindow(reset ? [] : directory.value, reset ? 0 : page.value, result.items, next)
       page.value = next
       more.value = !!result.page?.has_more
     }
@@ -97,6 +99,7 @@ defineExpose({ show: () => { visible = true; return load() }, hide })
     <text v-if="session.user?.bound_school_id && !schoolContext.schools.length">
       学校暂不可用，请联系管理员
     </text>
+    <PageWindow v-if="!session.user?.bound_school_id" :page="page" :busy="busy" @previous="target => load(false, target)" />
     <button
       v-for="school in choices"
       :key="school.id"
@@ -116,7 +119,7 @@ defineExpose({ show: () => { visible = true; return load() }, hide })
       </text>
     </button>
     <button v-if="more && !session.user?.bound_school_id" :disabled="busy" @tap="load(false)">
-      加载更多学校
+      {{ page % 3 === 0 ? '下一组学校' : '加载更多学校' }}
     </button>
   </view>
 </template>

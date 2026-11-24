@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageWindow from '../../shared/PageWindow.vue'
 import { computed, onUnmounted, ref } from 'vue'
 import { communityApi } from './api'
 import { schoolContext, requireSchool, scopeKey, onScopeChange } from '../school-context/context'
@@ -80,6 +81,7 @@ defineExpose({
     <view v-if="state.readError" class="notification-error">标记已读失败：{{ state.readError }}，请重试对应消息。</view>
     <view v-if="state.summaryError" class="notification-hint">未读数量暂未更新，请下拉刷新重试。</view>
     <view v-if="current.loading || preparing" class="notification-hint">正在加载{{ activeLabel.label }}消息…</view>
+    <PageWindow :page="current.page" :busy="current.loading || current.loadingMore" @previous="board.loadPage" />
     <view v-for="item in current.items" :key="item.id" class="notification-row" :class="{ unread: !item.read_at }">
       <view class="notification-copy">
         <view class="notification-title-line">
@@ -106,7 +108,7 @@ defineExpose({
       <button size="mini" @tap="board.loadMore()">重试</button>
     </view>
     <button v-else-if="current.hasMore && !current.stale" :disabled="current.loadingMore" @tap="board.loadMore()">
-      {{ current.loadingMore ? '正在加载…' : '更多消息' }}
+      {{ current.loadingMore ? '正在加载…' : current.page % 3 === 0 ? '下一组消息' : '更多消息' }}
     </button>
     <view v-else-if="current.loaded && current.items.length && !current.loading && !current.error" class="notification-hint">没有更多消息了</view>
   </view>

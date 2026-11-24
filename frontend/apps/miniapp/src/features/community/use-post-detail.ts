@@ -1,4 +1,5 @@
 import { computed, ref, shallowRef } from 'vue'
+import { mergePageWindow } from '../../shared/page-window'
 import type { communityApi, CommunityPost, Comment, PostInteractionState } from './api'
 
 type DetailApi = Pick<typeof communityApi, 'post' | 'interactionState' | 'comments' | 'react' | 'follow' | 'comment' | 'deleteComment'>
@@ -29,7 +30,7 @@ export function createPostDetail(env: Environment) {
   let generation = 0
   let commentGeneration = 0
   let stateGeneration = 0
-  let page = 1
+  const page = ref(1)
   let writeSequence = 0
   let disposed = false
   let fullLoad: Promise<void> | undefined
@@ -65,7 +66,7 @@ export function createPostDetail(env: Environment) {
     applyState(state)
     if (result && commentsTurn === commentGeneration) {
       comments.value = state.audit_status === 'approved' && state.visibility === 'visible' ? result.items : []
-      page = 1
+      page.value = 1
       more.value = state.audit_status === 'approved' && state.visibility === 'visible' && !!result.page?.has_more
     }
   }
@@ -89,7 +90,7 @@ export function createPostDetail(env: Environment) {
       post.value = item
       if (commentsTurn === commentGeneration) {
         comments.value = result.items
-        page = 1
+        page.value = 1
         more.value = !!result.page?.has_more
       }
       applyState(state)
@@ -178,21 +179,23 @@ export function createPostDetail(env: Environment) {
     if (!(await env.confirm('确认删除评论？')) || !current()) return
     return write('delete', () => env.api.deleteComment(env.school(), item), undefined, true)
   }
-  async function next() {
-    if (loadingMore.value || busy.value || !more.value || !validated.value) return
+  async function loadComments(target: number) {
+    if (loadingMore.value || busy.value || !validated.value || target < 1) return
     const current = token()
     const turn = commentGeneration
     loadingMore.value = true
     try {
-      const result = await env.api.comments(env.school(), env.id(), page + 1)
+      const result = await env.api.comments(env.school(), env.id(), target)
       if (!current() || turn !== commentGeneration) return
-      const ids = new Set(comments.value.map(item => item.id))
-      comments.value = [...comments.value, ...result.items.filter(item => !ids.has(item.id))]
-      page++
+      comments.value = mergePageWindow(comments.value, page.value, result.items, target)
+      page.value = target
       more.value = !!result.page?.has_more
     } catch (cause) { if (current() && turn === commentGeneration) failure(cause) } finally {
       if (current() && turn === commentGeneration) loadingMore.value = false
     }
+  }
+  function next() {
+    return more.value ? loadComments(page.value + 1) : Promise.resolve()
   }
   function reply(item: Comment) {
     if (canInteract.value && item.school_id === env.school() && item.post_id === env.id() && item.audit_status === 'approved' && item.visibility === 'visible' && !item.deleted)
@@ -215,11 +218,11 @@ export function createPostDetail(env: Environment) {
     validated.value = false
     more.value = false
     error.value = ''
-    page = 1
+    page.value = 1
   }
   return {
-    post, interaction, comments, content, parent, error, loading, loadingMore, operation, more, busy, canInteract, canShare,
-    load, resume, react, follow, comment, removeComment, next, reply, reset,
+    post, interaction, comments, content, parent, error, loading, loadingMore, operation, more, busy, canInteract, canShare, page,
+    load, resume, react, follow, comment, removeComment, next, loadComments, reply, reset,
     show: () => { visible.value = true; validated.value = false },
     hide: () => { visible.value = false; validated.value = false },
     dispose: () => { reset(); disposed = true; visible.value = false },

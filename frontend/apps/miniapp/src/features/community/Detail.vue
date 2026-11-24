@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageWindow from '../../shared/PageWindow.vue'
 import AppIcon from '../../shared/AppIcon.vue'
 import { onUnmounted, ref, watch, nextTick } from 'vue'
 import { recordPage } from '../statistics/activity'
@@ -29,7 +30,7 @@ const detail = createPostDetail({
   }, notify, confirm,
   beforePublicAction: () => phone.value?.ensure() ?? Promise.resolve(false),
 })
-const { post, interaction, comments, content, parent, error, busy, loadingMore, operation, more, canInteract, canShare } = detail
+const { post, interaction, comments, content, parent, error, busy, loadingMore, operation, more, canInteract, canShare, page } = detail
 const focused = ref(false)
 const reason = ref('')
 const auxiliaryBusy = ref(false)
@@ -168,6 +169,8 @@ defineExpose({
       </view>
       <view class="card">
         <text class="title">评论 {{ post.comment_count }}</text>
+        <view id="post-comments-anchor" />
+        <PageWindow :page="page" :busy="busy || loadingMore" anchor="#post-comments-anchor" @previous="detail.loadComments" />
         <view v-for="item in comments" :key="item.id" class="comment">
           <text>{{ item.author_name }}：{{ item.content }}</text>
           <text v-if="item.parent_id" class="muted">回复评论</text>
@@ -177,7 +180,7 @@ defineExpose({
             <button v-if="item.author_id === session.user?.id" size="mini" :disabled="busy || !canInteract" @tap="detail.removeComment(item)">删除</button>
           </view>
         </view>
-        <button v-if="more" :disabled="busy || loadingMore" @tap="detail.next()">更多评论</button>
+        <button v-if="more" :disabled="busy || loadingMore" @tap="detail.next()">{{ page % 3 === 0 ? '下一组评论' : '更多评论' }}</button>
         <text v-if="parent" class="muted" @tap="parent = undefined">正在回复 {{ parent.authorName }}，点击取消</text>
         <textarea id="post-comment-input" v-model="content" :focus="focused" :disabled="!canInteract || operation === 'comment'" class="input" maxlength="2000" placeholder="友善交流，留下你的评论" @blur="focused = false" />
         <button class="primary" :disabled="busy || !canInteract" @tap="detail.comment()">提交评论</button>
