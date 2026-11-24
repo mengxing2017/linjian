@@ -20,3 +20,4 @@ export type { HomeMenu, HomeMenuTag } from '@linjian/api-contract/home-menu'
 export { communityApi, homeMenuApi } from './client'
 
 export { normalizePostContent, postFieldError } from '@linjian/api-contract/community'
+export { normalizePostSearch } from '@linjian/api-contract/community'

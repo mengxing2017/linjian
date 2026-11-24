@@ -58,7 +58,7 @@
     {
       "path": "pages/index/search",
       "style": {
-        "navigationBarTitleText": "搜索校园",
+        "navigationBarTitleText": "搜索帖子",
         "enablePullDownRefresh": true
       }
     },

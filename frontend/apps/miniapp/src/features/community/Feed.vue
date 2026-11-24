@@ -151,8 +151,9 @@ defineExpose({
 </script>
 <template>
   <view class="page">
-    <HomeOperations v-if="!searchPage" ref="operations" />
-    <SchoolHeader :school="school" />
+    <HomeOperations v-if="!searchPage && !homePage" ref="operations" />
+    <SchoolHeader :school="school" :searchable="homePage" @search="navigate('/pages/index/search')" />
+    <HomeOperations v-if="!searchPage && homePage" ref="operations" />
     <HomeShortcuts v-if="!searchPage" ref="shortcuts" />
     <text v-if="session.user?.bound_school_id && !schoolContext.schools.length">
       学校暂不可用，请联系管理员
@@ -204,7 +205,7 @@ defineExpose({
     <view v-if="menu?.tags.some(tag => tag.menu_status === 'hot')" class="row">
       <text>热门：</text><button v-for="tag in menu.tags.filter(tag => tag.menu_status === 'hot')" :key="tag.id" size="mini" @tap="selectTag(tag.name)">{{ tag.name }}</button>
     </view>
-    <view class="row">
+    <view v-if="!homePage" class="row">
       <input
         v-model="search"
         :disabled="busy"

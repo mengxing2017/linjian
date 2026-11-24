@@ -4,7 +4,8 @@ import type { SchoolDisplay } from './api'
 import BrandImage from './BrandImage.vue'
 import { defaultTheme, themeColor } from './branding'
 import { formatRegion } from '@linjian/china-regions'
-const props = defineProps<{ school?: SchoolDisplay }>()
+const props = defineProps<{ school?: SchoolDisplay; searchable?: boolean }>()
+const emit = defineEmits<{ search: [] }>()
 const regionLabel = computed(() =>
   props.school
     ? formatRegion({
@@ -44,10 +45,21 @@ const style = computed(() => {
         :revision="school.revision"
         :enabled="!!school.logo_url"
       />
-      <view>
-        <text class="school-brand-title">
-          {{ school?.short_name || school?.name || '校园社区' }}
-        </text>
+      <view class="school-brand-copy">
+        <view class="school-brand-title-row">
+          <text class="school-brand-title">
+            {{ school?.short_name || school?.name || '校园社区' }}
+          </text>
+          <button
+            v-if="searchable"
+            class="school-search"
+            aria-label="搜索帖子"
+            @tap.stop="emit('search')"
+          >
+            <text class="search-icon" />
+            搜索
+          </button>
+        </view>
         <text>{{ regionLabel }}</text>
       </view>
     </view>
@@ -72,5 +84,55 @@ const style = computed(() => {
   font-size: 40rpx;
   font-weight: 700;
   margin-bottom: 8rpx;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.school-brand-copy {
+  flex: 1;
+  min-width: 0;
+}
+.school-brand-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+.school-search {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 8px;
+  font-size: 26rpx;
+  color: inherit;
+  background: transparent;
+  line-height: 1.4;
+}
+.school-search::after {
+  border: 0;
+}
+.search-icon {
+  width: 22rpx;
+  height: 22rpx;
+  margin-right: 8rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 50%;
+  position: relative;
+}
+.search-icon::after {
+  content: '';
+  position: absolute;
+  width: 12rpx;
+  height: 3rpx;
+  right: -10rpx;
+  bottom: -5rpx;
+  background: currentColor;
+  transform: rotate(45deg);
 }
 </style>
