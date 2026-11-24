@@ -17,7 +17,7 @@ function setup(reducedMotion = false) {
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers() })
 
-it('groups only the default home discovery into up to three rows per screen', async () => {
+it('uses one compact row on home and keeps every rank reachable when expanded', async () => {
   expect(isHotPostsHome(true, false, 'feed', '', '')).toBe(true)
   for (const [home, searchPage, mode, search, tag] of [
     [false, false, 'feed', '', ''], [true, true, 'feed', '', ''], [true, false, 'following', '', ''],
@@ -25,7 +25,14 @@ it('groups only the default home discovery into up to three rows per screen', as
   ] as const) expect(isHotPostsHome(home, searchPage, mode, search, tag)).toBe(false)
   const { board } = setup()
   await board.show()
+  expect(board.pages.value.map(group => group.length)).toEqual(Array(10).fill(1))
+  expect(board.pages.value.flat().map(item => item.rank)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+  board.changePage(9)
+  board.setRowsPerPage(3)
   expect(board.pages.value.map(group => group.length)).toEqual([3, 3, 3, 1])
+  expect(board.page.value).toBe(3)
+  board.setRowsPerPage(1)
+  expect(board.page.value).toBe(9)
   expect(board.autoplay.value).toBe(true)
   board.userPaused.value = true
   expect(board.autoplay.value).toBe(false)
@@ -40,6 +47,7 @@ it('keeps a single screen static and respects reduced motion without disabling m
   const { board, env } = setup(true)
   env.read.mockResolvedValueOnce(result('school', 3))
   await board.show()
+  board.setRowsPerPage(3)
   expect(board.autoplay.value).toBe(false)
   board.open(board.items.value[0])
   expect(env.navigate).toHaveBeenCalledWith('school', 'post-0')
@@ -49,6 +57,30 @@ it('keeps a single screen static and respects reduced motion without disabling m
   expect(board.autoplay.value).toBe(true)
   board.open({ ...board.items.value[0], school_id: 'another' })
   expect(env.navigate).toHaveBeenCalledTimes(1)
+  board.dispose()
+})
+it('preserves the visible anchor while regrouping and refreshing, and resets on hide', async () => {
+  const { board, env } = setup()
+  await board.show()
+  board.changePage(7)
+  board.userPaused.value = true
+  board.touching.value = true
+  board.setRowsPerPage(3)
+  expect(board.page.value).toBe(2)
+  expect(board.pages.value[2].some(item => item.id === 'post-7')).toBe(true)
+  expect(board.touching.value).toBe(false)
+  expect(board.autoplay.value).toBe(false)
+  env.read.mockResolvedValueOnce({ ...result(), items: [...result().items].reverse() })
+  await board.refresh()
+  expect(board.pages.value[board.page.value].some(item => item.id === 'post-6')).toBe(true)
+  env.read.mockResolvedValueOnce(result('school', 1))
+  await board.refresh()
+  expect(board.page.value).toBe(0)
+  expect(board.pages.value).toHaveLength(1)
+  expect(board.autoplay.value).toBe(false)
+  board.hide()
+  expect(board.rowsPerPage.value).toBe(1)
+  expect(board.page.value).toBe(0)
   board.dispose()
 })
 it('refreshes every 60 seconds after completion, hides failures and recovers without a retry storm', async () => {
