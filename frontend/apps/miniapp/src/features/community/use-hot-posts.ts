@@ -43,7 +43,8 @@ export function createHotPosts(env: Environment) {
   const userPaused = ref(env.reducedMotion ?? false)
   const touching = ref(false)
   const page = ref(0)
-  const pages = computed(() => Array.from({ length: Math.ceil(items.value.length / 3) }, (_, index) => items.value.slice(index * 3, index * 3 + 3)))
+  const rowsPerPage = ref<1 | 3>(1)
+  const pages = computed(() => Array.from({ length: Math.ceil(items.value.length / rowsPerPage.value) }, (_, index) => items.value.slice(index * rowsPerPage.value, (index + 1) * rowsPerPage.value)))
   const autoplay = computed(() => visible.value && pages.value.length > 1 && !loading.value && !touching.value && !userPaused.value)
   let generation = 0
   let activeScope: Scope | undefined
@@ -78,6 +79,7 @@ export function createHotPosts(env: Environment) {
     items.value = []
     meta.value = undefined
     page.value = 0
+    rowsPerPage.value = 1
     activeScope = undefined
   }
   function refresh(): Promise<void> {
@@ -102,7 +104,7 @@ export function createHotPosts(env: Environment) {
         items.value = result.items
         meta.value = result.meta
         const next = anchor ? result.items.findIndex(item => item.id === anchor) : -1
-        page.value = next >= 0 ? Math.floor(next / 3) : 0
+        page.value = next >= 0 ? Math.floor(next / rowsPerPage.value) : 0
       } catch (cause) {
         if (!current()) return
         items.value = []
@@ -156,9 +158,15 @@ export function createHotPosts(env: Environment) {
   function changePage(index: number) {
     if (Number.isInteger(index) && index >= 0 && index < pages.value.length) page.value = index
   }
+  function setRowsPerPage(rows: 1 | 3) {
+    const anchor = page.value * rowsPerPage.value
+    rowsPerPage.value = rows
+    page.value = Math.min(Math.floor(anchor / rows), Math.max(0, pages.value.length - 1))
+    touching.value = false
+  }
   function dispose() {
     hide()
     disposed = true
   }
-  return { items, meta, loading, visible, userPaused, touching, page, pages, autoplay, show, hide, refresh, invalidate, open, changePage, dispose }
+  return { items, meta, loading, visible, userPaused, touching, page, pages, rowsPerPage, setRowsPerPage, autoplay, show, hide, refresh, invalidate, open, changePage, dispose }
 }

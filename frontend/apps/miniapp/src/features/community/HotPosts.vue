@@ -17,7 +17,7 @@ const board = createHotPosts({
   navigate: (school, post) => navigate(`/pages/index/detail?school=${school}&id=${post}`),
   reducedMotion: typeof globalThis.matchMedia === 'function' && globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches,
 })
-const { items, pages, page, userPaused, touching, autoplay } = board
+const { items, pages, page, rowsPerPage, userPaused, touching, autoplay } = board
 const stopInvalidations = onPostInvalidated(board.invalidate)
 watch(() => [props.active, scopeKey(), session.user?.id], (_next, previous) => {
   if (props.active) void board.show(!previous?.[0])
@@ -31,14 +31,15 @@ defineExpose({
 })
 </script>
 <template>
-  <view v-if="active && items.length" class="card hot-posts">
-    <view class="row spread">
-      <text class="title">本校热榜</text>
+  <view v-if="active && items.length" class="hot-posts">
+    <view class="hot-posts-header">
+      <text class="hot-posts-label">本校热榜</text>
+      <button v-if="items.length > 1" size="mini" :aria-expanded="rowsPerPage === 3" @tap="board.setRowsPerPage(rowsPerPage === 1 ? 3 : 1)">{{ rowsPerPage === 1 ? '展开' : '收起' }}</button>
       <button v-if="pages.length > 1" size="mini" @tap="userPaused = !userPaused">{{ userPaused ? '继续播放' : '暂停播放' }}</button>
     </view>
     <swiper
       class="hot-posts-swiper"
-      :style="{ height: `${Math.min(items.length, 3) * 104}rpx` }"
+      :style="{ height: `${Math.min(items.length, rowsPerPage) * 44}px` }"
       vertical
       :circular="pages.length > 1"
       :autoplay="autoplay"
@@ -54,7 +55,7 @@ defineExpose({
           <text class="hot-post-rank">{{ item.rank }}</text>
           <view class="hot-post-body">
             <text class="hot-post-title">{{ item.display_label }}</text>
-            <text class="muted">赞 {{ item.like_count }} · 评论 {{ item.comment_count }}</text>
+            <text class="hot-post-counts">赞 {{ item.like_count }} · 评论 {{ item.comment_count }}</text>
           </view>
         </view>
       </swiper-item>
@@ -62,8 +63,14 @@ defineExpose({
   </view>
 </template>
 <style scoped>
-.hot-post-row { display: flex; align-items: center; gap: 20rpx; height: 104rpx; }
+.hot-posts { padding: 0 16rpx; margin: 8rpx 0; background: #fff; border-radius: var(--linjian-radius-card); }
+.hot-posts-header { display: flex; align-items: center; gap: 8rpx; }
+.hot-posts-label { flex: 1; min-width: 0; font-size: var(--linjian-font-body); font-weight: 600; }
+.hot-posts-header button { flex-shrink: 0; min-height: 44px; min-width: 44px; margin: 0; padding: 0 12rpx; line-height: 1.4; display: flex; align-items: center; justify-content: center; background: transparent; }
+.hot-posts-header button::after { border: 0; }
+.hot-post-row { display: flex; align-items: center; gap: 12rpx; height: 44px; }
 .hot-post-rank { width: 36rpx; font-weight: 700; text-align: center; }
-.hot-post-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4rpx; }
-.hot-post-title { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hot-post-body { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12rpx; }
+.hot-post-counts { max-width: 45%; font-size: var(--linjian-font-caption); color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hot-post-title { display: block; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>
