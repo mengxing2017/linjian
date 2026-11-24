@@ -8,6 +8,7 @@ export type {
   Reaction,
   Follow,
   Notification,
+  NotificationSummary,
   FeedFilter,
   SchoolResource,
   HotPostSummary,

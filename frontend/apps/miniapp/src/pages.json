@@ -89,7 +89,8 @@
     {
       "path": "pages/user/message",
       "style": {
-        "navigationBarTitleText": "消息"
+        "navigationBarTitleText": "消息",
+        "enablePullDownRefresh": true
       }
     },
     {
