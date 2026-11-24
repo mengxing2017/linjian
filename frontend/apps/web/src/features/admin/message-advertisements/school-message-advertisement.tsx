@@ -79,7 +79,7 @@ function SchoolAdvertisementForm({ school, canManage }: { school: string; canMan
   }
   const disabled = busy || refreshing || conflict || !loaded || !canManage
   return <Space orientation="vertical" style={{ width: '100%' }}>
-    <Alert type="info" title="仅管理本校消息尾部广告；新增、编辑须平台审核。待审期间继续使用旧版，删除仅影响后续新冻结消息。" />
+    <Alert type="info" title="仅管理本校消息尾部广告；新增、编辑须平台审核。待审期间继续使用旧版，删除后不再为新生成的消息追加广告。" />
     {error && <Alert type="error" title={error} />}
     {conflict && <Alert type="warning" title="数据已变化，当前文案已保留。请重新加载并核对，再手动保存或提交。" />}
     <Button disabled={busy || refreshing} onClick={() => void load(conflict || content !== original)}>重新加载并核对</Button>
@@ -93,7 +93,7 @@ function SchoolAdvertisementForm({ school, canManage }: { school: string; canMan
         {candidate?.status !== 'pending' && <Button disabled={disabled || !!advertisementContentError(content) || (!!config && content === original)} loading={busy} onClick={() => void run(() => config ? messageAdvertisements.saveDraft(school, config, content) : messageAdvertisements.create(school, content))}>保存草稿</Button>}
         {config && candidate?.status === 'draft' && <Button type="primary" disabled={disabled || content !== candidate.content} onClick={() => void run(() => messageAdvertisements.submit(school, config, candidate))}>提交平台审核</Button>}
         {config && candidate && <Button disabled={disabled} onClick={() => void run(() => messageAdvertisements.withdraw(school, config, candidate))}>撤回候选文案</Button>}
-        {config && <Popconfirm title="确认删除本校广告？" description="已冻结或已受理消息不会撤回，后续新冻结消息不再追加广告。" disabled={disabled} onConfirm={() => run(() => messageAdvertisements.remove(school, config))}>
+        {config && <Popconfirm title="确认删除本校广告？" description="内容已确定或已受理的消息不会撤回，后续新生成的消息不再追加广告。" disabled={disabled} onConfirm={() => run(() => messageAdvertisements.remove(school, config))}>
           <Button danger disabled={disabled}>删除广告</Button>
         </Popconfirm>}
       </Space>}
@@ -109,8 +109,8 @@ function SchoolAdvertisementForm({ school, canManage }: { school: string; canMan
       {selected && <Card title={`修订 ${selected.number} 全文`} extra={<Button onClick={() => setSelected(null)}>关闭全文</Button>}><Typography.Paragraph>{selected.content}</Typography.Paragraph><p>{selected.decision?.reason}</p></Card>}
     </Card>
     {!!config?.recent_usage.length && <Card title="最近消息采用情况"><Table rowKey="event_id" dataSource={config.recent_usage} pagination={false} columns={[
-      { title: '事件', dataIndex: 'event_id' }, { title: '结果', dataIndex: 'result', render: (result: string) => ({ applied: '已追加', message_budget_exceeded: '消息预算不足，已省略', no_approved_advertisement: '无已通过广告' } as Record<string, string>)[result] },
-      { title: '冻结时间', dataIndex: 'frozen_at' },
-    ]} /><Typography.Text type="secondary">采用不代表实际触达；此处不授予来源重试或发送权限。</Typography.Text></Card>}
+      { title: '事件', dataIndex: 'event_id' }, { title: '结果', dataIndex: 'result', render: (result: string) => ({ applied: '已追加', message_budget_exceeded: '消息剩余字数不足，未追加广告', no_approved_advertisement: '无已通过广告' } as Record<string, string>)[result] },
+      { title: '消息内容确定时间', dataIndex: 'frozen_at' },
+    ]} /><Typography.Text type="secondary">广告追加成功也不代表已送达。此页仅查看追加结果，不能重试推送或执行发送操作。</Typography.Text></Card>}
   </Space>
 }

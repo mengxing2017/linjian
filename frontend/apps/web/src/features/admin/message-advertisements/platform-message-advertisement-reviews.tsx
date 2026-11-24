@@ -98,7 +98,7 @@ export function AdvertisementReviewDetail({ revision, onClose, onDone }: { revis
           <Button type="primary" disabled={busy || stale || !!detail.config_deleted_at} onClick={() => void decide('approve')}>通过审核</Button>
           <Button danger disabled={busy || stale || !!detail.config_deleted_at || !reason.trim()} onClick={() => void decide('reject')}>驳回广告</Button>
         </>}
-        {detail.configuration && !detail.config_deleted_at && <Popconfirm title="确认强制下架？" description="仅停止后续新冻结消息采用，不撤回已冻结或已受理消息。" onConfirm={() => decide('remove')} disabled={busy || stale || !reason.trim()}>
+        {detail.configuration && !detail.config_deleted_at && <Popconfirm title="确认强制下架？" description="仅停止为后续新生成的消息追加广告，不撤回内容已确定或已受理的消息。" onConfirm={() => decide('remove')} disabled={busy || stale || !reason.trim()}>
           <Button danger disabled={busy || stale || !reason.trim()}>强制下架</Button>
         </Popconfirm>}
       </Space>

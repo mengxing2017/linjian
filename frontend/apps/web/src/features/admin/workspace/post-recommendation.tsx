@@ -168,7 +168,7 @@ export function PostRecommendation({
                   ? `${formatDate(p.latest.created_at)} ${recommendationStates[p.latest.state]}`
                   : '尚无推送记录'}
               </p>
-              <p>将向本校当前消息路由提交一条新的来源消息。WeKeeper 受理不代表实际发送成功。</p>
+              <p>确认后，将向本校配置的接收方推送这条帖子消息。接收方受理不代表消息已实际发送成功。</p>
               <Input.TextArea
                 aria-label="再次推荐原因"
                 value={reason}

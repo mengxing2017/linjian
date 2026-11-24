@@ -229,7 +229,7 @@ export function Outbox({
   )
   return (
     <Space orientation="vertical" style={{ width: '100%' }}>
-      <p>已受理表示 WeKeeper 已持久接收来源消息，不代表实际发送成功。</p>
+      <p>已受理表示 WeKeeper 已接收并保存这条消息，不代表消息已实际发送成功。</p>
       {(error || q.error) && <Alert type="error" title={error || q.error?.message} />}
       <Space>
         <Button onClick={() => void q.refetch()} loading={q.isFetching}>
