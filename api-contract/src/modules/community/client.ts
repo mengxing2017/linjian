@@ -18,6 +18,7 @@ import type {
 } from './types'
 import { readInteractionState, readPost } from './validation'
 import { normalizePostContent } from './post-content'
+import { readNotificationSummary } from './notification-summary'
 export function createCommunityClient(client: Client) {
   const scope = (s: string, p: string) => `${schoolPath(s)}/${p}`
   const part = encodeURIComponent
@@ -108,6 +109,9 @@ export function createCommunityClient(client: Client) {
       client.requestResource<null>(scope(s, `follows/${part(id)}`), active ? 'PUT' : 'DELETE'),
     notifications: (s: string, page = 1) =>
       client.requestCollection<Notification>(scope(s, 'notifications') + `?${pageQuery(page)}`),
+    async notificationSummary(school: string, signal?: Cancellation) {
+      return readNotificationSummary(await client.requestDocument(scope(school, 'notification-summary'), 'GET', undefined, signal), school)
+    },
     read: (s: string, id: string) =>
       client.requestResource<null>(scope(s, `notifications/${part(id)}/read`), 'PUT'),
     resources: (s: string) =>

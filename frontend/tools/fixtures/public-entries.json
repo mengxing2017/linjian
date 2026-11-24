@@ -374,6 +374,7 @@
       "HotPostsResult",
       "HotPostSummary",
       "Notification",
+      "NotificationSummary",
       "Post",
       "PostInteractionState",
       "Reaction",
