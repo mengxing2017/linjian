@@ -4,6 +4,7 @@ import type { HomeMenuTag } from '../src/features/community/api'
 import * as tagState from '../src/features/community/publish-tags'
 import * as draftState from '../src/features/community/post-draft'
 import * as exitState from '../src/features/community/publish-exit'
+import * as draftLimits from '../src/features/community/draft-limits'
 import { component, findAll, mount, tap, text } from './support/vue-component'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -39,6 +40,7 @@ function setup(options: { draft?: Record<string, unknown>; edit?: boolean } = {}
     '../../shared/AppIcon.vue': { default: blank },
     './post-invalidations': { invalidatePost: vi.fn() },
     './post-draft': draftState,
+    './draft-limits': draftLimits,
     './api': { communityApi, homeMenuApi: menu, normalizePostContent: (value: unknown) => value },
     '../school-context/context': { schoolContext: { id: 'school', schools: [{ id: 'school', name: '学校' }] }, requireSchool: vi.fn().mockResolvedValue(true), scopeKey: () => scope, onScopeChange },
     '../identity/session': { session: { user: { id: 'account' } } },
@@ -77,6 +79,33 @@ it('keeps candidates off the form and submits only confirmed names with IDs', as
   tap(button('确定')); await settle()
   tap(button('发布')); await settle()
   expect(communityApi.create).toHaveBeenCalledWith('school', { title: '', content: '正文', images: [], tags: ['校园'], candidate_tag_ids: ['campus'] })
+  mounted.unmount()
+})
+
+it('limits pasted drafts and avoids rewriting an unchanged draft on repeated hides', async () => {
+  const { mounted, write, storage } = setup()
+  await mounted.exposed.value.show(); await settle()
+  const save = vi.spyOn(uni, 'setStorageSync')
+  write('😀'.repeat(20001))
+  await settle()
+  mounted.exposed.value.hide()
+  expect(storage.get(draftState.postDraftKey('account', 'school'))).toMatchObject({ content: '😀'.repeat(20000) })
+  mounted.exposed.value.hide()
+  expect(save).toHaveBeenCalledOnce()
+  await mounted.exposed.value.show()
+  write('后续修改')
+  mounted.exposed.value.hide()
+  expect(save).toHaveBeenCalledTimes(2)
+  mounted.unmount()
+})
+
+it('does not overwrite an oversized legacy draft when auto-save is refused', async () => {
+  const original = { content: 'x'.repeat(20001) }
+  const { mounted, storage } = setup({ draft: original })
+  await mounted.exposed.value.show(); await settle()
+  mounted.exposed.value.hide()
+  expect(storage.get(draftState.postDraftKey('account', 'school'))).toEqual(original)
+  expect(uni.showToast).toHaveBeenCalledWith(expect.objectContaining({ icon: 'none' }))
   mounted.unmount()
 })
 

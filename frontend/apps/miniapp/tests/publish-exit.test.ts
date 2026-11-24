@@ -49,6 +49,17 @@ it('safely autosaves system hides without opening an exit dialog', () => {
   edit('draft'); exit.saveOnHide()
   expect(save).toHaveBeenCalledOnce(); expect(uni.showActionSheet).not.toHaveBeenCalled()
 })
+it('does not repeat successful autosaves and retries a failed hide save', () => {
+  const { exit, edit, save } = setup()
+  exit.saveOnHide()
+  expect(save).not.toHaveBeenCalled()
+  edit('new text')
+  save.mockReturnValueOnce(false)
+  expect(exit.saveOnHide()).toBe(false)
+  expect(exit.saveOnHide()).toBe(true)
+  exit.saveOnHide()
+  expect(save).toHaveBeenCalledTimes(2)
+})
 it('does not discard a new scope after an old action sheet resolves', async () => {
   const { exit, edit, discard, save, leave, changeScope } = setup(2)
   edit('old school draft')
