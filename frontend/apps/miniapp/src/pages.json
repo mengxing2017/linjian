@@ -71,7 +71,7 @@
     {
       "path": "pages/plugin/index",
       "style": {
-        "navigationBarTitleText": "选择学校"
+        "navigationBarTitleText": "我的学校"
       }
     },
     {

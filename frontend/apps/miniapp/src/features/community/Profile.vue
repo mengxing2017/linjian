@@ -66,7 +66,7 @@ defineExpose({ show: page.show, hide: page.hide })
     <text v-if="signoutError" class="error">{{ signoutError }}</text>
     <view v-if="session.user" class="card menu profile-menu">
       <MenuItem title="个人信息" icon="person" @activate="navigate('/pages/user/userInfo')" />
-      <MenuItem title="学校" icon="school" @activate="navigate('/pages/plugin/index')" />
+      <MenuItem title="我的学校" icon="school" @activate="navigate('/pages/plugin/index')" />
       <MenuItem v-if="session.user.bound_school_id" title="换校申请与审核结果" icon="application" @activate="navigate('/pages/user/schoolChange')" />
       <MenuItem title="我的发布" icon="posts" @activate="navigate('/pages/index/search?view=mine')" />
       <MenuItem title="我的收藏" icon="collection" @activate="navigate('/pages/index/search?view=collect')" />

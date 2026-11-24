@@ -167,7 +167,7 @@ defineExpose({
 </script>
 <template>
   <view class="page compact-page feed-page">
-    <SchoolHeader v-if="homePage" :school="school" compact searchable @search="navigate('/pages/index/search')" @change-school="navigate('/pages/plugin/index')" />
+    <SchoolHeader v-if="homePage" :school="school" compact searchable @search="navigate('/pages/index/search')" />
     <HomeOperations v-if="homePage && !searchPage" ref="operations" />
     <HomeShortcuts v-if="homePage && !searchPage" ref="shortcuts" />
     <text v-if="session.user?.bound_school_id && schoolContext.loaded && !schoolContext.school">
@@ -175,7 +175,6 @@ defineExpose({
     </text>
     <view v-if="!homePage && !lockedMode" class="row spread">
       <text class="heading">{{ school?.name || '校园社区' }}</text>
-      <button size="mini" @tap="navigate('/pages/plugin/index')"><AppIcon name="school" :size="28" />选校</button>
     </view>
     <HotPosts v-if="homePage" ref="hotPosts" :active="hotPostsActive" />
     <text v-if="lockedMode" class="heading">关注动态</text>

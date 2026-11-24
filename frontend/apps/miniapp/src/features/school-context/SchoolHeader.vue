@@ -6,7 +6,7 @@ import BrandImage from './BrandImage.vue'
 import { defaultTheme, themeColor } from './branding'
 import { formatRegion } from '@linjian/china-regions'
 const props = defineProps<{ school?: SchoolDisplay; searchable?: boolean; compact?: boolean }>()
-const emit = defineEmits<{ search: []; changeSchool: [] }>()
+const emit = defineEmits<{ search: [] }>()
 const regionLabel = computed(() =>
   props.school
     ? formatRegion({
@@ -60,9 +60,6 @@ const style = computed(() => {
           >
             <AppIcon name="search" :size="32" />
             <text v-if="!compact">搜索</text>
-          </button>
-          <button v-if="compact" class="school-search" aria-label="选择学校" @tap.stop="emit('changeSchool')">
-            <AppIcon name="school" :size="32" />
           </button>
         </view>
         <text v-if="regionLabel" class="school-region">{{ regionLabel }}</text>
