@@ -155,19 +155,27 @@
     "list": [
       {
         "pagePath": "pages/index/index",
-        "text": "首页"
+        "text": "首页",
+        "iconPath": "static/icons/home-neutral.png",
+        "selectedIconPath": "static/icons/home-primary.png"
       },
       {
         "pagePath": "pages/index/hot",
-        "text": "动态"
+        "text": "动态",
+        "iconPath": "static/icons/hotfill-neutral.png",
+        "selectedIconPath": "static/icons/hotfill-primary.png"
       },
       {
         "pagePath": "pages/user/message",
-        "text": "消息"
+        "text": "消息",
+        "iconPath": "static/icons/notice-neutral.png",
+        "selectedIconPath": "static/icons/notice-primary.png"
       },
       {
         "pagePath": "pages/user/index",
-        "text": "我的"
+        "text": "我的",
+        "iconPath": "static/icons/my-neutral.png",
+        "selectedIconPath": "static/icons/my-primary.png"
       }
     ]
   }

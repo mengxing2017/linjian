@@ -2,7 +2,7 @@
 import { onUnmounted, ref, watch } from 'vue'
 import { resumeReturnTarget } from './resume-target'
 import { clearReturnTarget } from './return-target'
-import { startLogin, acceptLogin } from './session'
+import { startLogin, acceptLogin, restoreSession, session } from './session'
 import { identityApi } from './api'
 import { loadSchools } from '../school-context/context'
 import { legalDocuments, legalTitles } from '../legal-documents/api'
@@ -47,7 +47,19 @@ function submit() { recommendations.value?.clear(); return form.submit() }
 function open(kind: string) { uni.navigateTo({ url: `/pages/user/policy?kind=${kind}` }) }
 function toggle(event: { detail: { value: string[] } }) { form.toggle(event.detail.value) }
 async function cancel() { recommendations.value?.clear(); recommendedName.value = ''; clearReturnTarget(); await form.cancel() }
-defineExpose({ show: () => { visible = true; return form.show() }, refresh: form.show, hide })
+defineExpose({
+  show: async () => {
+    visible = true
+    try { await restoreSession() } catch { /* 失效会话继续走入驻流程 */ }
+    if (session.user?.bound_school_id) {
+      await uni.reLaunch({ url: '/pages/index/index' })
+      return
+    }
+    return form.show()
+  },
+  refresh: form.show,
+  hide,
+})
 onUnmounted(() => { hide(); form.dispose() })
 </script>
 <template>

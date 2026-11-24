@@ -3,11 +3,26 @@ import { onLaunch, onShow } from '@dcloudio/uni-app'
 import { credentials } from './app/credentials'
 import { installTabbar } from './app/tabbar'
 import { notificationSummary } from './features/community/notification-state'
+let tabbarInstalled = false
+let tabbarAttempts = 0
+function ensureTabbar() {
+  if (tabbarInstalled) return
+  const app = getApp() as unknown as Parameters<typeof installTabbar>[0] | undefined
+  if (app) {
+    installTabbar(app)
+    tabbarInstalled = true
+    return
+  }
+  if (tabbarAttempts++ < 20) setTimeout(ensureTabbar, 50)
+}
 onLaunch(() => {
-  installTabbar(getApp())
+  ensureTabbar()
   credentials.restore()
 })
-onShow(() => { void notificationSummary.refresh() })
+onShow(() => {
+  ensureTabbar()
+  void notificationSummary.refresh()
+})
 </script>
 <style>
 @import './shared/styles/tokens.css';

@@ -1,3 +1,16 @@
+const attachAttempts = new WeakMap()
+function attach(component) {
+  const app = getApp()
+  const attempts = (attachAttempts.get(component) || 0) + 1
+  if (app && app.linjianTabbar) {
+    attachAttempts.delete(component)
+    app.linjianTabbar.attach(component)
+    return
+  }
+  if (attempts > 40) return
+  attachAttempts.set(component, attempts)
+  setTimeout(() => attach(component), 50)
+}
 Component({
   data: {
     items: [],
@@ -8,11 +21,15 @@ Component({
     failedSources: {},
   },
   lifetimes: {
-    attached() { getApp().linjianTabbar?.attach(this) },
-    detached() { getApp().linjianTabbar?.detach(this) },
+    attached() { attach(this) },
+    detached() {
+      const app = getApp()
+      attachAttempts.delete(this)
+      if (app && app.linjianTabbar) app.linjianTabbar.detach(this)
+    },
   },
   pageLifetimes: {
-    show() { getApp().linjianTabbar?.attach(this) },
+    show() { attach(this) },
   },
   methods: {
     iconError(event) {
@@ -21,7 +38,8 @@ Component({
       this.setData({ failedSources: { ...this.data.failedSources, [source]: true } })
     },
     activate(event) {
-      getApp().linjianTabbar?.activate(event.currentTarget.dataset.id)
+      const app = getApp()
+      if (app && app.linjianTabbar) app.linjianTabbar.activate(event.currentTarget.dataset.id)
     },
   },
 })
