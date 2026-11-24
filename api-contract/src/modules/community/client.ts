@@ -18,6 +18,7 @@ import type {
 } from './types'
 import { readInteractionState, readPost } from './validation'
 import { normalizePostContent } from './post-content'
+import { normalizePostSearch } from './post-search'
 import { readNotificationSummary } from './notification-summary'
 export function createCommunityClient(client: Client) {
   const scope = (s: string, p: string) => `${schoolPath(s)}/${p}`
@@ -34,7 +35,7 @@ export function createCommunityClient(client: Client) {
       return readHotPosts(document, school, limit)
     },
     async posts(s: string, filter: FeedFilter = {}, signal?: Cancellation) {
-      const query = `${pageQuery(filter.page)}&search=${part(filter.search ?? '')}&mine=${!!filter.mine}${filter.kind ? `&kind=${filter.kind}` : ''}&tag=${part(filter.tag ?? '')}`
+      const query = `${pageQuery(filter.page)}&search=${part(normalizePostSearch(filter.search))}&mine=${!!filter.mine}${filter.kind ? `&kind=${filter.kind}` : ''}&tag=${part(filter.tag ?? '')}`
       const doc = await client.requestDocument(
         scope(s, 'posts') + '?' + query,
         'GET',

@@ -17,3 +17,4 @@ export type {
   SchoolResource,
 } from './types'
 export { normalizePostContent, postFieldError } from './post-content'
+export { normalizePostSearch } from './post-search'

@@ -246,6 +246,7 @@
     "values": [
       "createCommunityClient",
       "normalizePostContent",
+      "normalizePostSearch",
       "pageQuery",
       "postFieldError"
     ]

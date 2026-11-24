@@ -381,7 +381,7 @@
       "SchoolResource",
       "UpdatePostInput"
     ],
-    "values": ["communityApi", "homeMenuApi", "normalizePostContent", "postFieldError"]
+    "values": ["communityApi", "homeMenuApi", "normalizePostContent", "normalizePostSearch", "postFieldError"]
   },
   "apps/miniapp/src/features/feedback/api/index.ts": {
     "types": ["FeedbackType"],
