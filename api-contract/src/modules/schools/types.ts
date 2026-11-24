@@ -24,8 +24,8 @@ export interface SchoolInput {
   province?: string
   city?: string
   area?: string
-  latitude?: number | null
-  longitude?: number | null
+  latitude?: number
+  longitude?: number
   status?: 'normal' | 'hidden'
   logo_asset_id?: string | null
   header_bg_asset_id?: string | null
@@ -35,6 +35,8 @@ export interface SchoolInput {
   revision?: number
   config?: School['config']
 }
+export type SchoolCreateInput = Omit<SchoolInput, 'latitude' | 'longitude'> & { latitude: number; longitude: number }
+export type SchoolUpdateInput = Partial<SchoolInput> & { revision: number }
 export interface SchoolFilters {
   page?: number
   search?: string

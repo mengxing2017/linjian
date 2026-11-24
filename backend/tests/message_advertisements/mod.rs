@@ -62,8 +62,16 @@ impl Fixture {
             )
             .await
             .unwrap();
-        let school = id(&app.schools.create(&root, "广告甲校").await.unwrap());
-        let other = id(&app.schools.create(&root, "广告乙校").await.unwrap());
+        let school = id(&app
+            .schools
+            .create(&root, "广告甲校", 23.1, 113.3)
+            .await
+            .unwrap());
+        let other = id(&app
+            .schools
+            .create(&root, "广告乙校", 23.1, 113.3)
+            .await
+            .unwrap());
         let manager_id = app
             .identity
             .bootstrap(

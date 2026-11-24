@@ -64,12 +64,20 @@ async fn legal_documents_and_first_onboarding_are_atomic_public_and_versioned() 
         .session(id, SessionKind::AdminBrowser, Some("http://localhost:5173"))
         .await
         .unwrap();
-    let school: Uuid = app.schools.create(&actor, "入驻学校").await.unwrap()["id"]
+    let school: Uuid = app
+        .schools
+        .create(&actor, "入驻学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
         .unwrap();
-    let other: Uuid = app.schools.create(&actor, "另一学校").await.unwrap()["id"]
+    let other: Uuid = app
+        .schools
+        .create(&actor, "另一学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()

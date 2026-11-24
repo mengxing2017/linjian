@@ -15,3 +15,4 @@ export type {
   RecommendationPermission,
 } from './permissions'
 export type { SchoolDisplay, SchoolFilters, SchoolInput } from './types'
+export type { SchoolCreateInput, SchoolUpdateInput } from './types'

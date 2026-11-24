@@ -56,7 +56,11 @@ async fn site_settings_are_public_atomic_and_platform_only() {
         .await
         .unwrap();
 
-    let school: Uuid = app.schools.create(&actor, "站点校").await.unwrap()["id"]
+    let school: Uuid = app
+        .schools
+        .create(&actor, "站点校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()

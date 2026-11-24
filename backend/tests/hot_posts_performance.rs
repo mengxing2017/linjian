@@ -52,17 +52,29 @@ async fn hot_posts_capacity_and_query_plan() {
         )
         .await
         .unwrap();
-    let school: Uuid = app.schools.create(&actor, "热点学校").await.unwrap()["id"]
+    let school: Uuid = app
+        .schools
+        .create(&actor, "热点学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
         .unwrap();
-    let other: Uuid = app.schools.create(&actor, "其他学校").await.unwrap()["id"]
+    let other: Uuid = app
+        .schools
+        .create(&actor, "其他学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
         .unwrap();
-    let empty: Uuid = app.schools.create(&actor, "空学校").await.unwrap()["id"]
+    let empty: Uuid = app
+        .schools
+        .create(&actor, "空学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()

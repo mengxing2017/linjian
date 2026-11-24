@@ -137,7 +137,11 @@ async fn setup(name: &str) -> (PgPool, linjian_api::bootstrap::Application, Acto
         .session(id, SessionKind::AdminBrowser, Some("http://localhost:5173"))
         .await
         .unwrap();
-    let school = app.schools.create(&actor, "仿真发帖测试校").await.unwrap()["id"]
+    let school = app
+        .schools
+        .create(&actor, "仿真发帖测试校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
@@ -385,7 +389,11 @@ async fn seed_batches_are_atomic_scoped_idempotent_and_revocable() {
         .await
         .is_err()
     );
-    let other: Uuid = app.schools.create(&actor, "其他学校").await.unwrap()["id"]
+    let other: Uuid = app
+        .schools
+        .create(&actor, "其他学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()

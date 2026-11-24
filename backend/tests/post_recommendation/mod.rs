@@ -64,12 +64,20 @@ async fn manual_recommendation_uses_single_chain_and_live_capabilities() {
         )
         .await
         .unwrap();
-    let school: Uuid = app.schools.create(&actor, "人工推荐校").await.unwrap()["id"]
+    let school: Uuid = app
+        .schools
+        .create(&actor, "人工推荐校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
         .unwrap();
-    let other: Uuid = app.schools.create(&actor, "其他学校").await.unwrap()["id"]
+    let other: Uuid = app
+        .schools
+        .create(&actor, "其他学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()

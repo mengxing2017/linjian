@@ -208,9 +208,11 @@
       "PermissionOverride",
       "RecommendationPermission",
       "School",
+      "SchoolCreateInput",
       "SchoolDisplay",
       "SchoolFilters",
-      "SchoolInput"
+      "SchoolInput",
+      "SchoolUpdateInput"
     ],
     "values": [
       "createSchoolPermissionsClient",

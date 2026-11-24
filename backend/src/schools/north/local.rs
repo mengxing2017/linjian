@@ -41,10 +41,20 @@ impl<R: Store> Service<R> {
 }
 
 impl Service<Repository> {
-    pub async fn create(&self, a: &Actor, name: &str) -> Result<Value> {
+    pub async fn create(
+        &self,
+        a: &Actor,
+        name: &str,
+        latitude: f64,
+        longitude: f64,
+    ) -> Result<Value> {
         serde_json::to_value(
             self.0
-                .save_school(a, None, serde_json::json!({"name":name}))
+                .save_school(
+                    a,
+                    None,
+                    serde_json::json!({"name":name,"latitude":latitude,"longitude":longitude}),
+                )
                 .await?,
         )
         .map_err(|_| crate::business::Error::Unavailable)

@@ -27,7 +27,7 @@ export interface School extends Row {
     name: string;
     status: 'normal' | 'hidden';
     short_name: string; province: string; city: string; area: string;
-    latitude: number | null; longitude: number | null;
+    latitude: number; longitude: number;
     logo_asset_id: string | null; header_bg_asset_id: string | null;
     logo_url: string | null; header_bg_image_url: string | null;
     theme_primary: string; theme_secondary: string; theme_text_color: string;

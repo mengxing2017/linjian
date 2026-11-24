@@ -29,6 +29,12 @@ SQLx 按文件编号顺序执行，所有 SQL 文件保持在本目录，不移�
 
 ## 验证
 
+### 学校坐标必填（0014）
+
+`0014_school_coordinates_required.sql` 要求全部学校（包括隐藏学校）已有非空经纬度后才收紧约束。部署前通过现有受权学校维护入口补齐并核实 GCJ-02 坐标，明确多校区代表点；禁止以零坐标、城市中心或其他假值占位。安排短暂学校创建维护窗口，先补齐，再部署会自动执行迁移的新 API 和匹配的 Web。旧管理端无坐标创建将被拒绝。
+
+迁移失败时修复真实资料后重试，不能删除 `_sqlx_migrations`、改已执行基线或对保留数据的库清库。推荐接口不持久化用户位置，不新增业务启动扫描或验收门禁。恢复优先向前修复，未经兼容核验不得回退到能创建空坐标的旧 API。
+
 ```sh
 python3 tools/test_migrations.py --bin-dir /path/to/postgresql/bin
 devbox run -- make check-backend

@@ -48,12 +48,20 @@ async fn permissions_are_versioned_scoped_atomic_and_live() {
         )
         .await
         .unwrap();
-    let school: Uuid = app.schools.create(&root, "权限测试校").await.unwrap()["id"]
+    let school: Uuid = app
+        .schools
+        .create(&root, "权限测试校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
         .unwrap();
-    let other: Uuid = app.schools.create(&root, "其他学校").await.unwrap()["id"]
+    let other: Uuid = app
+        .schools
+        .create(&root, "其他学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()

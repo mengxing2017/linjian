@@ -79,7 +79,11 @@ impl Fixture {
         let mut schools = [Uuid::nil(); 3];
         for (index, name) in ["原学校", "目标学校", "其他授权学校"].iter().enumerate()
         {
-            schools[index] = app.schools.create(&reviewer, name).await.unwrap()["id"]
+            schools[index] = app
+                .schools
+                .create(&reviewer, name, 23.1, 113.3)
+                .await
+                .unwrap()["id"]
                 .as_str()
                 .unwrap()
                 .parse()

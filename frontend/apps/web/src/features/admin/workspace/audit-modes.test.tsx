@@ -7,7 +7,7 @@ vi.mock('./api', () => ({ workspace: { schoolProfiles: { detail: vi.fn(), update
 const school: School = {
   id: 'school-1',
   name: '学校甲',
-  short_name: '', province: '', city: '', area: '', latitude: null, longitude: null,
+  short_name: '', province: '', city: '', area: '', latitude: 23.1, longitude: 113.3,
   logo_asset_id: null, header_bg_asset_id: null, logo_url: null, header_bg_image_url: null,
   theme_primary: '#6A5AF9', theme_secondary: '#8F6BFF', theme_text_color: '#FFFFFF',
   status: 'normal',

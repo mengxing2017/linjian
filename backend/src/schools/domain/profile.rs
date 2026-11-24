@@ -11,8 +11,8 @@ pub struct SchoolView {
     pub province: String,
     pub city: String,
     pub area: String,
-    pub latitude: Option<f64>,
-    pub longitude: Option<f64>,
+    pub latitude: f64,
+    pub longitude: f64,
     pub status: String,
     pub logo_asset_id: Option<Uuid>,
     pub header_bg_asset_id: Option<Uuid>,
@@ -37,8 +37,8 @@ impl SchoolView {
             province: self.province.clone(),
             city: self.city.clone(),
             area: self.area.clone(),
-            latitude: self.latitude,
-            longitude: self.longitude,
+            latitude: Some(self.latitude),
+            longitude: Some(self.longitude),
             status: Some(self.status.clone()),
             logo_asset_id: self.logo_asset_id,
             header_bg_asset_id: self.header_bg_asset_id,
@@ -116,8 +116,8 @@ impl SchoolInput {
         self.city = text(&self.city, 0, 100)?;
         self.area = text(&self.area, 0, 100)?;
         require(
-            self.latitude.is_some() == self.longitude.is_some(),
-            "经纬度须同时填写或清空",
+            self.latitude.is_some() && self.longitude.is_some(),
+            "学校经纬度必填，不能清空",
         )?;
         for (v, max) in [(self.latitude, 90.0), (self.longitude, 180.0)] {
             if let Some(v) = v {

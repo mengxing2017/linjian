@@ -57,12 +57,20 @@ async fn service_review_school_overrides_metrics_and_withdrawal_are_one_closed_l
     let app = bootstrap::build_application(pool.clone(), bootstrap::Options::local());
     let root = actor(&app, "root").await;
     let reviewer = actor(&app, "reviewer").await;
-    let school: Uuid = app.schools.create(&root, "服务测试学校").await.unwrap()["id"]
+    let school: Uuid = app
+        .schools
+        .create(&root, "服务测试学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
         .unwrap();
-    let other: Uuid = app.schools.create(&root, "其他学校").await.unwrap()["id"]
+    let other: Uuid = app
+        .schools
+        .create(&root, "其他学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
@@ -70,7 +78,11 @@ async fn service_review_school_overrides_metrics_and_withdrawal_are_one_closed_l
     let media = linjian_api::schools::north::resources::Service(
         linjian_api::schools::south::adapter::postgres::Repository(pool.clone()),
     );
-    let outside: Uuid = app.schools.create(&root, "未授权目标学校").await.unwrap()["id"]
+    let outside: Uuid = app
+        .schools
+        .create(&root, "未授权目标学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
@@ -527,12 +539,20 @@ async fn draft_preview_batch_atomicity_reports_and_official_marketing_are_scoped
     database::migrate(&pool).await.unwrap();
     let app = bootstrap::build_application(pool.clone(), bootstrap::Options::local());
     let root = actor(&app, "batch-root").await;
-    let school: Uuid = app.schools.create(&root, "批量操作学校").await.unwrap()["id"]
+    let school: Uuid = app
+        .schools
+        .create(&root, "批量操作学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
         .unwrap();
-    let other: Uuid = app.schools.create(&root, "其他报表学校").await.unwrap()["id"]
+    let other: Uuid = app
+        .schools
+        .create(&root, "其他报表学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()

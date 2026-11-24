@@ -91,7 +91,9 @@ function ThemeColorPicker({
     </div>
   )
 }
-type SchoolFormValues = Omit<SchoolInput, 'province' | 'city' | 'area'> & {
+type SchoolFormValues = Omit<SchoolInput, 'province' | 'city' | 'area' | 'latitude' | 'longitude'> & {
+  latitude: number | null
+  longitude: number | null
   region: RegionValue
 }
 export function SchoolImage({
@@ -170,8 +172,8 @@ export function SchoolForm({
         }
       : null
   async function save(v: SchoolFormValues) {
-    if ((v.latitude == null) !== (v.longitude == null)) {
-      setError('经纬度需同时填写或清空')
+    if (v.latitude == null || v.longitude == null) {
+      setError('学校经纬度必填，不能清空')
       return
     }
     setBusy(true)
@@ -181,6 +183,8 @@ export function SchoolForm({
       const body = {
         ...defaults,
         ...rest,
+        latitude: v.latitude,
+        longitude: v.longitude,
         province: region?.province ?? '',
         city: region?.city ?? '',
         area: region?.area ?? '',
@@ -274,7 +278,7 @@ export function SchoolForm({
       <Form.Item className="form-wide" label="经纬度">
         <CoordinatesField />
       </Form.Item>
-      <p>经纬度需同时填写或清空，最多六位小数；0 是有效坐标。</p>
+      <p>经纬度必填，使用 GCJ-02 学校代表校区坐标，最多六位小数；0 是有效坐标。</p>
       {platform && (
         <>
           <Form.Item name="status" label="状态">

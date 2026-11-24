@@ -1,7 +1,7 @@
 import type { Cancellation, Client } from '../../http/client'
 import { schoolPath } from './path'
 import { schoolQuery } from './query'
-import type { School, SchoolDisplay, SchoolFilters, SchoolInput } from './types'
+import type { School, SchoolDisplay, SchoolFilters, SchoolCreateInput, SchoolUpdateInput } from './types'
 
 export function createSchoolsClient(
   client: Pick<Client, 'requestResource' | 'requestCollection' | 'requestBinary'>,
@@ -17,8 +17,8 @@ export function createSchoolsClient(
       ),
     detail: (school: string, signal?: Cancellation) =>
       client.requestResource<School>(schoolPath(school), 'GET', undefined, signal),
-    create: (body: SchoolInput) => client.requestResource<School>('/api/v1/schools', 'POST', body),
-    update: (school: string, body: SchoolInput) =>
+    create: (body: SchoolCreateInput) => client.requestResource<School>('/api/v1/schools', 'POST', body),
+    update: (school: string, body: SchoolUpdateInput) =>
       client.requestResource<School>(schoolPath(school), 'PUT', body),
     bind: (school: string) => client.requestResource<null>(`${schoolPath(school)}/bind`, 'POST'),
     branding: (school: string, slot: 'logo' | 'header') =>

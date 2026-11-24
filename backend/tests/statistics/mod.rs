@@ -60,12 +60,20 @@ async fn statistics_scope_registration_snapshot_and_activity_are_isolated() {
             assert_eq!(comparison.state, "unchanged");
         }
     }
-    let s: Uuid = app.schools.create(&actor, "统计甲校").await.unwrap()["id"]
+    let s: Uuid = app
+        .schools
+        .create(&actor, "统计甲校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
         .unwrap();
-    let other: Uuid = app.schools.create(&actor, "统计乙校").await.unwrap()["id"]
+    let other: Uuid = app
+        .schools
+        .create(&actor, "统计乙校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
@@ -344,7 +352,7 @@ async fn statistics_scope_registration_snapshot_and_activity_are_isolated() {
         2
     );
     let router = linjian_api::http::app_router(app.clone());
-    sqlx::query("INSERT INTO schools(id,name) SELECT gen_random_uuid(),'分页学校' || n FROM generate_series(1,98) AS n").execute(&pool).await.unwrap();
+    sqlx::query("INSERT INTO schools(id,name,latitude,longitude) SELECT gen_random_uuid(),'分页学校' || n,23.1,113.3 FROM generate_series(1,98) AS n").execute(&pool).await.unwrap();
     let overview_response = router
         .clone()
         .oneshot(
@@ -521,11 +529,13 @@ async fn registration_captures_time_and_school_without_following_later_binding_c
     database::migrate(&pool).await.unwrap();
     let s = Uuid::new_v4();
     let u = Uuid::new_v4();
-    sqlx::query("INSERT INTO schools(id,name) VALUES($1,'历史注册归属校')")
-        .bind(s)
-        .execute(&pool)
-        .await
-        .unwrap();
+    sqlx::query(
+        "INSERT INTO schools(id,name,latitude,longitude) VALUES($1,'历史注册归属校',23.1,113.3)",
+    )
+    .bind(s)
+    .execute(&pool)
+    .await
+    .unwrap();
     sqlx::query("INSERT INTO accounts(id,username,display_name,bound_school_id) VALUES($1,'historical-user','历史用户',$2)").bind(u).bind(s).execute(&pool).await.unwrap();
     sqlx::query("INSERT INTO miniapp_users(account_id,nickname,created_at) VALUES($1,'历史昵称','2024-02-29T00:00:00Z')").bind(u).execute(&pool).await.unwrap();
     let (assignment,school,time):(String,Option<Uuid>,chrono::DateTime<chrono::Utc>)=sqlx::query_as("SELECT school_assignment,registration_school_id,registered_at FROM statistics_registrations WHERE account_id=$1").bind(u).fetch_one(&pool).await.unwrap();

@@ -28,12 +28,20 @@ async fn snapshots_enforce_school_scope_and_are_read_only_with_idempotent_reacti
         )
         .await
         .unwrap();
-    let school: Uuid = app.schools.create(&actor, "互动测试校").await.unwrap()["id"]
+    let school: Uuid = app
+        .schools
+        .create(&actor, "互动测试校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
         .unwrap();
-    let other: Uuid = app.schools.create(&actor, "其他学校").await.unwrap()["id"]
+    let other: Uuid = app
+        .schools
+        .create(&actor, "其他学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()

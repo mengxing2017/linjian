@@ -105,7 +105,11 @@ async fn publication_requires_phone_only_for_miniapp_and_binding_is_versioned_an
         )
         .await
         .unwrap();
-    let school: Uuid = app.schools.create(&actor, "手机号测试校").await.unwrap()["id"]
+    let school: Uuid = app
+        .schools
+        .create(&actor, "手机号测试校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()

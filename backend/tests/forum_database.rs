@@ -120,12 +120,20 @@ async fn full_text_review_read_only_scope_and_version_fencing() {
         )
         .await
         .unwrap();
-    let school: Uuid = app.schools.create(&actor, "全文审核校").await.unwrap()["id"]
+    let school: Uuid = app
+        .schools
+        .create(&actor, "全文审核校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
         .unwrap();
-    let other: Uuid = app.schools.create(&actor, "其他校").await.unwrap()["id"]
+    let other: Uuid = app
+        .schools
+        .create(&actor, "其他校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
@@ -331,12 +339,20 @@ async fn forum_migration_auth_and_outbox() {
         )
         .await
         .unwrap();
-    let school = app.schools.create(&actor, "甲学校").await.unwrap()["id"]
+    let school = app
+        .schools
+        .create(&actor, "甲学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse::<Uuid>()
         .unwrap();
-    let other = app.schools.create(&actor, "乙学校").await.unwrap()["id"]
+    let other = app
+        .schools
+        .create(&actor, "乙学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse::<Uuid>()
@@ -614,12 +630,20 @@ async fn complete_source_messages_acceptance_leases_cancellation_and_school_scop
         )
         .await
         .unwrap();
-    let school: Uuid = app.schools.create(&actor, "来源消息校").await.unwrap()["id"]
+    let school: Uuid = app
+        .schools
+        .create(&actor, "来源消息校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
         .unwrap();
-    let other: Uuid = app.schools.create(&actor, "另一校").await.unwrap()["id"]
+    let other: Uuid = app
+        .schools
+        .create(&actor, "另一校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
@@ -813,7 +837,11 @@ async fn reviewed_miniapp_publication_freezing_and_fencing() {
         )
         .await
         .unwrap();
-    let school: Uuid = app.schools.create(&actor, "发布测试校").await.unwrap()["id"]
+    let school: Uuid = app
+        .schools
+        .create(&actor, "发布测试校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
@@ -1247,12 +1275,20 @@ async fn miniapp_users_registration_school_scope_and_ban() {
         )
         .await
         .unwrap();
-    let school: Uuid = app.schools.create(&actor, "甲校").await.unwrap()["id"]
+    let school: Uuid = app
+        .schools
+        .create(&actor, "甲校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
         .unwrap();
-    let other: Uuid = app.schools.create(&actor, "乙校").await.unwrap()["id"]
+    let other: Uuid = app
+        .schools
+        .create(&actor, "乙校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
@@ -1762,9 +1798,13 @@ async fn school_profiles_visibility_artwork_and_transactions() {
     let id = school.id;
     assert_eq!(school.theme_primary, "#AABBCC");
     assert_eq!(school.status, "normal");
-    assert_eq!(school.latitude, Some(0.0));
+    assert_eq!(school.latitude, 0.0);
     let other = repo
-        .save_school(&actor, None, json!({"name":"另一学校"}))
+        .save_school(
+            &actor,
+            None,
+            json!({"name":"另一学校","latitude":23.1,"longitude":113.3}),
+        )
         .await
         .unwrap();
     for invalid in [
@@ -2129,12 +2169,20 @@ async fn moderation_modes_preserve_policy_evidence_and_publication_boundaries() 
         )
         .await
         .unwrap();
-    let school: Uuid = app.schools.create(&actor, "自动审核校").await.unwrap()["id"]
+    let school: Uuid = app
+        .schools
+        .create(&actor, "自动审核校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
         .unwrap();
-    let other: Uuid = app.schools.create(&actor, "其他学校").await.unwrap()["id"]
+    let other: Uuid = app
+        .schools
+        .create(&actor, "其他学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
@@ -2818,12 +2866,20 @@ async fn case_management_projection_and_handling() {
         "platform_admin":true,"bound_school_id":null,"grants":[]
     }))
     .unwrap();
-    let school: Uuid = app.schools.create(&actor, "案件所属学校").await.unwrap()["id"]
+    let school: Uuid = app
+        .schools
+        .create(&actor, "案件所属学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
         .unwrap();
-    let other: Uuid = app.schools.create(&actor, "其他学校").await.unwrap()["id"]
+    let other: Uuid = app
+        .schools
+        .create(&actor, "其他学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
@@ -3166,12 +3222,20 @@ async fn post_management_order_status_import_and_live_permissions() {
         )
         .await
         .unwrap();
-    let school: Uuid = app.schools.create(&actor, "管理甲校").await.unwrap()["id"]
+    let school: Uuid = app
+        .schools
+        .create(&actor, "管理甲校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
         .unwrap();
-    let other: Uuid = app.schools.create(&actor, "管理乙校").await.unwrap()["id"]
+    let other: Uuid = app
+        .schools
+        .create(&actor, "管理乙校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
@@ -3724,11 +3788,13 @@ async fn post_management_concurrent_reorders_preserve_source_intents() {
     let account = Uuid::new_v4();
     let school = Uuid::new_v4();
     sqlx::query("INSERT INTO accounts(id,username,display_name,password_hash,platform_admin) VALUES($1,'order-root','排序管理员','unused',true)").bind(account).execute(&pool).await.unwrap();
-    sqlx::query("INSERT INTO schools(id,name) VALUES($1,'并发排序学校')")
-        .bind(school)
-        .execute(&pool)
-        .await
-        .unwrap();
+    sqlx::query(
+        "INSERT INTO schools(id,name,latitude,longitude) VALUES($1,'并发排序学校',23.1,113.3)",
+    )
+    .bind(school)
+    .execute(&pool)
+    .await
+    .unwrap();
     for (top, status) in [
         (100, "visible"),
         (50, "hidden"),
@@ -3840,12 +3906,20 @@ async fn home_menu_scope_import_and_revision_fencing() {
         )
         .await
         .unwrap();
-    let school: Uuid = app.schools.create(&actor, "甲校").await.unwrap()["id"]
+    let school: Uuid = app
+        .schools
+        .create(&actor, "甲校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
         .unwrap();
-    let other: Uuid = app.schools.create(&actor, "乙校").await.unwrap()["id"]
+    let other: Uuid = app
+        .schools
+        .create(&actor, "乙校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
@@ -3966,12 +4040,20 @@ async fn blocked_words_scope_import_and_order_fencing() {
         )
         .await
         .unwrap();
-    let school: Uuid = app.schools.create(&actor, "甲校").await.unwrap()["id"]
+    let school: Uuid = app
+        .schools
+        .create(&actor, "甲校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
         .unwrap();
-    let other: Uuid = app.schools.create(&actor, "乙校").await.unwrap()["id"]
+    let other: Uuid = app
+        .schools
+        .create(&actor, "乙校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
@@ -4127,12 +4209,20 @@ async fn operations_scope_metrics_configuration_and_feedback_deletion() {
         )
         .await
         .unwrap();
-    let s: Uuid = app.schools.create(&actor, "运营学校").await.unwrap()["id"]
+    let s: Uuid = app
+        .schools
+        .create(&actor, "运营学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()
         .unwrap();
-    let other: Uuid = app.schools.create(&actor, "其他学校").await.unwrap()["id"]
+    let other: Uuid = app
+        .schools
+        .create(&actor, "其他学校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()

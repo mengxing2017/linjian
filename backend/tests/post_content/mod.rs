@@ -31,7 +31,11 @@ async fn optional_titles_preserve_schema_evidence_and_publication_boundaries() {
         )
         .await
         .unwrap();
-    let school: Uuid = app.schools.create(&actor, "无标题测试校").await.unwrap()["id"]
+    let school: Uuid = app
+        .schools
+        .create(&actor, "无标题测试校", 23.1, 113.3)
+        .await
+        .unwrap()["id"]
         .as_str()
         .unwrap()
         .parse()

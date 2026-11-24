@@ -49,7 +49,11 @@ impl Fixture {
             )
             .await
             .unwrap();
-        let school = app.schools.create(&actor, "清理测试校").await.unwrap()["id"]
+        let school = app
+            .schools
+            .create(&actor, "清理测试校", 23.1, 113.3)
+            .await
+            .unwrap()["id"]
             .as_str()
             .unwrap()
             .parse()
