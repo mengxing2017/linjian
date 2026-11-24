@@ -31,6 +31,7 @@ const props = defineProps<{
 }>()
 const mode = ref(props.initial ?? 'feed'),
   search = ref(''),
+  submittedSearch = ref(''),
   posts = shallowRef<CommunityPost[]>([]),
   page = ref(1),
   more = ref(false),
@@ -76,7 +77,7 @@ function load(reset = true, retryAfterScopeRefresh = true, targetPage?: number, 
       !ownPostsPage.value && (mode.value === 'collect' || mode.value === 'following') ? mode.value : undefined
     const response = await communityApi.posts(id, {
       page: next,
-      search: search.value,
+      search: ownPostsPage.value ? submittedSearch.value : search.value,
       mine: ownPostsPage.value || mode.value === 'mine',
       kind,
       tag: ownPostsPage.value ? '' : selectedTag.value,
@@ -103,6 +104,12 @@ function selectTag(tag: string) {
   if (busy.value) return
   selectedTag.value = tag
   void load()
+}
+function editSearch(event: unknown) { search.value = (event as { detail: { value: string } }).detail.value }
+function submitSearch() {
+  if (busy.value) return
+  submittedSearch.value = search.value.trim()
+  return load()
 }
 async function syncInvalidated(current: () => boolean) {
   const school = schoolContext.id
@@ -223,14 +230,15 @@ defineExpose({
     </scroll-view>
     <view v-if="!homePage" class="row feed-search">
       <input
-        v-model="search"
+        :value="search"
         :disabled="busy"
         class="input grow"
-        placeholder="搜索校园内容"
+        :placeholder="ownPostsPage ? '搜索我的帖子' : '搜索校园内容'"
         confirm-type="search"
-        @confirm="load()"
+        @input="editSearch"
+        @confirm="submitSearch"
       />
-      <button size="mini" @tap="load()"><AppIcon name="search" :size="28" />搜索</button>
+      <button size="mini" :disabled="busy" @tap="submitSearch"><AppIcon name="search" :size="28" />搜索</button>
     </view>
     <view class="feed-list">
       <PageWindow :page="page" :busy="busy" @previous="target => load(false, true, target)" />
