@@ -11,7 +11,7 @@ function setup() {
   const previewImage = vi.fn()
   vi.stubGlobal('uni', { previewImage })
   const image = component(new URL('../src/features/media/PrivateImage.vue', import.meta.url), {
-    './files': { imagePath },
+    './files': { imagePath, releaseImages: vi.fn() },
     '../school-context/context': {
       onScopeChange: (callback: () => void) => {
         callbacks.add(callback)
@@ -117,5 +117,25 @@ it('still clears the current school context on an active image permission failur
   await settle()
   expect(clearScope).toHaveBeenCalledOnce()
   expect(findAll(mounted.root, (target) => target.type === 'image')).toHaveLength(0)
+  mounted.unmount()
+})
+
+it('defers private feed downloads until near the viewport and disconnects the visibility observer', async () => {
+  const { image, imagePath } = setup()
+  const observe = vi.fn(), disconnect = vi.fn()
+  const observer = { relativeToViewport: vi.fn(() => observer), observe, disconnect }
+  Object.assign(uni, { createIntersectionObserver: vi.fn(() => observer) })
+  const mounted = mount(image, { school: 'school', source: 'offscreen', variant: 'feed' })
+  await settle()
+  expect(imagePath).not.toHaveBeenCalled()
+  const visible = observe.mock.calls[0][1] as (value: { intersectionRatio: number }) => void
+  visible({ intersectionRatio: 0 })
+  expect(imagePath).not.toHaveBeenCalled()
+  visible({ intersectionRatio: 1 })
+  await settle()
+  expect(imagePath).toHaveBeenCalledOnce()
+  expect(disconnect).toHaveBeenCalledOnce()
+  visible({ intersectionRatio: 1 })
+  expect(imagePath).toHaveBeenCalledOnce()
   mounted.unmount()
 })

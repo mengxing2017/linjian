@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { createHotPosts } from '../src/features/community/use-hot-posts'
+import * as concurrency from '../src/shared/concurrency'
 import { component, findAll, mount, tap, text } from './support/vue-component'
 
 afterEach(() => {
@@ -167,7 +168,8 @@ it('reserves one of four shortcut slots for all services and records impressions
         onScopeChange: () => vi.fn(),
       },
       '../identity/session': { session: { user: { id: 'user' } } },
-      '../media/files': { imagePath },
+      '../media/files': { imagePath, releaseImages: vi.fn() },
+      '../../shared/concurrency': concurrency,
       './policy': { uuid: () => 'event' },
       './service-metrics': { sendServiceEvent: metric },
       './OfficialMarketing.vue': { default: marketing },
