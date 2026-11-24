@@ -2,6 +2,18 @@ import { expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { createClient } from '../src/http/client'
 import { createOperationsClient } from '../src/modules/operations'
+it.each(['enabled', 'empty'])('preserves enabled customer paths and null entries from the %s fixture', async state => {
+  const body = JSON.parse(readFileSync(new URL(`../fixtures/operations-display-customer-${state}.json`, import.meta.url), 'utf8'))
+  const transport = vi.fn().mockResolvedValue({ status: 200, headers: { 'content-type': 'application/vnd.api+json' }, body })
+  const api = createOperationsClient(createClient(transport))
+  const result = await api.display('school')
+  expect(result.customer).toEqual(body.data.attributes.customer)
+  expect(result.customer.enabled).toBe(true)
+  expect(result.customer.business).toBeNull()
+  expect(transport.mock.calls[0][0].path).toBe('/api/v1/schools/school/operations-display')
+  if (state === 'enabled') expect(result.customer.service).toContain('?revision=2')
+  else expect(result.customer.service).toBeNull()
+})
 it('identifies untitled post options by display label and searches body text', async () => {
   const body = JSON.parse(readFileSync(new URL('../fixtures/operations-post-options.json', import.meta.url), 'utf8'))
   const transport = vi.fn().mockResolvedValue({ status: 200, headers: { 'content-type': 'application/vnd.api+json' }, body })

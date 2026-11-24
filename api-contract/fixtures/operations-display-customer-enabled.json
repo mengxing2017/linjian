@@ -1,0 +1,21 @@
+{
+  "data": {
+    "type": "operations-display",
+    "id": "current",
+    "attributes": {
+      "server_time": "2026-11-24T00:00:00Z",
+      "qrcode": null,
+      "banners": [],
+      "customer": {
+        "enabled": true,
+        "note": "添加客服微信后，请备注来意",
+        "service": "/api/v1/schools/school/customer-images/service?revision=2",
+        "join": "/api/v1/schools/school/customer-images/join?revision=2",
+        "business": null
+      },
+      "shortcuts": [],
+      "categories": [],
+      "config_token": "0:0"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "data": {
+    "type": "operations-display",
+    "id": "current",
+    "attributes": {
+      "server_time": "2026-11-24T00:00:00Z",
+      "qrcode": null,
+      "banners": [],
+      "customer": {
+        "enabled": true,
+        "note": "添加客服微信后，请备注来意",
+        "service": null,
+        "join": null,
+        "business": null
+      },
+      "shortcuts": [],
+      "categories": [],
+      "config_token": "0:0"
+    }
+  }
+}
