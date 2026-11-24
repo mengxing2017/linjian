@@ -398,5 +398,18 @@
       "createProductClient",
       "product"
     ]
+  },
+  "./legal-documents": {
+    "types": [
+      "LegalDocument",
+      "LegalDocumentKind",
+      "LegalRevision",
+      "LegalSummary"
+    ],
+    "values": [
+      "createLegalDocumentsClient",
+      "legalTitles",
+      "validLegalContent"
+    ]
   }
 }
