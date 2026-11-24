@@ -1,0 +1,8 @@
+[
+  { "input": "", "output": "" },
+  { "input": " \t\r\n　﻿", "output": "" },
+  { "input": "﻿ 课 本　", "output": "课 本" },
+  { "input": "\u0085词\u0085", "output": "\u0085词\u0085" },
+  { "input": " ABC & !%_\\ ", "output": "ABC & !%_\\" },
+  { "input": " 图书  教材 ", "output": "图书  教材" }
+]
