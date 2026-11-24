@@ -1,18 +1,21 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted } from 'vue'
-import { imagePath } from './files'
+import { imagePath, releaseImages } from './files'
 import { onScopeChange, clearScope } from '../school-context/context'
 const props = withDefaults(defineProps<{ school: string; source: string; variant?: 'detail' | 'feed' }>(), { variant: 'detail' })
 const local = ref(''),
   error = ref(false)
 let generation = 0
+const owner = {}
 const stop = onScopeChange(() => {
   generation++
+  releaseImages(owner)
   local.value = ''
   error.value = false
 })
 onUnmounted(() => {
   generation++
+  releaseImages(owner)
   stop()
 })
 async function load() {
@@ -20,7 +23,7 @@ async function load() {
   local.value = ''
   error.value = false
   try {
-    const path = await imagePath(props.school, props.source)
+    const path = await imagePath(props.school, props.source, owner)
     if (turn === generation) local.value = path
   } catch (failure) {
     if (turn === generation) {

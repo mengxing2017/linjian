@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted } from 'vue'
-import { brandingFile } from './branding'
+import { brandingFile, releaseBranding } from './branding'
 import { onScopeChange } from './context'
 const props = defineProps<{
   school: string
@@ -10,23 +10,27 @@ const props = defineProps<{
   compact?: boolean
 }>()
 const path = ref('')
+const owner = {}
 let generation = 0
 const stop = onScopeChange(() => {
   generation++
+  releaseBranding(owner)
   path.value = ''
 })
 onUnmounted(() => {
   generation++
+  releaseBranding(owner)
   stop()
 })
 watch(
   () => [props.school, props.purpose, props.revision, props.enabled],
   async () => {
     const turn = ++generation
+    releaseBranding(owner)
     path.value = ''
     if (!props.enabled) return
     try {
-      const value = await brandingFile(props.school, props.purpose, props.revision)
+      const value = await brandingFile(props.school, props.purpose, props.revision, owner)
       if (turn === generation) path.value = value
     } catch {
       /* Default branding remains visible. */

@@ -1,16 +1,13 @@
 import { mediaApi, type UploadPurpose, uploadKey } from './api'
 import { onScopeChange, scopeKey } from '../school-context/context'
-const files = new Map<string, Promise<string>>()
-const paths = new Set<string>()
+import { createFileCache } from '../../shared/file-cache'
 let sequence = 0
 function unlink(path: string) {
   uni.getFileSystemManager().unlink({ filePath: path, fail: () => {} })
 }
-onScopeChange(() => {
-  files.clear()
-  for (const path of paths) unlink(path)
-  paths.clear()
-})
+const files = createFileCache(unlink)
+onScopeChange(files.clear)
+export const releaseImages = files.release
 export async function uploadImage(school: string, filePath: string, purpose: UploadPurpose = "post_image", key = uploadKey()) {
   const bytes = await new Promise<ArrayBuffer>((resolve, reject) =>
     uni.getFileSystemManager().readFile({
@@ -23,14 +20,12 @@ export async function uploadImage(school: string, filePath: string, purpose: Upl
   if (bytes.byteLength > 5 * 1024 * 1024) throw new Error('图片不能超过 5 MiB')
   return mediaApi.upload(school, bytes, purpose, key)
 }
-export function imagePath(school: string, source: string): Promise<string> {
+export function imagePath(school: string, source: string, owner?: object): Promise<string> {
   // Public external images carry no Authorization header.
   if (/^https:\/\//i.test(source)) return Promise.resolve(source)
-  const key = `${scopeKey()}:${source}`
-  const existing = files.get(key)
-  if (existing) return existing
+  const key = `${scopeKey()}:${school}:${source}`
   const scope = scopeKey()
-  const promise = (async () => {
+  return files.read(key, async () => {
     const bytes = await mediaApi.download(school, source)
     if (scope !== scopeKey()) throw new Error('学校或登录状态已改变')
     const path = `${(uni as typeof uni & { env: { USER_DATA_PATH: string } }).env.USER_DATA_PATH}/linjian-${Date.now()}-${sequence++}.img`
@@ -43,14 +38,8 @@ export function imagePath(school: string, source: string): Promise<string> {
       unlink(path)
       throw new Error('学校或登录状态已改变')
     }
-    paths.add(path)
-    return path
-  })().catch((error) => {
-    files.delete(key)
-    throw error
-  })
-  files.set(key, promise)
-  return promise
+    return { path, bytes: bytes.byteLength }
+  }, owner)
 }
 
 export async function keepDraftImages(school: string, draft: string, sources: string[]) {

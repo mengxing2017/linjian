@@ -1,14 +1,13 @@
 import { miniappUserApi } from './api'
 import { onScopeChange, scopeKey } from '../school-context/context'
-const files = new Set<string>()
+import { createFileCache } from '../../shared/file-cache'
 let serial = 0
 function unlink(path: string) {
   uni.getFileSystemManager().unlink({ filePath: path, fail: () => {} })
 }
-onScopeChange(() => {
-  for (const path of files) unlink(path)
-  files.clear()
-})
+const files = createFileCache(unlink, 24, 16 * 1024 * 1024)
+onScopeChange(files.clear)
+export const releaseAvatars = files.release
 export async function uploadAvatar(path: string) {
   const scope = scopeKey()
   const bytes = await new Promise<ArrayBuffer>((resolve, reject) =>
@@ -23,20 +22,21 @@ export async function uploadAvatar(path: string) {
   if (scope !== scopeKey()) throw new Error('登录状态已改变')
   return miniappUserApi.uploadAvatar(bytes)
 }
-export async function avatarFile(url: string) {
+export function avatarFile(url: string, owner?: object) {
   const scope = scopeKey()
-  const bytes = await miniappUserApi.avatar(url)
-  if (scope !== scopeKey()) throw new Error('登录状态已改变')
-  const path = `${(uni as typeof uni & { env: { USER_DATA_PATH: string } }).env.USER_DATA_PATH}/linjian-avatar-${Date.now()}-${serial++}.img`
-  await new Promise<void>((resolve, reject) =>
-    uni
-      .getFileSystemManager()
-      .writeFile({ filePath: path, data: bytes, success: () => resolve(), fail: reject }),
-  )
-  if (scope !== scopeKey()) {
-    unlink(path)
-    throw new Error('登录状态已改变')
-  }
-  files.add(path)
-  return path
+  return files.read(`${scope}:${url}`, async () => {
+    const bytes = await miniappUserApi.avatar(url)
+    if (scope !== scopeKey()) throw new Error('登录状态已改变')
+    const path = `${(uni as typeof uni & { env: { USER_DATA_PATH: string } }).env.USER_DATA_PATH}/linjian-avatar-${Date.now()}-${serial++}.img`
+    await new Promise<void>((resolve, reject) =>
+      uni
+        .getFileSystemManager()
+        .writeFile({ filePath: path, data: bytes, success: () => resolve(), fail: reject }),
+    )
+    if (scope !== scopeKey()) {
+      unlink(path)
+      throw new Error('登录状态已改变')
+    }
+    return { path, bytes: bytes.byteLength }
+  }, owner)
 }

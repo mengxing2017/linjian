@@ -1,21 +1,17 @@
 import { schoolsApi } from './api'
 import { onScopeChange, scopeKey } from './context'
-const files = new Map<string, Promise<string>>(),
-  paths = new Set<string>()
+import { createFileCache } from '../../shared/file-cache'
 let serial = 0
 function unlink(path: string) {
   uni.getFileSystemManager().unlink({ filePath: path, fail: () => {} })
 }
-onScopeChange(() => {
-  files.clear()
-  for (const path of paths) unlink(path)
-  paths.clear()
-})
-export function brandingFile(school: string, slot: 'logo' | 'header', revision: number) {
+const files = createFileCache(unlink, 24, 16 * 1024 * 1024)
+onScopeChange(files.clear)
+export const releaseBranding = files.release
+export function brandingFile(school: string, slot: 'logo' | 'header', revision: number, owner?: object) {
   const scope = scopeKey(),
     key = `${scope}:${school}:${revision}:${slot}`
-  if (files.has(key)) return files.get(key)!
-  const pending = (async () => {
+  return files.read(key, async () => {
     const bytes = await schoolsApi.branding(school, slot)
     if (scope !== scopeKey()) throw new Error('学校或账号已变化')
     const path = `${(uni as typeof uni & { env: { USER_DATA_PATH: string } }).env.USER_DATA_PATH}/linjian-brand-${Date.now()}-${serial++}.img`
@@ -28,14 +24,8 @@ export function brandingFile(school: string, slot: 'logo' | 'header', revision: 
       unlink(path)
       throw new Error('学校或账号已变化')
     }
-    paths.add(path)
-    return path
-  })().catch((e) => {
-    files.delete(key)
-    throw e
-  })
-  files.set(key, pending)
-  return pending
+    return { path, bytes: bytes.byteLength }
+  }, owner)
 }
 export const defaultTheme = {
   theme_primary: '#6A5AF9',
