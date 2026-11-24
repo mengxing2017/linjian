@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onUnmounted, shallowRef } from 'vue'
 import CustomerContacts from '../operations/CustomerContacts.vue'
+import LegalLinks from '../legal-documents/LegalLinks.vue'
 import MenuItem from '../../shared/MenuItem.vue'
 import Avatar from '../miniapp-users/Avatar.vue'
 import { miniappUserApi, type MiniappUser } from '../miniapp-users/api'
@@ -11,6 +12,7 @@ import { usePage, navigate, confirm, handlePageError } from '../../shared/use-pa
 import PageStatus from '../../shared/PageStatus.vue'
 import { createContactsPage } from './use-contacts-page'
 const contacts = shallowRef<InstanceType<typeof CustomerContacts>>()
+const policies = shallowRef<InstanceType<typeof LegalLinks>>()
 const profile = shallowRef<MiniappUser>()
 const page = createContactsPage({
   contacts: () => contacts.value,
@@ -41,7 +43,10 @@ function signout() {
     uni.reLaunch({ url: '/pages/user/login' })
   })
 }
-defineExpose({ show: page.show, hide: page.hide })
+defineExpose({
+  show: () => { void policies.value?.show(); return page.show() },
+  hide: () => { page.hide(); policies.value?.hide() },
+})
 </script>
 <template>
   <view class="page compact-page profile-page">
@@ -75,6 +80,7 @@ defineExpose({ show: page.show, hide: page.hide })
       <MenuItem title="投诉反馈" icon="posts" @activate="navigate('/pages/user/feedback')" />
       <MenuItem title="退出登录" :arrow="false" danger centered :disabled="signingOut" @activate="signout" />
     </view>
+    <LegalLinks ref="policies" />
   </view>
 </template>
 <style scoped>
