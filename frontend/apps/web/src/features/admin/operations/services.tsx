@@ -177,16 +177,16 @@ function SchoolServices({school}:{school:string}) {
     try {
       await serviceApi.override(school, editing.id, editing.override_revision, query.data.token, presentation)
       if (!active()) return
-      notifySuccess('本校覆盖已保存')
+      notifySuccess('本校展示设置已保存')
       setEditing(undefined)
       const result = await query.refetch()
-      if (activeSchool() && result.error) setError('本校覆盖已保存，列表刷新失败，请刷新查看')
+      if (activeSchool() && result.error) setError('本校展示设置已保存，列表刷新失败，请刷新查看')
     } catch (cause) { if (active()) setError(message(cause)) }
     finally { pending.current = false; if (activeSchool()) setSaving(false) }
   }
   function batch(active:boolean){const items=rows.filter(row=>selected.includes(row.id)).map(row=>({id:row.id,revision:row.school_id?row.revision:row.override_revision,active}));if(!items.length||!query.data)return;void run(async()=>{await serviceApi.batch(school,'batch-status',query.data!.token,items);setSelected([])})}
   function reorder(target:string){if(!dragged||dragged===target||!query.data)return;const ordered=[...rows],from=ordered.findIndex(row=>row.id===dragged),to=ordered.findIndex(row=>row.id===target);if(from<0||to<0)return;const [item]=ordered.splice(from,1);ordered.splice(to,0,item);void run(()=>serviceApi.batch(school,'order',query.data!.token,ordered.map(row=>({id:row.id,revision:row.school_id?row.revision:row.override_revision}))));setDragged('')}
-  return <section><h3>学校混排、覆盖与预览</h3><LocalDateTimePicker value={at} onChange={setAt} /><p>拖动行提交完整混排集合；学校覆盖不改变服务目标和强制披露。预览不产生曝光。</p>
+  return <section><h3>学校服务排序与预览</h3><LocalDateTimePicker value={at} onChange={setAt} /><p>拖动列表项调整显示顺序。本校设置只影响展示，不会修改服务跳转目标或必须展示的说明。预览不会计入曝光。</p>
     {(error||query.error)&&<Alert type="error" title={error||query.error?.message} />}
     {error.includes('刷新失败') && <Button onClick={() => { setError(''); void query.refetch() }}>重试刷新</Button>}
     {can('operation.shortcut.update')&&<Space><Button disabled={!selected.length} onClick={()=>batch(true)}>批量启用</Button><Button disabled={!selected.length} onClick={()=>batch(false)}>批量隐藏</Button></Space>}
@@ -194,16 +194,16 @@ function SchoolServices({school}:{school:string}) {
       {title:'入口',dataIndex:'title'},{title:'来源',render:(_,row)=>row.school_id?'本校':'平台默认'},{title:'预览状态',render:(_,row)=>row.hidden_reason??'有效'},
       {title:'操作',fixed:'right',render:(_,row)=>can('operation.shortcut.update')&&<Space>
         <Button onClick={()=>void run(()=>serviceApi.batch(school,'batch-status',query.data!.token,[{id:row.id,revision:row.school_id?row.revision:row.override_revision,active:row.hidden_reason==='入口已停用'}]))}>启用/隐藏</Button>
-        {!row.school_id&&<Button onClick={()=>{setEditing(row);setPresentation({})}}>展示覆盖</Button>}
+        {!row.school_id&&<Button onClick={()=>{setEditing(row);setPresentation({})}}>自定义本校展示</Button>}
         {!row.school_id&&row.override_revision>0&&<Button onClick={()=>void run(()=>serviceApi.reset(school,row.id,row.override_revision))}>恢复默认</Button>}
       </Space>},
     ]}/>
-    {editing&&<Drawer open title="学校展示覆盖" onClose={()=>setEditing(undefined)}><p>未填写的字段继承平台值；副标题和角标可显式清空。</p><fieldset disabled={saving} style={{ border: 0 }}><Space orientation="vertical" className="full-width">
-      {(['title','subtitle','badge'] as const).map(key=><label key={key}>{key}<Input value={presentation[key]??''} placeholder={`继承：${editing[key]}`} onChange={event=>setPresentation({...presentation,[key]:event.target.value})}/><Button size="small" onClick={()=>setPresentation(previous=>{const next={...previous};delete next[key];return next})}>继承</Button></label>)}
+    {editing&&<Drawer open title="本校展示设置" onClose={()=>setEditing(undefined)}><p>未修改的字段使用平台默认内容。清空副标题或角标后，该内容将不显示；点击“使用平台默认”可恢复。标题不能为空。</p><fieldset disabled={saving} style={{ border: 0 }}><Space orientation="vertical" className="full-width">
+      {(['title','subtitle','badge'] as const).map(key=><label key={key}>{({title:'标题',subtitle:'副标题',badge:'角标'} as const)[key]}<Input value={presentation[key]??''} placeholder={`当前展示：${editing[key]}`} onChange={event=>setPresentation({...presentation,[key]:event.target.value})}/><Button size="small" onClick={()=>setPresentation(previous=>{const next={...previous};delete next[key];return next})}>使用平台默认</Button></label>)}
       <MediaPicker school={school} context="operation.shortcut.update" label="本校图标" value={presentation.image_ref?.id??null} onBusyChange={setUploading} onChange={id=>setPresentation(previous=>{const next={...previous};if(id)next.image_ref={kind:'asset',id};else delete next.image_ref;return next})}/>
-      <label>分类覆盖<Select allowClear placeholder="继承" value={presentation.category_id===undefined?undefined:presentation.category_id??'none'} options={[{value:'none',label:'不分类'},...(options.data?.categories.map(value=>({value:value.id,label:value.name}))??[])]} onChange={value=>setPresentation(previous=>{const next={...previous};if(value===undefined)delete next.category_id;else next.category_id=value==='none'?null:value;return next})}/></label>
-      <label>首页精选<Select allowClear placeholder="继承" value={presentation.featured===undefined?undefined:String(presentation.featured)} options={[{value:'true',label:'精选'},{value:'false',label:'非精选'}]} onChange={value=>setPresentation(previous=>{const next={...previous};if(value===undefined)delete next.featured;else next.featured=value==='true';return next})}/></label>
-      <Button type="primary" loading={saving} disabled={saving || uploading} onClick={()=>void saveOverride()}>保存覆盖</Button>
+      <label>本校分类<Select allowClear placeholder="使用平台默认" value={presentation.category_id===undefined?undefined:presentation.category_id??'none'} options={[{value:'none',label:'不分类'},...(options.data?.categories.map(value=>({value:value.id,label:value.name}))??[])]} onChange={value=>setPresentation(previous=>{const next={...previous};if(value===undefined)delete next.category_id;else next.category_id=value==='none'?null:value;return next})}/></label>
+      <label>首页精选<Select allowClear placeholder="使用平台默认" value={presentation.featured===undefined?undefined:String(presentation.featured)} options={[{value:'true',label:'精选'},{value:'false',label:'非精选'}]} onChange={value=>setPresentation(previous=>{const next={...previous};if(value===undefined)delete next.featured;else next.featured=value==='true';return next})}/></label>
+      <Button type="primary" loading={saving} disabled={saving || uploading} onClick={()=>void saveOverride()}>保存设置</Button>
     </Space></fieldset></Drawer>}
   </section>
 }
