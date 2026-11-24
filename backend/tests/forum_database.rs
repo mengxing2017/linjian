@@ -16,6 +16,8 @@ mod member_permissions_fixture;
 mod member_permissions_tests;
 #[path = "message_advertisements/mod.rs"]
 mod message_advertisements_tests;
+#[path = "notification_summary/mod.rs"]
+mod notification_summary_tests;
 #[path = "operation_services/mod.rs"]
 mod operation_services_tests;
 #[path = "phone_bindings/mod.rs"]
