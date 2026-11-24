@@ -61,3 +61,9 @@ it("preserves school directory pagination and encodes search without school mana
     "search=%E5%90%8D%E7%A7%B0%20%26",
   );
 });
+it('reads historical school profiles without coordinates', async () => {
+  const transport = vi.fn().mockResolvedValue({ status: 200, headers: { 'content-type': 'application/vnd.api+json' }, body: fixture('school-profile-legacy') });
+  const profile = await createSchoolsClient(createClient(transport)).detail('s');
+  expect(profile.latitude).toBeNull();
+  expect(profile.longitude).toBeNull();
+});
