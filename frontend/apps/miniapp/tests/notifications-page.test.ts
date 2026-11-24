@@ -24,7 +24,7 @@ function setup() {
     '../../shared/PageWindow.vue': { default: component(new URL('../src/shared/PageWindow.vue', import.meta.url), { './page-window': pageWindow }) },
     './api': { communityApi },
     '../school-context/context': {
-      schoolContext: { id: 'school', schools: [{ id: 'school', theme_primary: '#FFFFFF', theme_text_color: '#FFFFFF' }] },
+      schoolContext: { id: 'school', school: { id: 'school', theme_primary: '#FFFFFF', theme_text_color: '#FFFFFF' } },
       requireSchool, scopeKey: () => 'scope', onScopeChange: () => stop,
     },
     '../identity/session': { session: { user: { id: 'account' } } },

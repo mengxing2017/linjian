@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest'
 vi.mock('../src/features/school-context/context', () => ({
-  schoolContext: { schools: [], id: '' },
+  schoolContext: { school: undefined, id: '' },
   onScopeChange: () => () => {},
   scopeKey: () => '',
 }))

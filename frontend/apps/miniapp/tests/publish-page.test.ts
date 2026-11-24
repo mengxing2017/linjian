@@ -42,7 +42,7 @@ function setup(options: { draft?: Record<string, unknown>; edit?: boolean } = {}
     './post-draft': draftState,
     './draft-limits': draftLimits,
     './api': { communityApi, homeMenuApi: menu, normalizePostContent: (value: unknown) => value },
-    '../school-context/context': { schoolContext: { id: 'school', schools: [{ id: 'school', name: '学校' }] }, requireSchool: vi.fn().mockResolvedValue(true), scopeKey: () => scope, onScopeChange },
+    '../school-context/context': { schoolContext: { id: 'school', school: { id: 'school', name: '学校' } }, requireSchool: vi.fn().mockResolvedValue(true), scopeKey: () => scope, onScopeChange },
     '../identity/session': { session: { user: { id: 'account' } } },
     '../media/files': { keepDraftImages },
     '../operations/policy': { uuid: () => 'draft-id' },
