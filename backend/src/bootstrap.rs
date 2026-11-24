@@ -55,6 +55,7 @@ impl Options {
 }
 #[derive(Clone)]
 pub struct Application {
+    pub legal_documents: crate::legal_documents::north::local::Service,
     pub message_advertisements: crate::message_advertisements::north::local::Service,
     pub school_changes: crate::school_changes::north::local::Service,
     pub statistics: crate::statistics::north::local::Service,
@@ -76,6 +77,9 @@ pub struct Application {
 pub fn build_application(pool: PgPool, options: Options) -> Application {
     let files = options.files.clone();
     Application {
+        legal_documents: crate::legal_documents::north::local::Service(
+            crate::legal_documents::south::adapter::postgres::Repository(pool.clone()),
+        ),
         message_advertisements: crate::message_advertisements::north::local::Service(
             crate::message_advertisements::south::adapter::postgres::Repository(pool.clone()),
         ),
