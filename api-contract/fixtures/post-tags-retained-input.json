@@ -1,0 +1,13 @@
+{
+  "data": {
+    "type": "posts",
+    "attributes": {
+      "title": "",
+      "content": "保留原帖历史标签",
+      "images": [],
+      "tags": ["校园", "历史标签"],
+      "candidate_tag_ids": ["00000000-0000-0000-0000-000000000004"],
+      "revision": 3
+    }
+  }
+}

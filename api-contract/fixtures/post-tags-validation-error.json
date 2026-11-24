@@ -1,0 +1,10 @@
+{
+  "errors": [
+    {
+      "status": "422",
+      "code": "validation",
+      "title": "Unprocessable Entity",
+      "detail": "只能选择本校配置的标签，请重新选择"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "data": {
+    "type": "posts",
+    "attributes": {
+      "title": "",
+      "content": "选择本校标签",
+      "images": [],
+      "tags": ["校园"],
+      "candidate_tag_ids": ["00000000-0000-0000-0000-000000000004"]
+    }
+  }
+}

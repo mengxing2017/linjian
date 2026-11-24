@@ -2,6 +2,9 @@ import { expect, it, vi } from 'vitest'
 import { createClient } from '../src/http/client'
 import { createCommunityClient, normalizePostContent, postFieldError } from '../src/modules/community'
 import fixture from '../fixtures/post-untitled.json'
+import tagInput from '../fixtures/post-tags-input.json'
+import retainedInput from '../fixtures/post-tags-retained-input.json'
+import tagError from '../fixtures/post-tags-validation-error.json'
 
 it('allows omitted titles but requires meaningful body text using scalar limits', () => {
   expect(normalizePostContent({ content: ' 正文\n👩‍💻 ' })).toEqual({ title: '', content: '正文\n👩‍💻' })
@@ -28,4 +31,20 @@ it('uses distinct creation and complete-update commands without generating a tit
   await client.update('school', 'post', { title: '', content: '新正文', images: [], tags: [], revision: 3 })
   expect(transport.mock.calls[1][0]).toMatchObject({ method: 'PUT', path: '/api/v1/schools/school/posts/post' })
   expect(JSON.parse(transport.mock.calls[1][0].body).data.attributes).toMatchObject({ title: '', revision: 3 })
+})
+
+it('preserves candidate IDs and original-name snapshots in JSON:API create and update commands', async () => {
+  const transport = vi.fn().mockResolvedValue({ status: 200, headers: { 'content-type': 'application/vnd.api+json' }, body: fixture })
+  const client = createCommunityClient(createClient(transport))
+  await client.create('school', tagInput.data.attributes)
+  expect(JSON.parse(transport.mock.calls[0][0].body)).toEqual(tagInput)
+  await client.update('school', 'post', retainedInput.data.attributes)
+  expect(JSON.parse(transport.mock.calls[1][0].body)).toEqual(retainedInput)
+})
+
+it('surfaces the tag validation error instead of retrying without tags', async () => {
+  const transport = vi.fn().mockResolvedValue({ status: 422, headers: { 'content-type': 'application/vnd.api+json' }, body: tagError })
+  const client = createCommunityClient(createClient(transport))
+  await expect(client.create('school', { content: '正文', images: [], tags: ['自定义'] })).rejects.toMatchObject({ status: 422, code: 'validation', message: tagError.errors[0].detail })
+  expect(transport).toHaveBeenCalledOnce()
 })
