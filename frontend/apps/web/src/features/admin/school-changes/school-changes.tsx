@@ -4,7 +4,7 @@ import { schoolChanges, type SchoolChangeRequest, type SchoolChangeStatus, type 
 import { DocumentPreview } from './document-preview'
 
 const labels: Record<SchoolChangeStatus, string> = { pending: '待审', approved: '已通过', rejected: '已驳回', cancelled: '已撤回', invalidated: '已失效' }
-const blockerLabels: Record<string, string> = { account_unavailable: '账号不可用', school_unavailable: '目标学校停用', source_changed: '来源学校已变化', role_conflict: '存在学校管理角色', document_unavailable: '材料不可用', target_member_revoked: '目标学校成员已撤销，请先核实准入限制', relationship_required: '旧申请未声明在读或新生关系，请告知申请人撤回重提' }
+const blockerLabels: Record<string, string> = { account_unavailable: '账号不可用', school_unavailable: '目标学校停用', source_changed: '来源学校已变化', role_conflict: '存在学校管理角色', document_unavailable: '暂时无法查看材料', target_member_revoked: '申请人在目标学校的成员资格已被撤销，请先核实是否允许其重新加入', relationship_required: '旧申请未声明在读或新生关系，请告知申请人撤回重提' }
 export function SchoolChanges({ reviewerId, accountId }: { reviewerId: string; accountId?: string }) {
   const { modal } = App.useApp()
   const [status, setStatus] = useState<SchoolChangeStatus>('pending')
@@ -102,7 +102,7 @@ export function SchoolChanges({ reviewerId, accountId }: { reviewerId: string; a
       {detail.review_guidance && <Alert type="info" title={detail.review_guidance} />}
       {!!detail.blocked_reasons.length && <Alert type="warning" title={detail.blocked_reasons.map(code => blockerLabels[code] || code).join('；')} />}
       {detail.account_id === reviewerId && <Alert type="warning" title="不能审核本人申请" />}
-      <Space wrap style={{ marginBlock: 16 }}>{detail.documents.map(document => <Button key={document.id} disabled={!document.available} onClick={() => setPreview(document.id)}>{document.available ? '受控预览证明' : '材料不可用'}</Button>)}</Space>
+      <Space wrap style={{ marginBlock: 16 }}>{detail.documents.map(document => <Button key={document.id} disabled={!document.available} onClick={() => setPreview(document.id)}>{document.available ? '查看证明材料' : '暂时无法查看材料'}</Button>)}</Space>
       {preview && <DocumentPreview key={`${detail.id}:${preview}`} request={detail.id} document={preview} />}
       {detail.history && <Table caption="最近 100 条审核与材料访问记录" size="small" rowKey="id" dataSource={detail.history} pagination={false} columns={[
         { title: '动作', dataIndex: 'action' }, { title: '操作人', dataIndex: 'actor_id', render: value => value || '系统' },

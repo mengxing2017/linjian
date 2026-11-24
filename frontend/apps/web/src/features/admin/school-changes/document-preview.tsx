@@ -20,5 +20,5 @@ export function DocumentPreview({ request, document }: { request: string; docume
     return () => { controller.abort(); if (url) URL.revokeObjectURL(url) }
   }, [document, request])
   if (error) return <Alert type="error" title={error} />
-  return src ? <Image src={src} width={240} preview={false} alt="本次换校的目标学校学生证明" /> : <span>正在受控读取证件…</span>
+  return src ? <Image src={src} width={240} preview={false} alt="本次换校的目标学校学生证明" /> : <span>正在加载证明材料…</span>
 }

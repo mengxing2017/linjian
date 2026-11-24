@@ -143,7 +143,9 @@ impl IntoResponse for Error {
                     "school_change_role_conflict" => "存在学校管理角色，请先从学校权限入口处理",
                     "school_change_source_changed" => "学校归属已变化，请刷新核对结果",
                     "school_change_account_unavailable" => "申请人账号不可用，不能批准换校",
-                    "school_change_target_member_revoked" => "目标学校成员已撤销，请先核实准入限制",
+                    "school_change_target_member_revoked" => {
+                        "申请人在目标学校的成员资格已被撤销，请先核实是否允许其重新加入"
+                    }
                     "school_change_self_review" => "不能审核本人换校申请，请由其他平台审核员处理",
                     _ => "业务条件已变化，请刷新后重试",
                 }
