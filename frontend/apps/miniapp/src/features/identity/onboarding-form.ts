@@ -1,7 +1,7 @@
 import { credentials } from '../../app/credentials'
 import { identityApi } from './api'
 import { legalDocuments } from '../legal-documents/api'
-import { loadSchools } from '../school-context/context'
+import { loadSchool } from '../school-context/context'
 import { acceptLogin, startLogin } from './session'
 import { resumeReturnTarget } from './resume-target'
 import { createOnboarding } from './use-onboarding'
@@ -18,7 +18,7 @@ export const form = createOnboarding({
   requestKey,
   ready: async value => {
     acceptLogin(value)
-    if (!(await loadSchools())) throw new Error('学校暂不可用，请重试')
+    if (!(await loadSchool())) throw new Error('学校暂不可用，请重试')
     if (!(await resumeReturnTarget())) await uni.reLaunch({ url: '/pages/index/index' })
   },
 })

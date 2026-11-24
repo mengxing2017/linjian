@@ -5,7 +5,7 @@ import MenuItem from '../../shared/MenuItem.vue'
 import Avatar from '../miniapp-users/Avatar.vue'
 import { miniappUserApi, type MiniappUser } from '../miniapp-users/api'
 import { session, restoreSession, logout } from '../identity/session'
-import { schoolContext, loadSchools, scopeKey, onScopeChange } from '../school-context/context'
+import { schoolContext, loadSchool, scopeKey, onScopeChange } from '../school-context/context'
 import { credentials } from '../../app/credentials'
 import { usePage, navigate, confirm, handlePageError } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
@@ -16,7 +16,7 @@ const page = createContactsPage({
   contacts: () => contacts.value,
   restore: restoreSession,
   loggedIn: () => !!session.user,
-  loadSchools,
+  loadSchool,
   school: () => schoolContext.id,
   revision: () => credentials.revision,
   key: scopeKey,
@@ -53,7 +53,7 @@ defineExpose({ show: page.show, hide: page.hide })
             {{ profile?.nickname || session.user?.display_name || '校园成员' }}
           </text>
           <text class="muted">
-            {{ schoolContext.schools.find((s) => s.id === schoolContext.id)?.name || '尚未绑定学校' }}
+            {{ schoolContext.school?.name || (session.user?.bound_school_id ? '学校资料加载中…' : '尚未绑定学校') }}
           </text>
         </view>
       </view>

@@ -42,7 +42,7 @@ watch(
     mode.value = value ?? 'feed'
   },
 )
-const school = computed(() => schoolContext.schools.find((s) => s.id === schoolContext.id))
+const school = computed(() => schoolContext.school)
 const hotPostsActive = computed(() => pageVisible.value && !!session.user && !!school.value && isHotPostsHome(!!props.homePage, !!props.searchPage, mode.value, search.value, selectedTag.value))
 const { busy, error, run } = usePage(() => {
   clearPostInvalidations()
@@ -170,7 +170,7 @@ defineExpose({
     <SchoolHeader v-if="homePage" :school="school" compact searchable @search="navigate('/pages/index/search')" @change-school="navigate('/pages/plugin/index')" />
     <HomeOperations v-if="homePage && !searchPage" ref="operations" />
     <HomeShortcuts v-if="homePage && !searchPage" ref="shortcuts" />
-    <text v-if="session.user?.bound_school_id && !schoolContext.schools.length">
+    <text v-if="session.user?.bound_school_id && schoolContext.loaded && !schoolContext.school">
       学校暂不可用，请联系管理员
     </text>
     <view v-if="!homePage && !lockedMode" class="row spread">

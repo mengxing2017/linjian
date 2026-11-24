@@ -7,7 +7,7 @@ import Avatar from '../miniapp-users/Avatar.vue'
 import PhoneBindingPanel from '../miniapp-users/PhoneBindingPanel.vue'
 import { confirm, handlePageError } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
-import { onScopeChange, scopeKey, loadSchools, schoolContext } from '../school-context/context'
+import { onScopeChange, scopeKey, loadSchool, schoolContext } from '../school-context/context'
 import { credentials } from '../../app/credentials'
 import { createUserInfo } from './use-user-info'
 import { createContactsPage } from './use-contacts-page'
@@ -32,7 +32,7 @@ const page = createContactsPage({
   contacts: () => contacts.value,
   restore: restoreSession,
   loggedIn: () => !!session.user,
-  loadSchools,
+  loadSchool,
   school: () => schoolContext.id,
   revision: () => credentials.revision,
   key: scopeKey,

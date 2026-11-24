@@ -329,7 +329,7 @@ defineExpose({ show: load, hide: () => { visible = false; pickerOpen.value = fal
       <button size="mini" :disabled="busy || uploading || submitting" @tap="cancel">取消</button>
     </view>
     <text class="muted">
-      {{ schoolContext.schools.find((s) => s.id === schoolContext.id)?.name }}
+      {{ schoolContext.school?.name }}
     </text>
     <PageStatus :busy="busy" :error="error" @retry="load" />
     <view class="card">

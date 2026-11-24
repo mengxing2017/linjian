@@ -1,3 +1,9 @@
 import { createSchoolsClient } from '@linjian/api-contract/schools'
 import { client } from '../../../app/api'
-export const schoolsApi = createSchoolsClient(client)
+const schools = createSchoolsClient(client)
+export const schoolsApi = {
+  detail: schools.detail,
+  directory: schools.directory,
+  onboardingRecommendations: schools.onboardingRecommendations,
+  branding: schools.branding,
+}

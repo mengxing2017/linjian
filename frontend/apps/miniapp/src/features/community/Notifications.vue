@@ -29,7 +29,7 @@ const stop = onScopeChange(board.reset)
 onUnmounted(() => { stop(); board.dispose() })
 const activeLabel = computed(() => notificationTabs.find(tab => tab.id === state.activeTab)!)
 const selectedStyle = computed(() => {
-  const school = schoolContext.schools.find(item => item.id === schoolContext.id)
+  const school = schoolContext.school
   const primary = themeColor(school?.theme_primary, defaultTheme.theme_primary)
   const foreground = notificationForeground(primary, themeColor(school?.theme_text_color, defaultTheme.theme_text_color))
   return `--notification-tab-text:${foreground}`

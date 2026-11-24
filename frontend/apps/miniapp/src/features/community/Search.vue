@@ -34,7 +34,7 @@ const {
   inputError,
   ready,
 } = search
-const school = computed(() => schoolContext.schools.find((item) => item.id === schoolContext.id))
+const school = computed(() => schoolContext.school)
 const stop = onScopeChange(() => search.scopeChanged())
 watch(
   () => session.user?.id,

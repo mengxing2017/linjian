@@ -1,4 +1,4 @@
-import { loadSchools } from '../school-context/context'
+import { loadSchool } from '../school-context/context'
 import { restoreSession, session } from './session'
 import { readReturnTarget, clearReturnTarget, targetPath } from './return-target'
 import { rememberPublishSource, switchRoot } from '../../app/navigation'
@@ -22,7 +22,7 @@ async function resume() {
   }
   const revision = credentials.revision
   try {
-    if (!(await loadSchools(target.kind === 'post-detail' ? target.school : undefined))) return false
+    if (!(await loadSchool(target.kind === 'post-detail' ? target.school : undefined))) return false
     if (revision !== credentials.revision) return false
     if (target.kind === 'publish') {
       await switchRoot(target.origin)

@@ -10,7 +10,7 @@ interface Environment {
   contacts: () => Contacts | undefined
   restore: () => Promise<void>
   loggedIn: () => boolean
-  loadSchools: () => Promise<boolean>
+  loadSchool: () => Promise<boolean>
   school: () => string
   revision: () => number
   key: () => string
@@ -71,7 +71,7 @@ export function createContactsPage(env: Environment) {
           return
         }
         try {
-          const available = await env.loadSchools()
+          const available = await env.loadSchool()
           context = available && env.school() ? { state: 'ready', school: env.school() } : { state: 'school-required' }
         } catch (cause) { context = { state: 'error', cause } }
       } catch (cause) {
