@@ -72,12 +72,14 @@ defineExpose({
 })
 </script>
 <template>
-  <view class="page">
+  <view class="page compact-page notifications-page">
     <text class="heading">消息</text>
-    <view v-for="item in rows" :key="item.id" class="card">
-      <text class="title">{{ labels[item.kind] || '校园消息' }}</text>
-      <text class="muted">{{ item.created_at }}</text>
-      <button size="mini" :disabled="busy || !!item.read_at" @tap="read(item)">
+    <view v-for="item in rows" :key="item.id" class="notification-row" :class="{ unread: !item.read_at }">
+      <view class="notification-copy">
+        <text class="notification-title">{{ labels[item.kind] || '校园消息' }}</text>
+        <text class="notification-time">{{ item.created_at }}</text>
+      </view>
+      <button class="notification-read" size="mini" :disabled="busy || !!item.read_at" @tap="read(item)">
         {{ item.read_at ? '已读' : '标记已读' }}
       </button>
     </view>
@@ -85,3 +87,11 @@ defineExpose({
     <button v-if="more" :disabled="busy" @tap="load(false)">更多消息</button>
   </view>
 </template>
+<style scoped>
+.notification-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8rpx 16rpx; padding: 12rpx 20rpx; margin-bottom: var(--linjian-space-list); border-radius: var(--linjian-radius-card); background: #fff; }
+.notification-copy { flex: 1; min-width: 180rpx; overflow-wrap: anywhere; }
+.notification-title { display: block; font-size: var(--linjian-font-body); line-height: 1.5; }
+.notification-time { display: block; font-size: var(--linjian-font-caption); line-height: 1.5; color: #6b7280; }
+.notification-read { min-height: 44px; min-width: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; line-height: 1.4; margin: 0; }
+.unread .notification-title { font-weight: 600; }
+</style>

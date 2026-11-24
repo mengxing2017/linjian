@@ -44,15 +44,19 @@ function signout() {
 defineExpose({ show: page.show, hide: page.hide })
 </script>
 <template>
-  <view class="page">
+  <view class="page compact-page profile-page">
     <view class="card">
-      <Avatar :source="profile?.avatar_url" />
-      <text class="heading">
-        {{ profile?.nickname || session.user?.display_name || '校园成员' }}
-      </text>
-      <text class="muted">
-        {{ schoolContext.schools.find((s) => s.id === schoolContext.id)?.name || '尚未绑定学校' }}
-      </text>
+      <view class="profile-summary">
+        <Avatar :source="profile?.avatar_url" />
+        <view class="profile-copy">
+          <text class="heading">
+            {{ profile?.nickname || session.user?.display_name || '校园成员' }}
+          </text>
+          <text class="muted">
+            {{ schoolContext.schools.find((s) => s.id === schoolContext.id)?.name || '尚未绑定学校' }}
+          </text>
+        </view>
+      </view>
       <button v-if="!session.user" class="primary" @tap="navigate('/pages/user/login')">
         微信登录
       </button>
@@ -60,7 +64,7 @@ defineExpose({ show: page.show, hide: page.hide })
     <CustomerContacts ref="contacts" @retry-prepare="page.retryPrepare" />
     <PageStatus :busy="busy" :error="error" @retry="page.reloadProfile" />
     <text v-if="signoutError" class="error">{{ signoutError }}</text>
-    <view v-if="session.user" class="card menu">
+    <view v-if="session.user" class="card menu profile-menu">
       <MenuItem title="个人信息" icon="person" @activate="navigate('/pages/user/userInfo')" />
       <MenuItem title="学校" icon="school" @activate="navigate('/pages/plugin/index')" />
       <MenuItem v-if="session.user.bound_school_id" title="换校申请与审核结果" icon="application" @activate="navigate('/pages/user/schoolChange')" />
@@ -75,3 +79,11 @@ defineExpose({ show: page.show, hide: page.hide })
     </view>
   </view>
 </template>
+<style scoped>
+.profile-summary { display: flex; align-items: center; gap: 20rpx; }
+.profile-copy { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.profile-copy .heading { font-size: 32rpx; margin: 0; }
+.profile-copy .muted { margin: 4rpx 0 0; line-height: 1.5; }
+.profile-menu :deep(.menu-item) { min-height: 44px; padding: 8rpx 4rpx; gap: 16rpx; }
+.profile-menu :deep(.menu-item-icon) { width: 52rpx; height: 52rpx; border-radius: 14rpx; }
+</style>

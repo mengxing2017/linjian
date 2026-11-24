@@ -141,7 +141,7 @@ defineExpose({
 </script>
 <template>
   <PhoneBindingPanel ref="phone" />
-  <view class="page">
+  <view class="page compact-page detail-page">
     <PageStatus :busy="busy" :error="error" @retry="load(true)" />
     <template v-if="post">
       <view class="card">
@@ -191,4 +191,7 @@ defineExpose({
 </template>
 <style scoped>
 .post-actions { padding-bottom: env(safe-area-inset-bottom); flex-wrap: wrap; }
+.detail-page button[size='mini'] { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; line-height: 1.4; }
+.detail-page .row { gap: 8rpx; }
+.detail-page .comment { font-size: var(--linjian-font-body); }
 </style>
