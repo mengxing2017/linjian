@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { DRAFT_TITLE_LIMIT, DRAFT_CONTENT_LIMIT, editorText, draftWithinLimits } from './draft-limits'
 import AppIcon from '../../shared/AppIcon.vue'
 import { invalidatePost } from './post-invalidations'
@@ -39,6 +39,9 @@ const tagNames = computed(() => publishTagNames(tags.value))
 const tagSummary = computed(() => tagNames.value.slice(0, 3).join(' · '))
 const uploading = ref(false)
 const pendingImages = ref(0)
+let draftVersion = 0
+let savedDraft: { key: string; scope: string; version: number } | undefined
+watch([title, content, tags, tagConfirmationRequired, images, pendingImages], () => { draftVersion++ }, { flush: 'sync' })
 const submitting = ref(false)
 let visible = false
 let draftScope: { key: string; school: string; account: string; scope: string } | undefined
@@ -61,9 +64,23 @@ const { busy, error, run } = usePage(() => {
 const draftKey = () => postDraftKey(session.user?.id, schoolContext.id, props.id)
 const draftId = ref(uuid())
 const leaseMessage = ref('')
-function saveDraft() {
+function renewDraftImages() {
+  if (!draftScope || !images.value.length) return
+  const scope = scopeKey(), version = draftVersion
+  const current = () => scope === scopeKey() && version === draftVersion
+  void keepDraftImages(draftScope.school, draftId.value, images.value).then(value => {
+    if (current()) leaseMessage.value = `草稿图片保留 ${value.lease_days} 天；恢复时重新核验。`
+  }).catch(() => {
+    if (current()) leaseMessage.value = '草稿已保存本机，图片保留未确认，恢复时可能需要重新上传。'
+  })
+}
+function saveDraft(renewImages = false) {
   if (!draftScope || draftScope.scope !== scopeKey() || draftScope.account !== session.user?.id) return false
   if (!session.user || !schoolContext.id) return false
+  if (savedDraft?.key === draftScope.key && savedDraft.scope === scopeKey() && savedDraft.version === draftVersion) {
+    if (renewImages) renewDraftImages()
+    return true
+  }
   if (!draftWithinLimits(title.value, content.value)) {
     uni.showToast({ title: '草稿过长，请缩减至标题200字、正文20000字后保存', icon: 'none' })
     return false
@@ -71,6 +88,7 @@ function saveDraft() {
   try {
     if (!title.value.trim() && !content.value.trim() && !tagNames.value.length && !tags.value.unresolved.length && !images.value.length) {
       uni.removeStorageSync(draftScope.key)
+      savedDraft = { key: draftScope.key, scope: scopeKey(), version: draftVersion }
       return true
     }
     uni.setStorageSync(draftScope.key, {
@@ -86,8 +104,8 @@ function saveDraft() {
     uni.showToast({ title: '草稿保存失败，请勿退出', icon: 'none' })
     return false
   }
-  const scope = scopeKey()
-  void keepDraftImages(draftScope.school, draftId.value, images.value).then(v => { if (scope === scopeKey()) leaseMessage.value = `草稿图片保留 ${v.lease_days} 天；恢复时重新核验。` }).catch(() => { if (scope === scopeKey()) leaseMessage.value = '草稿已保存本机，图片保留未确认，恢复时可能需要重新上传。' })
+  savedDraft = { key: draftScope.key, scope: scopeKey(), version: draftVersion }
+  renewDraftImages()
   return true
 }
 function clearDraft() {
@@ -101,7 +119,7 @@ function clearDraft() {
   images.value = []
 }
 const exit = createPublishExit({
-  snapshot: () => JSON.stringify([title.value, content.value, tags.value, tagConfirmationRequired.value, images.value, pendingImages.value]),
+  snapshot: () => draftVersion,
   save: saveDraft,
   discard: clearDraft,
   busy: () => busy.value || uploading.value || submitting.value,
@@ -339,7 +357,7 @@ defineExpose({ show: load, hide: () => { visible = false; pickerOpen.value = fal
       <ImageUploads v-model="images" purpose="post_image" :before-upload="ensurePhone" :disabled="busy || submitting" @busy="uploading = $event" @pending="pendingImages = $event" />
       <text v-if="leaseMessage" class="muted">{{ leaseMessage }}</text>
       <view class="row">
-        <button size="mini" :disabled="busy || uploading || submitting" @tap="saveDraft">保存本地草稿</button>
+        <button size="mini" :disabled="busy || uploading || submitting" @tap="saveDraft(true)">保存本地草稿</button>
         <button size="mini" :disabled="busy || uploading || submitting" @tap="discard">丢弃草稿</button>
       </view>
       <text v-if="error" class="error">{{ error }}</text>

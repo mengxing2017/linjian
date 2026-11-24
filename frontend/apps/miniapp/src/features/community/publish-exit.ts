@@ -1,5 +1,5 @@
 export function createPublishExit(options: {
-  snapshot: () => string
+  snapshot: () => string | number
   save: () => boolean
   discard: () => void
   busy: () => boolean
@@ -7,11 +7,15 @@ export function createPublishExit(options: {
   leave: () => Promise<unknown>
 }) {
   let baseline = options.snapshot()
-  let suppressed: string | undefined
+  let suppressed: string | number = baseline
   let leaving = false
   function checkpoint() { baseline = options.snapshot(); suppressed = baseline }
   function saveOnHide() {
-    return suppressed === options.snapshot() || options.save()
+    const snapshot = options.snapshot()
+    if (suppressed === snapshot) return true
+    if (!options.save()) return false
+    suppressed = snapshot
+    return true
   }
   async function cancel() {
     if (leaving) return
