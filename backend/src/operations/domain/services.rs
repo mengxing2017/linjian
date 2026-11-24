@@ -616,7 +616,7 @@ impl ServiceCommand {
                     require(
                         (time.timestamp() + 8 * 3600).rem_euclid(86400) == 0
                             && time.timestamp_subsec_nanos() == 0,
-                        "报表边界必须为上海自然日零点",
+                        "报告开始时间和结束时间都必须为北京时间当天 00:00",
                     )?;
                 }
             }
@@ -629,6 +629,39 @@ impl ServiceCommand {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::business::Error;
+    #[test]
+    fn report_dates_require_beijing_midnight_with_actionable_feedback() {
+        let starts_at = DateTime::parse_from_rfc3339("2026-11-01T00:00:00+08:00")
+            .unwrap()
+            .with_timezone(&Utc);
+        let ends_at = starts_at + chrono::Duration::days(1);
+        assert!(
+            ServiceCommand::Report(ReportInput {
+                starts_at,
+                ends_at,
+                ..Default::default()
+            })
+            .validate()
+            .is_ok()
+        );
+        for (start, end) in [
+            (starts_at + chrono::Duration::hours(8), ends_at),
+            (starts_at, ends_at + chrono::Duration::seconds(1)),
+            (starts_at + chrono::Duration::nanoseconds(1), ends_at),
+        ] {
+            let error = ServiceCommand::Report(ReportInput {
+                starts_at: start,
+                ends_at: end,
+                ..Default::default()
+            })
+            .validate()
+            .unwrap_err();
+            assert!(
+                matches!(error, Error::Invalid(message) if message == "报告开始时间和结束时间都必须为北京时间当天 00:00")
+            );
+        }
+    }
     #[test]
     fn urls_are_not_arbitrary_scheme_executors() {
         for value in [

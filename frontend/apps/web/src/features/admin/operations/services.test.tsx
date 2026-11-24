@@ -36,6 +36,34 @@ it('does not implicitly grant report export to ordinary school administration',(
   expect(screen.getByRole('button',{name:'生成报告'})).toBeTruthy()
   expect(screen.queryByRole('button',{name:'导出 CSV'})).toBeNull()
 })
+it.each([true, false])('explains report dates and queryable history when partial=%s', async partial => {
+  const result: OperationReport = {
+    id: 'report',
+    report: {
+      pagination: { page: 1, size: 30, total: 0 },
+      coverage: { available_from: '2026-10-31T16:00:00Z', requested_from: '2026-10-31T16:00:00Z', partial, notice: '没有记录不代表没有访问' },
+      starts_at: '2026-10-31T16:00:00Z', ends_at: '2026-11-01T16:00:00Z', timezone: 'Asia/Shanghai',
+      notice: '按北京时间每天汇总。接口调用成功，不代表已成交或服务已完成。',
+      rows: [], summary: { views: 0, clicks: 0, ctr: null }, trends: [],
+    },
+  }
+  vi.mocked(serviceApi.report).mockResolvedValueOnce(result)
+  show(<OperationReports />)
+  expect(screen.getByText('按北京时间每天统计。点击或操作成功，不代表已成交或服务已完成。')).toBeTruthy()
+  expect(screen.queryByText(/本次报告生成后 10 分钟/)).toBeNull()
+  expect(screen.getByText(/结束日当天不计入统计/)).toBeTruthy()
+  fireEvent.change(screen.getByLabelText('开始日'), { target: { value: '2026-11-01' } })
+  fireEvent.change(screen.getByLabelText('结束日（不包含）'), { target: { value: '2026-11-02' } })
+  fireEvent.mouseDown(screen.getByRole('combobox'))
+  fireEvent.click(screen.getByText('首页横幅'))
+  fireEvent.click(screen.getByRole('button', { name: '生成报告' }))
+  await screen.findByText(result.report.notice)
+  expect(serviceApi.report).toHaveBeenCalledWith(undefined, '2026-11-01T00:00:00+08:00', '2026-11-02T00:00:00+08:00', expect.objectContaining({ placement: 'home_banner' }))
+  expect(screen.getByText(/可查询的数据从 2026-11-01 00:00（北京时间）开始/)).toHaveProperty('textContent', expect.stringContaining(partial ? '所选日期中有部分时间没有历史数据。' : '所选日期均在可查询的时间范围内。'))
+  expect(screen.getByText('本次报告生成后 10 分钟内可查看和导出，过期后请重新生成。')).toBeTruthy()
+  expect(screen.getAllByRole('columnheader', { name: '接口调用成功' }).length).toBeGreaterThan(0)
+  expect(screen.queryByText(/上海自然日|请求覆盖|报告快照/)).toBeNull()
+})
 it('does not expose official ad unit editing to school managers',async()=>{
   show(<SchoolMarketing school="school"/>,'operator')
   await screen.findByText('学校官方单元')

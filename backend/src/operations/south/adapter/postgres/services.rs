@@ -1461,7 +1461,7 @@ async fn report(
             .fetch_one(&mut **tx)
             .await?;
     let coverage_from = launched_at.max(Utc::now() - chrono::Duration::days(365));
-    let report = json!({"filters":input,"coverage":{"available_from":coverage_from,"requested_from":input.starts_at,"partial":input.starts_at < coverage_from,"notice":"启用前及保留期外不可追溯；无数据不等于零访问"},"starts_at":input.starts_at,"ends_at":input.ends_at,"timezone":"Asia/Shanghai","generated_at":Utc::now(),"retention_days":365,"rows":rows,"summary":summary,"trends":trends,"notice":"API 成功、复制及二维码展示不代表交易或服务完成；按自然日汇总"});
+    let report = json!({"filters":input,"coverage":{"available_from":coverage_from,"requested_from":input.starts_at,"partial":input.starts_at < coverage_from,"notice":"开始记录之前或超过保存期限的数据无法查询；没有记录不代表没有访问"},"starts_at":input.starts_at,"ends_at":input.ends_at,"timezone":"Asia/Shanghai","generated_at":Utc::now(),"retention_days":365,"rows":rows,"summary":summary,"trends":trends,"notice":"按北京时间每天汇总。接口调用成功、链接复制成功或二维码已展示，不代表已成交或服务已完成。"});
     let id = Uuid::now_v7();
     sqlx::query(
         "INSERT INTO operation_report_snapshots(id,school_id,actor_id,report) VALUES($1,$2,$3,$4)",
