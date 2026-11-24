@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { DRAFT_TITLE_LIMIT, DRAFT_CONTENT_LIMIT, editorText, draftWithinLimits } from './draft-limits'
 import AppIcon from '../../shared/AppIcon.vue'
 import { invalidatePost } from './post-invalidations'
 import { postDraftKey } from './post-draft'
@@ -63,6 +64,10 @@ const leaseMessage = ref('')
 function saveDraft() {
   if (!draftScope || draftScope.scope !== scopeKey() || draftScope.account !== session.user?.id) return false
   if (!session.user || !schoolContext.id) return false
+  if (!draftWithinLimits(title.value, content.value)) {
+    uni.showToast({ title: '草稿过长，请缩减至标题200字、正文20000字后保存', icon: 'none' })
+    return false
+  }
   try {
     if (!title.value.trim() && !content.value.trim() && !tagNames.value.length && !tags.value.unresolved.length && !images.value.length) {
       uni.removeStorageSync(draftScope.key)
@@ -202,10 +207,16 @@ function cancel() {
   else void exit.cancel()
 }
 function inputTitle(event: unknown) {
-  title.value = (event as { detail: { value: string } }).detail.value
+  const value = (event as { detail: { value: string } }).detail.value
+  title.value = editorText(value, DRAFT_TITLE_LIMIT)
+  if (title.value !== value) uni.showToast({ title: '标题最多200字，超出部分未写入草稿', icon: 'none' })
+  return title.value
 }
 function inputContent(event: unknown) {
-  content.value = (event as { detail: { value: string } }).detail.value
+  const value = (event as { detail: { value: string } }).detail.value
+  content.value = editorText(value, DRAFT_CONTENT_LIMIT)
+  if (content.value !== value) uni.showToast({ title: '正文最多20000字，超出部分未写入草稿', icon: 'none' })
+  return content.value
 }
 
 async function submit() {
@@ -305,7 +316,7 @@ defineExpose({ show: load, hide: () => { visible = false; pickerOpen.value = fal
     <PageStatus :busy="busy" :error="error" @retry="load" />
     <view class="card">
       <view v-if="titleExpanded">
-        <input :value="title" :disabled="busy || submitting || pickerOpen" class="input" maxlength="-1" placeholder="标题（选填，最多 200 字）" @input="inputTitle" />
+        <input :value="title" :disabled="busy || submitting || pickerOpen" class="input" :maxlength="DRAFT_TITLE_LIMIT * 2" placeholder="标题（选填，最多 200 字）" @input="inputTitle" />
         <button size="mini" :disabled="busy || submitting" @tap="titleExpanded = false">收起标题</button>
         <button size="mini" :disabled="busy || submitting" @tap="title = ''; titleExpanded = false">移除标题</button>
       </view>
@@ -313,7 +324,7 @@ defineExpose({ show: load, hide: () => { visible = false; pickerOpen.value = fal
         :value="content"
         :disabled="busy || submitting || pickerOpen"
         class="input editor"
-        maxlength="-1"
+        :maxlength="DRAFT_CONTENT_LIMIT * 2"
         placeholder="分享此刻的想法，或说说你想问的事……"
         @input="inputContent"
       />
