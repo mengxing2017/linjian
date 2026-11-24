@@ -19,7 +19,7 @@ function node(type: string, text = ''): TestNode {
 export function component(url: URL, dependencies: Record<string, unknown> = {}) {
   const filename = fileURLToPath(url)
   const isCustomElement = (tag: string) =>
-    ['view', 'text', 'image', 'button', 'input', 'scroll-view', 'swiper', 'swiper-item'].includes(
+    ['view', 'text', 'image', 'button', 'input', 'textarea', 'scroll-view', 'swiper', 'swiper-item', 'page-container'].includes(
       tag,
     )
   const { descriptor } = parse(readFileSync(filename, 'utf8'), {

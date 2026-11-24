@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import AppIcon from '../../shared/AppIcon.vue'
 import { invalidatePost } from './post-invalidations'
 import { postDraftKey } from './post-draft'
@@ -16,19 +16,26 @@ import { onUnmounted } from 'vue'
 import { createPublishExit } from './publish-exit'
 import { leavePublish, finishPublish } from '../../app/navigation'
 import { clearReturnTarget } from '../identity/return-target'
+import PublishTagPicker from './PublishTagPicker.vue'
+import { emptyPublishTags, matchPublishTags, restorePublishTags, publishTagNames, publishTagInput, publishTagDraft, type PublishTags } from './publish-tags'
 const props = defineProps<{ id?: string; school?: string }>()
 const phone = ref<InstanceType<typeof PhoneBindingPanel>>()
 const ensurePhone = () => phone.value?.ensure() ?? Promise.resolve(false)
 const titleExpanded = ref(false)
 const title = ref(''),
   content = ref(''),
-  tags = ref(''),
+  tags = ref(emptyPublishTags()),
   images = ref<string[]>([]),
   revision = ref<number>(),
   loaded = ref(''),
   message = ref(''),
-  candidates = ref<HomeMenuTag[]>([]),
-  selectedCandidates = ref<HomeMenuTag[]>([])
+  candidates = ref<HomeMenuTag[]>([])
+const originalTags = ref<string[]>([])
+const pickerOpen = ref(false)
+const tagConfirmationRequired = ref(false)
+let pickerScope = ''
+const tagNames = computed(() => publishTagNames(tags.value))
+const tagSummary = computed(() => tagNames.value.slice(0, 3).join(' · '))
 const uploading = ref(false)
 const pendingImages = ref(0)
 const submitting = ref(false)
@@ -39,13 +46,15 @@ const { busy, error, run } = usePage(() => {
   title.value = ''
   titleExpanded.value = false
   content.value = ''
-  tags.value = ''
+  tags.value = emptyPublishTags()
+  originalTags.value = []
+  pickerOpen.value = false
+  tagConfirmationRequired.value = false
   images.value = []
   revision.value = undefined
   loaded.value = ''
   message.value = ''
   candidates.value = []
-  selectedCandidates.value = []
   leaseMessage.value = ''
 })
 const draftKey = () => postDraftKey(session.user?.id, schoolContext.id, props.id)
@@ -53,20 +62,22 @@ const draftId = ref(uuid())
 const leaseMessage = ref('')
 function saveDraft() {
   if (!draftScope || draftScope.scope !== scopeKey() || draftScope.account !== session.user?.id) return false
-  if (
-    !session.user ||
-    !schoolContext.id ||
-    (!title.value.trim() && !content.value.trim() && !tags.value.trim() && !images.value.length)
-  )
-    return true
-  try { uni.setStorageSync(draftScope.key, {
-    title: title.value,
-    content: content.value,
-    tags: tags.value,
-    images: images.value,
-    revision: revision.value,
-    draft_id: draftId.value,
-  }) } catch {
+  if (!session.user || !schoolContext.id) return false
+  try {
+    if (!title.value.trim() && !content.value.trim() && !tagNames.value.length && !tags.value.unresolved.length && !images.value.length) {
+      uni.removeStorageSync(draftScope.key)
+      return true
+    }
+    uni.setStorageSync(draftScope.key, {
+      title: title.value,
+      content: content.value,
+      ...publishTagDraft(tags.value),
+      tags_need_confirmation: tagConfirmationRequired.value,
+      images: images.value,
+      revision: revision.value,
+      draft_id: draftId.value,
+    })
+  } catch {
     uni.showToast({ title: '草稿保存失败，请勿退出', icon: 'none' })
     return false
   }
@@ -79,11 +90,13 @@ function clearDraft() {
   title.value = ''
   titleExpanded.value = false
   content.value = ''
-  tags.value = ''
+  tags.value = emptyPublishTags()
+  pickerOpen.value = false
+  tagConfirmationRequired.value = false
   images.value = []
 }
 const exit = createPublishExit({
-  snapshot: () => JSON.stringify([title.value, content.value, tags.value, images.value, pendingImages.value]),
+  snapshot: () => JSON.stringify([title.value, content.value, tags.value, tagConfirmationRequired.value, images.value, pendingImages.value]),
   save: saveDraft,
   discard: clearDraft,
   busy: () => busy.value || uploading.value || submitting.value,
@@ -92,6 +105,8 @@ const exit = createPublishExit({
 })
 const stop = onScopeChange(() => {
   loaded.value = ''
+  loading = undefined
+  pickerOpen.value = false
 })
 onUnmounted(stop)
 function loadData() {
@@ -112,7 +127,8 @@ function loadData() {
       title.value = post.title
       titleExpanded.value = !!post.title
       content.value = post.content
-      tags.value = post.tags.join(',')
+      originalTags.value = [...post.tags]
+      tags.value = matchPublishTags(post.tags, candidates.value, originalTags.value)
       images.value = [...post.images]
       revision.value = post.revision
     }
@@ -129,7 +145,8 @@ function loadData() {
       title.value = typeof v.title === 'string' ? v.title : ''
       titleExpanded.value = !!title.value
       content.value = typeof v.content === 'string' ? v.content : ''
-      tags.value = typeof v.tags === 'string' ? v.tags : ''
+      tags.value = restorePublishTags(v, candidates.value, originalTags.value)
+      tagConfirmationRequired.value = v.tags_need_confirmation === true
       images.value = Array.isArray(v.images)
         ? v.images.filter(
             (x): x is string =>
@@ -155,7 +172,10 @@ function loadData() {
 let loading: Promise<boolean> | undefined
 function ensureLoaded() {
   if (loaded.value && loaded.value === scopeKey()) return Promise.resolve(true)
-  if (!loading) loading = loadData().finally(() => { loading = undefined })
+  if (!loading) {
+    const operation = loadData().finally(() => { if (loading === operation) loading = undefined })
+    loading = operation
+  }
   return loading
 }
 function load() {
@@ -165,14 +185,31 @@ function load() {
   })
 }
 
-function addTag(tag: HomeMenuTag) {
-  const name = tag.name
-  const current = tags.value.split(/[,，]/).map(v => v.trim()).filter(Boolean)
-  if (!current.includes(name) && current.length < 10) { tags.value = [...current, name].join(','); selectedCandidates.value = [...selectedCandidates.value, tag] }
+function openTags() {
+  if (busy.value || submitting.value || uploading.value) return
+  uni.hideKeyboard()
+  pickerScope = scopeKey()
+  pickerOpen.value = true
+}
+function confirmTags(value: PublishTags) {
+  if (!pickerOpen.value || pickerScope !== scopeKey() || busy.value || submitting.value) return
+  tags.value = value
+  tagConfirmationRequired.value = false
+  pickerOpen.value = false
+}
+function cancel() {
+  if (pickerOpen.value) pickerOpen.value = false
+  else void exit.cancel()
+}
+function inputTitle(event: unknown) {
+  title.value = (event as { detail: { value: string } }).detail.value
+}
+function inputContent(event: unknown) {
+  content.value = (event as { detail: { value: string } }).detail.value
 }
 
 async function submit() {
-  if (busy.value || submitting.value || uploading.value) {
+  if (busy.value || submitting.value || uploading.value || pickerOpen.value) {
     uni.showToast({ title: '正在处理，请稍候', icon: 'none' })
     return
   }
@@ -187,16 +224,14 @@ async function submit() {
       key = scopeKey(),
       draft = draftKey()
     if (!saveDraft()) return
+    if (tagConfirmationRequired.value) throw new Error('标签配置已变化，请打开标签面板确认后提交')
+    const tagInput = publishTagInput(tags.value)
     if (!await ensurePhone() || key !== scopeKey()) return
     if (pendingImages.value) throw new Error('还有未上传的图片，请重试或移除后再发布；正文已保存')
     const input = {
         ...normalized,
         images: [...images.value],
-        tags: tags.value
-          .split(/[,，]/)
-          .map((v) => v.trim())
-          .filter(Boolean),
-        candidate_tag_ids: selectedCandidates.value.filter(tag => tags.value.split(/[,，]/).some(v => v.trim() === tag.name)).map(tag => tag.id),
+        ...tagInput,
       }
     if (props.id && !revision.value) throw new Error('请重新加载帖子后编辑')
     const result = props.id
@@ -209,7 +244,7 @@ async function submit() {
     title.value = ''
     titleExpanded.value = false
     content.value = ''
-    tags.value = ''
+    tags.value = emptyPublishTags()
     images.value = []
     revision.value = result.revision
     exit.checkpoint()
@@ -231,6 +266,18 @@ async function submit() {
     if (visible && e && typeof e === 'object' && 'code' in e && e.code === 'phone_verification_required') void phone.value?.open()
     error.value = handlePageError(e)
     uni.showToast({ title: error.value.slice(0, 30), icon: 'none' })
+    if (e && typeof e === 'object' && 'code' in e && e.code === 'validation' && error.value.includes('标签')) {
+      try {
+        const menu = await homeMenuApi.public(schoolContext.id)
+        if (submissionScope !== scopeKey()) return
+        candidates.value = menu.tags
+        tags.value = restorePublishTags(publishTagDraft(tags.value), menu.tags, originalTags.value)
+        tagConfirmationRequired.value = true
+        error.value += '；候选已刷新，请重新确认标签后提交'
+      } catch {
+        if (submissionScope === scopeKey()) error.value += '；候选刷新失败，请稍后重试'
+      }
+    }
   } finally {
     submitting.value = false
   }
@@ -244,13 +291,13 @@ function discard() {
   })
 }
 // Scope changes clear in-memory fields; drafts are explicitly saved under account + school.
-defineExpose({ show: load, hide: () => { visible = false; exit.saveOnHide(); phone.value?.close() }, cancel: exit.cancel })
+defineExpose({ show: load, hide: () => { visible = false; pickerOpen.value = false; exit.saveOnHide(); phone.value?.close() }, cancel })
 </script>
 <template>
   <view class="page">
     <view class="row spread">
       <text class="heading">{{ props.id ? '编辑动态' : '分享校园生活' }}</text>
-      <button size="mini" :disabled="busy || uploading || submitting" @tap="exit.cancel">取消</button>
+      <button size="mini" :disabled="busy || uploading || submitting" @tap="cancel">取消</button>
     </view>
     <text class="muted">
       {{ schoolContext.schools.find((s) => s.id === schoolContext.id)?.name }}
@@ -258,20 +305,26 @@ defineExpose({ show: load, hide: () => { visible = false; exit.saveOnHide(); pho
     <PageStatus :busy="busy" :error="error" @retry="load" />
     <view class="card">
       <view v-if="titleExpanded">
-        <input v-model="title" :disabled="busy || submitting" class="input" maxlength="-1" placeholder="标题（选填，最多 200 字）" />
+        <input :value="title" :disabled="busy || submitting || pickerOpen" class="input" maxlength="-1" placeholder="标题（选填，最多 200 字）" @input="inputTitle" />
         <button size="mini" :disabled="busy || submitting" @tap="titleExpanded = false">收起标题</button>
         <button size="mini" :disabled="busy || submitting" @tap="title = ''; titleExpanded = false">移除标题</button>
       </view>
       <textarea
-        v-model="content"
-        :disabled="busy || submitting"
+        :value="content"
+        :disabled="busy || submitting || pickerOpen"
         class="input editor"
         maxlength="-1"
         placeholder="分享此刻的想法，或说说你想问的事……"
+        @input="inputContent"
       />
       <button v-if="!titleExpanded" size="mini" :disabled="busy || submitting" @tap="titleExpanded = true">{{ title ? '展开标题' : '添加标题（选填）' }}</button>
-      <view class="row"><text>可选标签：</text><button v-for="tag in candidates" :key="tag.id" size="mini" :disabled="busy || submitting" @tap="addTag(tag)">{{ tag.name }}</button></view>
-      <input v-model="tags" :disabled="busy || submitting" class="input" placeholder="标签，使用逗号分隔" />
+      <button class="publish-tag-summary" :disabled="busy || submitting || uploading || (!candidates.length && !tagNames.length && !tags.unresolved.length && !tagConfirmationRequired)" aria-label="选择标签" @tap="openTags">
+        <text>标签（选填）</text>
+        <text class="publish-tag-copy">{{ tagSummary || (tags.unresolved.length ? '有待处理的旧草稿标签' : candidates.length ? '选择标签' : '暂无可选标签') }}</text>
+        <text v-if="tagNames.length" class="publish-tag-count">已选 {{ tagNames.length }}</text><text>›</text>
+      </button>
+      <text v-if="tags.unresolved.length" class="error">有 {{ tags.unresolved.length }} 个旧草稿标签待处理，请打开标签面板确认移除。</text>
+      <text v-if="tagConfirmationRequired" class="error">标签配置已变化，请打开标签面板重新确认。</text>
       <ImageUploads v-model="images" purpose="post_image" :before-upload="ensurePhone" :disabled="busy || submitting" @busy="uploading = $event" @pending="pendingImages = $event" />
       <text v-if="leaseMessage" class="muted">{{ leaseMessage }}</text>
       <view class="row">
@@ -285,5 +338,11 @@ defineExpose({ show: load, hide: () => { visible = false; exit.saveOnHide(); pho
       <text class="muted">点击“取消”可选择保存或放弃；使用系统返回时自动保存本地草稿，草稿图片恢复时会重新核验。</text>
     </view>
     <PhoneBindingPanel ref="phone" />
+    <PublishTagPicker :open="pickerOpen" :candidates="candidates" :selection="tags" :disabled="busy || submitting" @close="pickerOpen = false" @confirm="confirmTags" />
   </view>
 </template>
+<style scoped>
+.publish-tag-summary { display: flex; align-items: center; gap: 16rpx; width: 100%; min-height: 88rpx; margin: 16rpx 0; font-size: 28rpx; text-align: left; }
+.publish-tag-copy { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.publish-tag-count { flex-shrink: 0; font-size: 24rpx; }
+</style>
