@@ -1,0 +1,9 @@
+<view wx:if="{{ready}}" class="bottom-navigation" style="{{theme}}" role="navigation" aria-label="主导航">
+  <button wx:for="{{items}}" wx:key="id" class="nav-item {{selected === item.id ? 'selected' : ''}} {{item.id === 'publish' ? 'publish-item' : ''}}" data-id="{{item.id}}" bindtap="activate" aria-label="{{item.label}}{{item.id === 'messages' && badge ? '，未读消息' + badge : ''}}">
+    <view wx:if="{{item.id === 'publish'}}" class="publish-circle"><view class="plus"></view></view>
+    <block wx:else>
+      <view class="icon-wrap"><view class="nav-icon icon-{{item.id}}"><view class="icon-part"></view></view><view wx:if="{{item.id === 'messages' && badge}}" class="badge">{{badge}}</view></view>
+      <text class="nav-label">{{item.label}}</text>
+    </block>
+  </button>
+</view>

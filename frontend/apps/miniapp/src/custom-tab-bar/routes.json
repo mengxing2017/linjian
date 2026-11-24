@@ -1,0 +1,6 @@
+[
+  { "id": "home", "path": "/pages/index/index", "label": "首页" },
+  { "id": "following", "path": "/pages/index/hot", "label": "动态" },
+  { "id": "messages", "path": "/pages/user/message", "label": "消息" },
+  { "id": "profile", "path": "/pages/user/index", "label": "我的" }
+]

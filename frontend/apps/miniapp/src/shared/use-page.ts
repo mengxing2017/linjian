@@ -1,5 +1,6 @@
 import { onUnmounted, ref } from 'vue'
 import { onScopeChange, clearScope, invalidateSchool } from '../features/school-context/context'
+import { openPage } from '../app/navigation'
 export function handlePageError(error: unknown) {
   if (error && typeof error === 'object') {
     if ('code' in error && error.code === 'school_unavailable') invalidateSchool()
@@ -50,5 +51,5 @@ export function confirm(content: string) {
   )
 }
 export function navigate(url: string) {
-  uni.navigateTo({ url })
+  void openPage(url).catch(() => uni.showToast({ title: '页面未能打开，请重试', icon: 'none' }))
 }

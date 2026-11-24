@@ -8,11 +8,15 @@ export default ts.config(
   ...vue.configs['flat/essential'],
   {
     files: ['src/**/*.{ts,vue}'],
-    languageOptions: { globals: { uni: 'readonly', UniApp: 'readonly', console: 'readonly' } },
+    languageOptions: { globals: { uni: 'readonly', UniApp: 'readonly', console: 'readonly', getCurrentPages: 'readonly', getApp: 'readonly' } },
     rules: {
       'vue/multi-word-component-names': 'off',
       'no-restricted-globals': ['error', { name: 'fetch', message: '使用 feature/api client' }],
     },
+  },
+  {
+    files: ['src/custom-tab-bar/index.js'],
+    languageOptions: { globals: { Component: 'readonly', getApp: 'readonly' } },
   },
   {
     files: ['src/**/*.vue'],
