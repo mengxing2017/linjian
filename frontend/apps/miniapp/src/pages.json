@@ -112,6 +112,12 @@
       }
     },
     {
+      "path": "pages/user/onboarding",
+      "style": {
+        "navigationBarTitleText": "完善入驻信息"
+      }
+    },
+    {
       "path": "pages/user/bind",
       "style": {
         "navigationBarTitleText": "微信登录"

@@ -68,6 +68,13 @@ export function createOnboarding(dependencies: {
       if (current()) { schools.value = rowsSchools; page.value = 1; more.value = rowsSchools.length === 20 }
     })
   }
+  async function begin() {
+    return run(async current => {
+      if (progress.value) return
+      const result = await dependencies.start()
+      await receive(result, current)
+    })
+  }
   function submit() {
     return run(async current => {
       if (!loaded.value) throw new Error('请先重试加载协议与学校')
@@ -76,11 +83,11 @@ export function createOnboarding(dependencies: {
         if (!(await receive(result, current))) return
       }
       if (missing.value.length) throw new Error('请阅读并勾选全部已配置的协议与政策')
+      if (!selected.value) throw new Error('请选择你的学校')
       const ticket = progress.value!.ticket
       const confirmation = await dependencies.identity.onboarding('confirm', { ticket, acceptances: documents.value.filter(row => checked.value[row.kind] === row.revision).map(row => ({ kind: row.kind, revision: row.revision })) })
       if (!(await receive(confirmation, current))) return
       if (progress.value?.state === 'consent_required') throw new Error('协议已更新，请重新阅读并确认')
-      if (!selected.value) throw new Error('请选择你的学校')
       const nextFingerprint = `${ticket}:${selected.value}`
       if (!key || fingerprint !== nextFingerprint) { key = dependencies.requestKey(); fingerprint = nextFingerprint }
       const result = await dependencies.identity.onboarding('complete', { ticket, school_id: selected.value, request_key: key })
@@ -110,5 +117,5 @@ export function createOnboarding(dependencies: {
     if (ticket) { try { await dependencies.identity.cancelOnboarding(ticket) } catch { if (turn === generation) error.value = '本次登录已在本机取消，请重新开始；服务端取消未确认。' } }
   }
   function dispose() { generation++; progress.value = undefined; checked.value = {}; busy.value = false }
-  return { documents, schools, selected, bound, query, more, checked, progress, busy, error, loaded, missing, show, submit, find, choose, toggle, cancel, dispose, recommendationTicket }
+  return { documents, schools, selected, bound, query, more, checked, progress, busy, error, loaded, missing, begin, show, submit, find, choose, toggle, cancel, dispose, recommendationTicket }
 }
