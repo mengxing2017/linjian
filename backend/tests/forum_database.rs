@@ -79,7 +79,13 @@ async fn fresh_baseline_initializes_once_with_current_constraints() {
         .fetch_one(&pool)
         .await
         .unwrap();
-    assert_eq!(applied as usize, database::MIGRATOR.iter().count());
+    assert_eq!(
+        applied as usize,
+        database::MIGRATOR
+            .iter()
+            .filter(|migration| migration.version != 14)
+            .count()
+    );
     pool.close().await;
     sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
         .execute(&admin)
@@ -1804,7 +1810,7 @@ async fn school_profiles_visibility_artwork_and_transactions() {
     let id = school.id;
     assert_eq!(school.theme_primary, "#AABBCC");
     assert_eq!(school.status, "normal");
-    assert_eq!(school.latitude, 0.0);
+    assert_eq!(school.latitude, Some(0.0));
     let other = repo
         .save_school(
             &actor,

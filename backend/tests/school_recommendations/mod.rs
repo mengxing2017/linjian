@@ -301,6 +301,148 @@ async fn school_recommendations_are_nearest_five_read_only_and_permission_scoped
 
 #[tokio::test]
 #[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
+async fn school_coordinates_upgrade_preserves_legacy_rows_and_checks_edits() {
+    use linjian_api::business::Error;
+    let admin = PgPool::connect(
+        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
+    )
+    .await
+    .unwrap();
+    for already_applied in [false, true] {
+        let schema = format!("school_coordinates_upgrade_{}", Uuid::new_v4().simple());
+        let pool = isolated(&admin, &schema).await;
+        let previous = sqlx::migrate::Migrator {
+            migrations: std::borrow::Cow::Owned(
+                database::MIGRATOR
+                    .iter()
+                    .filter(|migration| migration.version < if already_applied { 16 } else { 14 })
+                    .cloned()
+                    .collect(),
+            ),
+            ..sqlx::migrate::Migrator::DEFAULT
+        };
+        previous.run(&pool).await.unwrap();
+        let school = Uuid::new_v4();
+        if already_applied {
+            sqlx::query(
+                "INSERT INTO schools(id,name,latitude,longitude) VALUES($1,'旧学校',23.1,113.3)",
+            )
+            .bind(school)
+            .execute(&pool)
+            .await
+            .unwrap();
+        } else {
+            sqlx::query("INSERT INTO schools(id,name) VALUES($1,'旧学校')")
+                .bind(school)
+                .execute(&pool)
+                .await
+                .unwrap();
+            sqlx::query("INSERT INTO schools(id,name,active) VALUES(gen_random_uuid(),'隐藏旧学校',false)")
+                .execute(&pool).await.unwrap();
+            assert!(
+                sqlx::raw_sql(include_str!(
+                    "../../migrations/0014_school_coordinates_required.sql"
+                ))
+                .execute(&pool)
+                .await
+                .is_err()
+            );
+        }
+        database::migrate(&pool).await.unwrap();
+        database::migrate(&pool).await.unwrap();
+        let recorded: bool =
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM _sqlx_migrations WHERE version=14)")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(recorded, already_applied);
+        let app = bootstrap::build_application(pool.clone(), bootstrap::Options::local());
+        let root = app
+            .identity
+            .bootstrap("legacy-root", "平台", "test-password-long-enough", true)
+            .await
+            .unwrap();
+        let (_, actor) = app
+            .identity
+            .0
+            .session(
+                root,
+                SessionKind::AdminBrowser,
+                Some("http://localhost:5173"),
+            )
+            .await
+            .unwrap();
+        let detail = app.schools.0.school_detail(&actor, school).await.unwrap();
+        assert_eq!(detail.latitude, already_applied.then_some(23.1));
+        assert_eq!(detail.longitude, already_applied.then_some(113.3));
+        let list = app.schools.0.school_list(&actor).await.unwrap();
+        assert_eq!(list.len(), if already_applied { 1 } else { 2 });
+        let result = app
+            .schools
+            .0
+            .save_school(
+                &actor,
+                Some(school),
+                json!({"revision":detail.revision,"name":"编辑旧学校"}),
+            )
+            .await;
+        if already_applied {
+            assert!(result.is_ok());
+        } else {
+            assert!(
+                matches!(result, Err(Error::Invalid(message)) if message.contains("经纬度必填"))
+            );
+            assert!(
+                sqlx::query("UPDATE schools SET name='直接编辑' WHERE id=$1")
+                    .bind(school)
+                    .execute(&pool)
+                    .await
+                    .is_err()
+            );
+            assert!(
+                sqlx::query("UPDATE schools SET name='编辑隐藏学校' WHERE NOT active")
+                    .execute(&pool)
+                    .await
+                    .is_err()
+            );
+            let unchanged = app.schools.0.school_detail(&actor, school).await.unwrap();
+            assert_eq!(unchanged.name, "旧学校");
+            assert_eq!(unchanged.revision, detail.revision);
+            let saved = app.schools.0.save_school(&actor, Some(school),
+                json!({"revision":detail.revision,"name":"编辑旧学校","latitude":23.1,"longitude":113.3}))
+                .await.unwrap();
+            assert_eq!(saved.latitude, Some(23.1));
+            assert_eq!(saved.longitude, Some(113.3));
+        }
+        assert!(
+            sqlx::query(
+                "INSERT INTO schools(id,name) VALUES(gen_random_uuid(),'缺少坐标的新学校')"
+            )
+            .execute(&pool)
+            .await
+            .is_err()
+        );
+        if already_applied {
+            sqlx::query("UPDATE _sqlx_migrations SET checksum='\\x00'::bytea WHERE version=14")
+                .execute(&pool)
+                .await
+                .unwrap();
+            assert!(matches!(
+                database::migrate(&pool).await,
+                Err(sqlx::migrate::MigrateError::VersionMismatch(14))
+            ));
+        }
+        pool.close().await;
+        sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
+            .execute(&admin)
+            .await
+            .unwrap();
+    }
+    admin.close().await;
+}
+
+#[tokio::test]
+#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
 async fn school_coordinates_are_required_without_breaking_partial_updates() {
     let admin = PgPool::connect(
         &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated test URL required"),
@@ -364,8 +506,8 @@ async fn school_coordinates_are_required_without_breaking_partial_updates() {
         )
         .await
         .unwrap();
-    assert_eq!(updated.latitude, 0.0);
-    assert_eq!(updated.longitude, 0.0);
+    assert_eq!(updated.latitude, Some(0.0));
+    assert_eq!(updated.longitude, Some(0.0));
     assert!(
         app.schools
             .0
@@ -377,17 +519,6 @@ async fn school_coordinates_are_required_without_breaking_partial_updates() {
             .await
             .is_err()
     );
-    let mut transaction = pool.begin().await.unwrap();
-    sqlx::raw_sql("ALTER TABLE schools ALTER COLUMN latitude DROP NOT NULL; ALTER TABLE schools ALTER COLUMN longitude DROP NOT NULL; INSERT INTO schools(id,name) VALUES(gen_random_uuid(),'迁移前未补齐')").execute(&mut *transaction).await.unwrap();
-    assert!(
-        sqlx::raw_sql(include_str!(
-            "../../migrations/0014_school_coordinates_required.sql"
-        ))
-        .execute(&mut *transaction)
-        .await
-        .is_err()
-    );
-    transaction.rollback().await.unwrap();
     assert!(
         sqlx::query("INSERT INTO schools(id,name) VALUES(gen_random_uuid(),'禁止空坐标')")
             .execute(&pool)

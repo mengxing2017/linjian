@@ -362,6 +362,26 @@ async fn school_profile_fixture_matches_rust_and_excludes_active() {
 }
 
 #[tokio::test]
+async fn historical_school_profile_preserves_null_coordinates() {
+    use axum::response::IntoResponse;
+    use linjian_api::schools::domain::profile::SchoolView;
+    let expected: serde_json::Value = serde_json::from_str(include_str!(
+        "../../api-contract/fixtures/school-profile-legacy.json"
+    ))
+    .unwrap();
+    let mut attributes = expected["data"]["attributes"].clone();
+    attributes["id"] = expected["data"]["id"].clone();
+    let school: SchoolView = serde_json::from_value(attributes).unwrap();
+    assert!(school.directory()["latitude"].is_null());
+    assert!(school.directory()["longitude"].is_null());
+    assert!(school.input().validate().is_err());
+    let response = linjian_api::http::jsonapi::resource("schools", school).into_response();
+    let actual: serde_json::Value =
+        serde_json::from_slice(&to_bytes(response.into_body(), 16384).await.unwrap()).unwrap();
+    assert_eq!(actual, expected);
+}
+
+#[tokio::test]
 async fn case_jsonapi_matches_shared_fixtures_and_rejects_spoofed_handling() {
     use axum::response::IntoResponse;
     use linjian_api::community::domain::case::{CaseManagementView, ResolveCaseInput};
