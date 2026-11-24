@@ -22,7 +22,7 @@ onLoad((query) => {
       ref="screen"
       :initial="view"
       :search-page="true"
-      :locked-mode="view === 'mine'"
+      locked-mode
     />
   </view>
 </template>

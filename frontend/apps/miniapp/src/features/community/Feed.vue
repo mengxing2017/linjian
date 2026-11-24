@@ -45,6 +45,7 @@ watch(
 )
 const school = computed(() => schoolContext.school)
 const ownPostsPage = computed(() => props.lockedMode && props.initial === 'mine')
+const personalPostsPage = computed(() => props.lockedMode && (props.initial === 'mine' || props.initial === 'collect'))
 const hotPostsActive = computed(() => pageVisible.value && !!session.user && !!school.value && isHotPostsHome(!!props.homePage, !!props.searchPage, mode.value, search.value, selectedTag.value))
 const { busy, error, run } = usePage(() => {
   clearPostInvalidations()
@@ -66,7 +67,7 @@ function load(reset = true, retryAfterScopeRefresh = true, targetPage?: number, 
       user = session.user?.id
     const scope = `${scopeKey()}:${user ?? ''}`
     const dirty = invalidatedPosts(scope, id)
-    if (reset && !ownPostsPage.value) {
+    if (reset && !personalPostsPage.value) {
       const loaded = await homeMenuApi.public(id)
       if (!current() || generation !== schoolContext.generation || id !== schoolContext.id || user !== session.user?.id) return
       menu.value = loaded
@@ -74,13 +75,15 @@ function load(reset = true, retryAfterScopeRefresh = true, targetPage?: number, 
     }
     const next = targetPage ?? (reset ? 1 : page.value + 1)
     const kind: FeedFilter['kind'] =
-      !ownPostsPage.value && (mode.value === 'collect' || mode.value === 'following') ? mode.value : undefined
+      personalPostsPage.value
+        ? (ownPostsPage.value ? undefined : 'collect')
+        : (mode.value === 'collect' || mode.value === 'following' ? mode.value : undefined)
     const response = await communityApi.posts(id, {
       page: next,
-      search: ownPostsPage.value ? submittedSearch.value : search.value,
-      mine: ownPostsPage.value || mode.value === 'mine',
+      search: personalPostsPage.value ? submittedSearch.value : search.value,
+      mine: personalPostsPage.value ? !!ownPostsPage.value : mode.value === 'mine',
       kind,
-      tag: ownPostsPage.value ? '' : selectedTag.value,
+      tag: personalPostsPage.value ? '' : selectedTag.value,
     })
     if (
       current() &&
@@ -185,7 +188,7 @@ defineExpose({
       <text class="heading">{{ school?.name || '校园社区' }}</text>
     </view>
     <HotPosts v-if="homePage" ref="hotPosts" :active="hotPostsActive" />
-    <text v-if="lockedMode" class="heading">{{ ownPostsPage ? '我的发布' : '关注动态' }}</text>
+    <text v-if="lockedMode" class="heading">{{ personalPostsPage ? (ownPostsPage ? '我的发布' : '我的收藏') : '关注动态' }}</text>
     <scroll-view v-if="!lockedMode" scroll-x class="feed-filters" :show-scrollbar="false">
     <view class="filter-strip tabs">
       <button
@@ -208,7 +211,7 @@ defineExpose({
         size="mini"
         :disabled="busy"
         :class="{ selected: mode === 'collect' }"
-        @tap="setMode('collect')"
+        @tap="navigate('/pages/index/search?view=collect')"
       >
         收藏
       </button>
@@ -222,7 +225,7 @@ defineExpose({
       </button>
     </view>
     </scroll-view>
-    <scroll-view v-if="!ownPostsPage && menu && (menu.settings.latest_visible || menu.tags.length)" scroll-x class="feed-filters" :show-scrollbar="false">
+    <scroll-view v-if="!personalPostsPage && menu && (menu.settings.latest_visible || menu.tags.length)" scroll-x class="feed-filters" :show-scrollbar="false">
       <view class="filter-strip">
         <button v-if="menu.settings.latest_visible" size="mini" :disabled="busy" :class="{selected: !selectedTag}" @tap="selectTag('')">{{ menu.settings.latest_label }}</button>
         <button v-for="tag in menu.tags" :key="tag.id" size="mini" :disabled="busy" :class="{selected: selectedTag === tag.name}" @tap="selectTag(tag.name)"><text v-if="tag.menu_status === 'hot'" class="hot-tag">热</text>{{ tag.name }}</button>
@@ -233,7 +236,7 @@ defineExpose({
         :value="search"
         :disabled="busy"
         class="input grow"
-        :placeholder="ownPostsPage ? '搜索我的帖子' : '搜索校园内容'"
+        :placeholder="personalPostsPage ? (ownPostsPage ? '搜索我的帖子' : '搜索我的收藏') : '搜索校园内容'"
         confirm-type="search"
         @input="editSearch"
         @confirm="submitSearch"
