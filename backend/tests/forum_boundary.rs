@@ -183,9 +183,9 @@ async fn browser_login_and_miniapp_login_have_distinct_source_rules() {
             files: Default::default(),
         },
     ));
-    for path in ["/api/v1/auth/sessions", "/api/v1/auth/miniapp"] {
-        let body = if path.ends_with("miniapp") {
-            r#"{"data":{"type":"sessions","attributes":{"code":"unused"}}}"#
+    for path in ["/api/v1/auth/sessions", "/api/v1/auth/miniapp/onboarding"] {
+        let body = if path.ends_with("onboarding") {
+            r#"{"data":{"type":"onboarding","attributes":{"code":"unused"}}}"#
         } else {
             r#"{"data":{"type":"sessions","attributes":{"username":"unused","password":"unused"}}}"#
         };

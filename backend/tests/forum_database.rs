@@ -9,6 +9,8 @@ use tower::ServiceExt;
 use uuid::Uuid;
 #[path = "hot_posts/mod.rs"]
 mod hot_posts_tests;
+#[path = "legal_onboarding/mod.rs"]
+mod legal_onboarding_tests;
 mod member_permissions_fixture;
 #[path = "member_permissions/mod.rs"]
 mod member_permissions_tests;

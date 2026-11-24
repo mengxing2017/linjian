@@ -42,12 +42,20 @@ impl Repository {
                 return Err(Error::MiniappBanned);
             }
         }
-        let token = secret();
-        let csrf = secret();
-        sqlx::query("INSERT INTO sessions(token_hash,account_id,csrf,expires_at,kind,login_origin) VALUES($1,$2,$3,now()+interval '8 hours',$4,$5)").bind(hash(&token)).bind(id).bind(csrf).bind(kind.as_str()).bind(origin).execute(&mut *tx).await?;
+        let token = Self::session_in(&mut tx, id, kind, origin).await?;
         tx.commit().await?;
         let actor = self.authenticate(&token, kind).await?;
         Ok((token, actor))
+    }
+    pub async fn session_in(
+        connection: &mut sqlx::PgConnection,
+        id: Uuid,
+        kind: SessionKind,
+        origin: Option<&str>,
+    ) -> Result<String> {
+        let token = secret();
+        sqlx::query("INSERT INTO sessions(token_hash,account_id,csrf,expires_at,kind,login_origin) VALUES($1,$2,$3,now()+interval '8 hours',$4,$5)").bind(hash(&token)).bind(id).bind(secret()).bind(kind.as_str()).bind(origin).execute(connection).await?;
+        Ok(token)
     }
     pub async fn authenticate(&self, token: &str, kind: SessionKind) -> Result<Actor> {
         let h = hash(token);

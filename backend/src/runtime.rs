@@ -118,6 +118,15 @@ async fn serve_inner(
     let import_cleanup =
         crate::community::south::adapter::postgres::Repository(application.pool.clone());
     let media_cleanup = application.media.0.clone();
+    let onboarding_cleanup = application.onboarding.0.clone();
+    let onboarding_task = tokio::spawn(async move {
+        loop {
+            if onboarding_cleanup.cleanup().await.is_err() {
+                tracing::warn!("onboarding cleanup failed");
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        }
+    });
     let school_change_cleanup = application.school_changes.clone();
     let school_change_interval = application
         .options
@@ -201,6 +210,8 @@ async fn serve_inner(
     .with_graceful_shutdown(shutdown_signal())
     .await;
     statistics_task.abort();
+    onboarding_task.abort();
+    let _ = onboarding_task.await;
     school_change_task.abort();
     let _ = school_change_task.await;
     let _ = statistics_task.await;

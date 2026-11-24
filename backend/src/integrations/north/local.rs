@@ -20,7 +20,7 @@ impl Service {
             wx_secret: std::env::var("LINJIAN_WX_SECRET").unwrap_or_default(),
         }
     }
-    pub async fn miniapp(&self, code: &str) -> Result<uuid::Uuid> {
+    pub async fn wechat_identity(&self, code: &str) -> Result<(String, String)> {
         require(
             !self.wx_app.is_empty() && !self.wx_secret.is_empty(),
             "尚未配置微信小程序",
@@ -48,11 +48,6 @@ impl Service {
             bytes.extend_from_slice(&chunk);
         }
         let v = crate::miniapp_users::domain::wechat_identity(&bytes)?;
-        crate::miniapp_users::north::local::register(
-            &crate::miniapp_users::south::adapter::postgres::Repository(self.repository.0.clone()),
-            &self.wx_app,
-            &v,
-        )
-        .await
+        Ok((self.wx_app.clone(), v))
     }
 }

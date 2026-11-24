@@ -28,4 +28,5 @@ pub mod miniapp_users;
 pub mod operations;
 
 pub mod legal_documents;
+pub mod onboarding;
 pub mod statistics;

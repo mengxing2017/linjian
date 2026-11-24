@@ -30,6 +30,20 @@ impl Repository {
         sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
             .execute(&mut *tx)
             .await?;
+        let id = Self::register_in(&mut tx, app, openid, factory).await?;
+        tx.commit().await?;
+        Ok(id)
+    }
+    pub async fn register_in<Random, Factory>(
+        tx: &mut sqlx::PgConnection,
+        app: &str,
+        openid: &str,
+        factory: Factory,
+    ) -> Result<Uuid>
+    where
+        Random: NicknameRandom,
+        Factory: FnOnce() -> Result<Random> + Send,
+    {
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,73109))")
             .bind(json!([app, openid]).to_string())
             .execute(&mut *tx)
@@ -42,7 +56,6 @@ impl Repository {
         .fetch_optional(&mut *tx)
         .await?
         {
-            tx.commit().await?;
             return Ok(id);
         }
         let lock_started = std::time::Instant::now();
@@ -101,7 +114,6 @@ impl Repository {
             .bind(id)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
         Ok(id)
     }
 }
