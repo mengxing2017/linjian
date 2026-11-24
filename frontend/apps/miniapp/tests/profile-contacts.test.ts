@@ -15,7 +15,7 @@ function setup() {
   const contacts = { prepare: vi.fn(), show: vi.fn().mockResolvedValue(undefined), hide: vi.fn() }
   const env = {
     contacts: () => contacts, restore: vi.fn().mockResolvedValue(undefined), loggedIn: vi.fn().mockReturnValue(true),
-    loadSchools: vi.fn().mockResolvedValue(true), school: vi.fn().mockReturnValue('school'), revision: vi.fn().mockReturnValue(1),
+    loadSchool: vi.fn().mockResolvedValue(true), school: vi.fn().mockReturnValue('school'), revision: vi.fn().mockReturnValue(1),
     key: vi.fn().mockReturnValue('scope'), profile: vi.fn().mockResolvedValue(undefined),
     failure: vi.fn((cause: unknown) => cause instanceof Error ? cause.message : '失败'),
   }
@@ -31,12 +31,12 @@ it('loads contacts even if profile fails and does not reload contacts on profile
   await page.reloadProfile()
   expect(env.profile).toHaveBeenCalledTimes(2)
   expect(contacts.show).toHaveBeenCalledOnce()
-  expect(env.loadSchools).toHaveBeenCalledOnce()
+  expect(env.loadSchool).toHaveBeenCalledOnce()
 })
 
 it('loads profile despite school failure and contact-only preparation retry does not read profile', async () => {
   const { env, contacts, page } = setup()
-  env.loadSchools.mockRejectedValueOnce(new Error('学校失败'))
+  env.loadSchool.mockRejectedValueOnce(new Error('学校失败'))
   await page.show()
   expect(env.profile).toHaveBeenCalledOnce()
   expect(contacts.show).toHaveBeenCalledWith({ state: 'error', cause: expect.any(Error) })
@@ -48,7 +48,7 @@ it('loads profile despite school failure and contact-only preparation retry does
 it.each(['anonymous', 'no-school', 'restore-error'])('explains %s without protected contact requests', async mode => {
   const { env, contacts, page } = setup()
   if (mode === 'anonymous') env.loggedIn.mockReturnValue(false)
-  if (mode === 'no-school') env.loadSchools.mockResolvedValue(false)
+  if (mode === 'no-school') env.loadSchool.mockResolvedValue(false)
   if (mode === 'restore-error') env.restore.mockRejectedValueOnce(new Error('恢复失败'))
   await page.show()
   expect(contacts.show).toHaveBeenLastCalledWith(expect.objectContaining({ state: mode === 'anonymous' ? 'login-required' : mode === 'no-school' ? 'school-required' : 'error' }))
@@ -65,7 +65,7 @@ it.each(['restore', 'schools'])('rejects late %s preparation after hide, disposa
     const { env, contacts, page } = setup()
     const first = deferred<boolean>()
     if (stage === 'restore') env.restore.mockImplementationOnce(async () => { await first.promise })
-    else env.loadSchools.mockReturnValueOnce(first.promise)
+    else env.loadSchool.mockReturnValueOnce(first.promise)
     const pending = page.show()
     if (stage === 'schools') await Promise.resolve()
     if (action === 'hide') page.hide()
@@ -90,9 +90,9 @@ it('prepares identity again after credential invalidation instead of reusing a p
   expect(contacts.show).toHaveBeenLastCalledWith({ state: 'login-required' })
 })
 
-it('accepts expected school selection and uses the final school context', async () => {
+it('accepts a refreshed bound school profile and uses the final school context', async () => {
   const { env, contacts, page } = setup()
-  env.loadSchools.mockImplementationOnce(async () => { env.key.mockReturnValue('new-scope'); env.school.mockReturnValue('new-school'); page.resetProfile(); return true })
+  env.loadSchool.mockImplementationOnce(async () => { env.key.mockReturnValue('new-scope'); env.school.mockReturnValue('new-school'); page.resetProfile(); return true })
   await page.show()
   expect(contacts.show).toHaveBeenCalledWith({ state: 'ready', school: 'new-school' })
   expect(env.profile).toHaveBeenCalledOnce()

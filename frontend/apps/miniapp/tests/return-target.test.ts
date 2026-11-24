@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { clearReturnTarget, readReturnTarget, saveReturnTarget, savePublishTarget, targetPath } from '../src/features/identity/return-target'
 const mocks = vi.hoisted(() => ({ load: vi.fn(), restore: vi.fn(), session: { user: null as unknown } }))
-vi.mock('../src/features/school-context/context', () => ({ loadSchools: mocks.load, scopeKey: () => 'scope' }))
+vi.mock('../src/features/school-context/context', () => ({ loadSchool: mocks.load, scopeKey: () => 'scope' }))
 vi.mock('../src/features/identity/session', () => ({ restoreSession: mocks.restore, session: mocks.session }))
 import { resumeReturnTarget } from '../src/features/identity/resume-target'
 const school = '40000000-0000-0000-0000-000000000001'
