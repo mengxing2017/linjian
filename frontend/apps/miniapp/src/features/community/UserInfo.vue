@@ -7,15 +7,9 @@ import Avatar from '../miniapp-users/Avatar.vue'
 import PhoneBindingPanel from '../miniapp-users/PhoneBindingPanel.vue'
 import { confirm, handlePageError } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
-import { onScopeChange, scopeKey, loadSchool, schoolContext } from '../school-context/context'
-import { credentials } from '../../app/credentials'
+import { onScopeChange, scopeKey } from '../school-context/context'
 import { createUserInfo } from './use-user-info'
-import { createContactsPage } from './use-contacts-page'
-import CustomerContacts from '../operations/CustomerContacts.vue'
-import LegalLinks from '../legal-documents/LegalLinks.vue'
-const policies = ref<InstanceType<typeof LegalLinks>>()
 const phone = ref<InstanceType<typeof PhoneBindingPanel>>()
-const contacts = ref<InstanceType<typeof CustomerContacts>>()
 
 const info = createUserInfo({
   api: miniappUserApi,
@@ -28,29 +22,17 @@ const info = createUserInfo({
   notify: (title) => uni.showToast({ title }),
 })
 const { profile, name, avatar, uploadResult, busy, error, conflict, refreshWarning, writeUncertain, length, canSave } = info
-const page = createContactsPage({
-  contacts: () => contacts.value,
-  restore: restoreSession,
-  loggedIn: () => !!session.user,
-  loadSchool,
-  school: () => schoolContext.id,
-  revision: () => credentials.revision,
-  key: scopeKey,
-  profile: () => info.show(),
-  failure: handlePageError,
-})
-const { busy: preparing, error: preparationError } = page
-const stop = onScopeChange(() => { info.reset(); page.resetProfile() })
-onUnmounted(() => { stop(); page.dispose(); info.dispose() })
+const stop = onScopeChange(() => { info.reset() })
+onUnmounted(() => { stop(); info.dispose() })
 function choose(event: { detail: { avatarUrl?: string } }) {
   void info.choose(event.detail.avatarUrl ?? '')
 }
-defineExpose({ show: () => { void policies.value?.show(); return page.show() }, hide: () => { page.hide(); info.hide(); phone.value?.close(); policies.value?.hide() }, refresh: () => { void policies.value?.show(); return info.reload() } })
+defineExpose({ show: info.show, hide: () => { info.hide(); phone.value?.close() }, refresh: info.reload })
 </script>
 <template>
   <view class="page">
     <text class="heading">个人信息</text>
-    <PageStatus v-if="!profile" :busy="busy || preparing" :error="error || preparationError" @retry="page.reloadProfile" />
+    <PageStatus v-if="!profile" :busy="busy" :error="error" @retry="info.show" />
     <view v-if="profile" class="card">
       <Avatar :source="avatar" />
       <button open-type="chooseAvatar" :disabled="busy" @chooseavatar="choose">上传头像</button>
@@ -70,7 +52,5 @@ defineExpose({ show: () => { void policies.value?.show(); return page.show() }, 
       <text>创建时间：{{ new Date(profile.created_at).toLocaleString() }}</text>
       <text>状态：{{ profile.status === 'normal' ? '正常' : '封禁' }}</text>
     </view>
-    <CustomerContacts ref="contacts" @retry-prepare="page.retryPrepare" />
-    <LegalLinks ref="policies" />
   </view>
 </template>
