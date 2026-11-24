@@ -103,3 +103,18 @@ it('cancels without accepting or navigating and ignores late identity results', 
   expect(form.checked.value).toEqual({})
   expect(dependencies.ready).not.toHaveBeenCalled()
 })
+it('starts onboarding once and keeps the ticket for the onboarding page', async () => {
+  const { form, dependencies } = setup()
+  await form.begin()
+  expect(dependencies.start).toHaveBeenCalledOnce()
+  expect(form.progress.value).toEqual(pending)
+  await form.begin()
+  expect(dependencies.start).toHaveBeenCalledOnce()
+})
+it('sends ready onboarding results straight to the ready callback', async () => {
+  const { form, dependencies } = setup()
+  dependencies.start.mockResolvedValueOnce(ready)
+  await form.begin()
+  expect(dependencies.ready).toHaveBeenCalledWith(ready)
+  expect(form.progress.value).toBeUndefined()
+})
