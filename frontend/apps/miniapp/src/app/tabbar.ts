@@ -14,7 +14,7 @@ interface TabbarBridge {
   detach: (bar: NativeTabbar) => void
   activate: (id: unknown) => void
 }
-const bars = new Set<NativeTabbar>()
+const bars = new Map<NativeTabbar, Record<string, unknown>>()
 const items = [...rootRoutes.slice(0, 2), { id: 'publish', label: '发布动态' }, ...rootRoutes.slice(2)]
   .map(item => ({ ...item, icon: iconPath(item.id), selectedIcon: iconPath(item.id, true) }))
 function update() {
@@ -25,11 +25,16 @@ function update() {
     badge: notificationBadge(notificationSummary.state.count),
     theme: schoolTheme.value,
   }
-  bars.forEach(bar => bar.setData(data))
+  bars.forEach((previous, bar) => {
+    const changed = Object.fromEntries(Object.entries(data).filter(([key, value]) => previous[key] !== value))
+    if (!Object.keys(changed).length) return
+    bar.setData(changed)
+    bars.set(bar, data)
+  })
 }
 export function installTabbar(app: { linjianTabbar?: TabbarBridge }) {
   app.linjianTabbar = {
-    attach(bar) { bars.add(bar); update(); void notificationSummary.refresh() },
+    attach(bar) { if (!bars.has(bar)) bars.set(bar, {}); update(); void notificationSummary.refresh() },
     detach(bar) { bars.delete(bar) },
     activate(id) {
       const operation = id === 'publish' ? openPublish() : isRootId(id) ? switchRoot(id) : undefined
