@@ -1,7 +1,7 @@
 {
   "description": "项目配置文件",
   "projectname": "linjian-miniapp",
-  "miniprogramRoot": "dist/dev/mp-weixin/",
+  "miniprogramRoot": "dist/build/mp-weixin/",
   "compileType": "miniprogram",
   "simulatorPluginLibVersion": {},
   "setting": {
