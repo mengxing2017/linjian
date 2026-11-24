@@ -43,6 +43,13 @@ it('submits the selected province, city and area names',async()=>{
  fireEvent.click(screen.getByRole('button',{name:'创建学校'}))
  await waitFor(()=>expect(workspace.schoolProfiles.create).toHaveBeenCalledWith(expect.objectContaining({name:'新学校',province:'广东省',city:'广州市',area:'天河区'})),{timeout:5000})
 })
+it('requires missing historical coordinates before saving an edit',async()=>{
+ mount(true,{...school,latitude:null,longitude:null})
+ fireEvent.click(screen.getByRole('button',{name:'保存资料'}))
+ expect(await screen.findByText('请填写纬度',{}, {timeout:5000})).toBeTruthy()
+ expect(await screen.findByText('请填写经度',{}, {timeout:5000})).toBeTruthy()
+ expect(workspace.schoolProfiles.update).not.toHaveBeenCalled()
+})
 it('keeps the existing standard region when editing',async()=>{
  mount(true,{...school,province:'广东省',city:'广州市',area:'天河区'})
  fireEvent.click(screen.getByRole('button',{name:'保存资料'}))
