@@ -18,6 +18,85 @@ fn configuration(role: &str, revision: &str, overrides: Vec<Override>) -> Save {
 
 #[tokio::test]
 #[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
+async fn catalog_description_migration_preserves_authorization_definitions() {
+    let admin = PgPool::connect(
+        &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated URL required"),
+    )
+    .await
+    .unwrap();
+    let schema = format!("permission_catalog_{}", Uuid::new_v4().simple());
+    let pool = isolated(&admin, &schema).await;
+    let previous_migrations = sqlx::migrate::Migrator {
+        migrations: std::borrow::Cow::Owned(
+            database::MIGRATOR
+                .iter()
+                .filter(|migration| migration.version < 15)
+                .cloned()
+                .collect(),
+        ),
+        ..sqlx::migrate::Migrator::DEFAULT
+    };
+    previous_migrations.run(&pool).await.unwrap();
+    let before: Value = sqlx::query_scalar("SELECT forum_permission_catalog()")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let expected =
+        serde_json::to_value(linjian_api::schools::domain::permissions::catalog()).unwrap();
+    assert_ne!(before, expected);
+
+    database::migrate(&pool).await.unwrap();
+    let after: Value = sqlx::query_scalar("SELECT forum_permission_catalog()")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(after, expected);
+    let mut expected_after = before.clone();
+    let changed_keys = [
+        "post.recommend",
+        "statistics.school.read",
+        "statistics.school.export",
+    ];
+    for key in changed_keys {
+        let original = expected_after
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|permission| permission["key"] == key)
+            .unwrap();
+        let updated = after
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|permission| permission["key"] == key)
+            .unwrap();
+        assert_ne!(original["description"], updated["description"], "{key}");
+        original["description"] = updated["description"].clone();
+    }
+    assert_eq!(expected_after, after);
+    let immutable: bool = sqlx::query_scalar(
+        "SELECT provolatile = 'i' FROM pg_proc WHERE oid = 'forum_permission_catalog()'::regprocedure",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(immutable);
+
+    database::migrate(&pool).await.unwrap();
+    let repeated: Value = sqlx::query_scalar("SELECT forum_permission_catalog()")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(repeated, after);
+    pool.close().await;
+    sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
+        .execute(&admin)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires an explicit isolated LINJIAN_TEST_DATABASE_URL"]
 async fn permissions_are_versioned_scoped_atomic_and_live() {
     let admin = PgPool::connect(
         &std::env::var("LINJIAN_TEST_DATABASE_URL").expect("isolated URL required"),

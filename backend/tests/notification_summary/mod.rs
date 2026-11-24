@@ -268,6 +268,154 @@ async fn summary_matches_visible_unread_notifications_and_enforces_owner_scope()
         .await
         .unwrap();
     assert_eq!(denied.status(), StatusCode::UNAUTHORIZED);
+    for kind in ["like", "like", "future", "comment", "comment"] {
+        sqlx::query("INSERT INTO notifications(id,school_id,account_id,kind,object_id,created_at) VALUES($1,$2,$3,$4,$5,'2020-01-01T00:00:00Z')")
+            .bind(Uuid::new_v4()).bind(school).bind(user).bind(kind).bind(hidden_post).execute(&pool).await.unwrap();
+    }
+    sqlx::query("UPDATE notifications SET created_at=CASE WHEN kind='follow' THEN '2026-01-01T00:00:00Z'::timestamptz ELSE '2020-01-01T00:00:00Z'::timestamptz END")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let all = app
+        .community
+        .notifications(
+            &member,
+            school,
+            Page {
+                page_size: Some(100),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert!(all.iter().take(20).all(|row| row["kind"] == "follow"));
+    assert!(
+        all.iter()
+            .all(|row| row["school_id"] == json!(school) && row["account_id"] == json!(user))
+    );
+    assert!(all.iter().any(|row| row["kind"] == "future"));
+    assert!(!all.iter().any(|row| row["object_id"] == json!(comment)));
+    let test_router = linjian_api::http::app_router(app.clone());
+    for kind in ["comment", "like", "follow", "moderation"] {
+        let expected: Vec<_> = all.iter().filter(|row| row["kind"] == kind).collect();
+        let filtered = app
+            .community
+            .notifications(
+                &member,
+                school,
+                Page {
+                    kind: Some(kind.into()),
+                    page_size: Some(100),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            filtered,
+            expected
+                .iter()
+                .map(|row| (*row).clone())
+                .collect::<Vec<_>>()
+        );
+        for page in 1..=expected.len() + 1 {
+            let response = test_router.clone().oneshot(Request::builder()
+                .uri(format!("/api/v1/schools/{school}/notifications?page[number]={page}&page[size]=1&kind={kind}"))
+                .header("Authorization", format!("Bearer {token}"))
+                .body(Body::empty()).unwrap()).await.unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            let document: Value =
+                serde_json::from_slice(&to_bytes(response.into_body(), 100_000).await.unwrap())
+                    .unwrap();
+            let data = document["data"].as_array().unwrap();
+            if let Some(row) = expected.get(page - 1) {
+                assert_eq!(data.len(), 1);
+                assert_eq!(data[0]["type"], "notifications");
+                assert_eq!(data[0]["id"], row["id"]);
+                assert_eq!(data[0]["attributes"]["kind"], kind);
+                assert_eq!(data[0]["attributes"]["school_id"], json!(school));
+                assert_eq!(data[0]["attributes"]["account_id"], json!(user));
+            } else {
+                assert!(data.is_empty());
+            }
+            assert_eq!(
+                document["meta"]["page"],
+                json!({"number": page, "size": 1, "has_more": page < expected.len()})
+            );
+        }
+    }
+    let follow_ids: Vec<_> = all
+        .iter()
+        .filter(|row| row["kind"] == "follow")
+        .map(|row| row["id"].as_str().unwrap())
+        .collect();
+    assert!(follow_ids.windows(2).all(|pair| pair[0] > pair[1]));
+    for invalid in ["", "%20", "Comment", "all", "unknown"] {
+        let response = test_router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!(
+                        "/api/v1/schools/{school}/notifications?kind={invalid}"
+                    ))
+                    .header("Authorization", format!("Bearer {token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let document: Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 100_000).await.unwrap())
+                .unwrap();
+        assert_eq!(document["errors"][0]["code"], "validation");
+    }
+    assert!(matches!(
+        app.community
+            .notifications(
+                &member,
+                other,
+                Page {
+                    kind: Some("comment".into()),
+                    ..Default::default()
+                }
+            )
+            .await,
+        Err(Error::Forbidden)
+    ));
+    let unread_before = app
+        .community
+        .notification_summary(&member, school)
+        .await
+        .unwrap()
+        .unread_count;
+    let foreign_id: Uuid = sqlx::query_scalar(
+        "SELECT id FROM notifications WHERE school_id=$1 AND account_id=$2 LIMIT 1",
+    )
+    .bind(school)
+    .bind(root)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    app.community
+        .read(&member, school, foreign_id)
+        .await
+        .unwrap();
+    let foreign_read: Option<sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>> =
+        sqlx::query_scalar("SELECT read_at FROM notifications WHERE id=$1")
+            .bind(foreign_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert!(foreign_read.is_none());
+    assert_eq!(
+        app.community
+            .notification_summary(&member, school)
+            .await
+            .unwrap()
+            .unread_count,
+        unread_before
+    );
     assert_eq!(
         sqlx::query_scalar::<_, i64>("SELECT count(*) FROM forum_outbox")
             .fetch_one(&pool)
@@ -282,6 +430,19 @@ async fn summary_matches_visible_unread_notifications_and_enforces_owner_scope()
         .unwrap();
     assert!(matches!(
         app.community.notification_summary(&member, school).await,
+        Err(Error::SchoolUnavailable)
+    ));
+    assert!(matches!(
+        app.community
+            .notifications(
+                &member,
+                school,
+                Page {
+                    kind: Some("comment".into()),
+                    ..Default::default()
+                }
+            )
+            .await,
         Err(Error::SchoolUnavailable)
     ));
     pool.close().await;
