@@ -33,3 +33,28 @@ it('loads protected content only after the restored session has a bound school',
   expect(allowed.value).toBe(true)
   expect(show).toHaveBeenCalledOnce()
 })
+it('redirects an active protected page after credential revocation instead of leaving an empty root', async () => {
+  const launch = vi.fn().mockResolvedValue(undefined)
+  vi.stubGlobal('uni', { reLaunch: launch })
+  state.user = { bound_school_id: 'school' }
+  state.restore.mockResolvedValue(undefined)
+  const { allowed } = useProtectedScreen()
+  hooks.onShow.mock.calls[0][0]()
+  await nextTick(); await nextTick(); await nextTick()
+  expect(allowed.value).toBe(true)
+  state.user = null
+  state.subscribe.mock.calls[0][0]()
+  await nextTick(); await nextTick(); await nextTick()
+  expect(allowed.value).toBe(false)
+  expect(launch).toHaveBeenCalledWith({ url: '/pages/user/login' })
+})
+it('does not redirect from a cached hidden root when credentials change', async () => {
+  const launch = vi.fn().mockResolvedValue(undefined)
+  vi.stubGlobal('uni', { reLaunch: launch })
+  state.restore.mockResolvedValue(undefined)
+  useProtectedScreen()
+  hooks.onHide.mock.calls[0][0]()
+  state.subscribe.mock.calls[0][0]()
+  await nextTick()
+  expect(launch).not.toHaveBeenCalled()
+})
