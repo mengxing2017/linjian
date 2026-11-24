@@ -8,6 +8,8 @@ export type {
   FeedFilter,
   Follow,
   Notification,
+  NotificationKind,
+  NotificationFilter,
   Post,
   CreatePostInput,
   UpdatePostInput,

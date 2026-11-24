@@ -41,6 +41,10 @@ export interface Follow {
   id: string
   display_name: string
 }
+export type NotificationKind = 'comment' | 'like' | 'follow' | 'moderation'
+export interface NotificationFilter {
+  kind?: NotificationKind
+}
 export interface Notification extends Row {
   kind: string
   object_id: string

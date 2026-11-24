@@ -235,6 +235,8 @@
       "HotPostsResult",
       "HotPostSummary",
       "Notification",
+      "NotificationFilter",
+      "NotificationKind",
       "NotificationSummary",
       "Post",
       "PostInteractionState",

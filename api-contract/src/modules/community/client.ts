@@ -8,6 +8,7 @@ import type {
   FeedFilter,
   Follow,
   Notification,
+  NotificationFilter,
   Post,
   CreatePostInput,
   UpdatePostInput,
@@ -108,8 +109,10 @@ export function createCommunityClient(client: Client) {
     follows: (s: string) => client.requestResource<Follow[]>(scope(s, 'follows')),
     follow: (s: string, id: string, active: boolean) =>
       client.requestResource<null>(scope(s, `follows/${part(id)}`), active ? 'PUT' : 'DELETE'),
-    notifications: (s: string, page = 1) =>
-      client.requestCollection<Notification>(scope(s, 'notifications') + `?${pageQuery(page)}`),
+    async notifications(s: string, page = 1, filter: NotificationFilter = {}) {
+      if (filter.kind !== undefined && !['comment', 'like', 'follow', 'moderation'].includes(filter.kind)) throw new Error('消息分类无效')
+      return client.requestCollection<Notification>(scope(s, 'notifications') + `?${pageQuery(page)}${filter.kind === undefined ? '' : `&kind=${part(filter.kind)}`}`)
+    },
     async notificationSummary(school: string, signal?: Cancellation) {
       return readNotificationSummary(await client.requestDocument(scope(school, 'notification-summary'), 'GET', undefined, signal), school)
     },
