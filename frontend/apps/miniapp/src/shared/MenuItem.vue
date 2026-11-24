@@ -7,7 +7,7 @@ const emit = defineEmits<{ activate: [] }>()
 <template>
   <button class="menu-item" :class="{ danger, centered }" :disabled="disabled" @tap="!disabled && emit('activate')">
     <view v-if="icon" class="menu-item-icon" :class="`tone-${icon}`"><AppIcon :name="icon" :size="38" /></view>
-    <text class="menu-item-title">{{ title }}</text>
+    <text class="menu-item-title" :class="{ 'menu-item-title-centered': centered }">{{ title }}</text>
     <AppIcon v-if="arrow" name="next" :size="28" />
   </button>
 </template>
@@ -19,7 +19,8 @@ const emit = defineEmits<{ activate: [] }>()
 .tone-join, .tone-business { background: #fff3e6; }
 .tone-service, .tone-school, .tone-privacy { background: #eaf7f4; }
 .menu-item-title { flex: 1; min-width: 0; text-align: left; white-space: normal; overflow-wrap: anywhere; }
-.centered .menu-item-title { text-align: center; }
+.menu-item.centered { justify-content: center; text-align: center; }
+.menu-item-title.menu-item-title-centered { flex: 0 1 auto; text-align: center; }
 .danger { color: #bd303c; }
 .menu-item[disabled] { opacity: .55; }
 </style>
