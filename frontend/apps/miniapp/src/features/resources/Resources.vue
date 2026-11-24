@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, shallowRef } from 'vue'
+import { computed, ref, shallowRef } from 'vue'
 import type { HomeMenuTag } from '../community/api'
 import { resourcesApi, homeMenuApi, type SchoolResource } from './api'
 import {executeResourceAction,actionLabel} from './actions'
@@ -8,11 +8,12 @@ import { usePage } from '../../shared/use-page'
 import PageStatus from '../../shared/PageStatus.vue'
 import PrivateImage from '../media/PrivateImage.vue'
 const props = defineProps<{ kind?: 'legal' | 'tag' }>()
+const selectedKind = ref<'service' | 'legal'>(props.kind === 'legal' ? 'legal' : 'service')
 const rows = shallowRef<SchoolResource[]>([])
 const tags = shallowRef<HomeMenuTag[]>([])
 const visible = computed(() =>
   rows.value.filter((r) =>
-    props.kind ? r.kind === props.kind : ['service', 'legal'].includes(r.kind),
+    r.kind === selectedKind.value,
   ),
 )
 const { busy, error, run } = usePage(() => {
@@ -41,8 +42,12 @@ defineExpose({ show: load })
 <template>
   <view class="page">
     <text class="heading">
-      {{ props.kind === 'legal' ? '学校说明' : props.kind === 'tag' ? '校园标签' : '校园服务' }}
+      {{ props.kind === 'tag' ? '校园标签' : '校园信息' }}
     </text>
+    <view v-if="props.kind !== 'tag'" class="row tabs">
+      <button size="mini" :class="{ selected: selectedKind === 'service' }" @tap="selectedKind = 'service'">校园服务</button>
+      <button size="mini" :class="{ selected: selectedKind === 'legal' }" @tap="selectedKind = 'legal'">学校说明</button>
+    </view>
     <view v-for="tag in tags" :key="tag.id" class="card"><text class="title">{{ tag.name }}</text></view>
     <view v-for="item in visible" :key="item.id" class="card">
       <text class="title">{{ item.title }}</text>

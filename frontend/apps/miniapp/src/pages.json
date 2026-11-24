@@ -65,7 +65,7 @@
     {
       "path": "pages/index/category",
       "style": {
-        "navigationBarTitleText": "校园服务"
+        "navigationBarTitleText": "校园信息"
       }
     },
     {
@@ -132,7 +132,7 @@
     {
       "path": "pages/user/legal",
       "style": {
-        "navigationBarTitleText": "学校说明"
+        "navigationBarTitleText": "校园信息"
       }
     },
     {
