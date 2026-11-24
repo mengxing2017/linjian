@@ -1,10 +1,10 @@
 import { reactive } from 'vue'
 import { clearReturnTarget } from './return-target'
 import { credentials } from '../../app/credentials'
-import { identityApi, type User } from './api'
+import { identityApi, type User, type OnboardingResult, type OnboardingReady } from './api'
 export const session = reactive({ user: null as User | null, ready: false, busy: false, error: '' })
 let restoring: Promise<void> | undefined
-let loggingIn: Promise<void> | undefined
+let loggingIn: Promise<OnboardingResult> | undefined
 credentials.subscribe(() => {
   session.user = null
   session.ready = false
@@ -32,7 +32,7 @@ export async function restoreSession() {
     })
   return restoring
 }
-export function login() {
+export function startLogin() {
   if (!loggingIn)
     loggingIn = (async () => {
       session.busy = true
@@ -42,11 +42,9 @@ export function login() {
         const result = await uni.login({ provider: 'weixin' })
         if (revision !== credentials.revision) throw new Error('登录操作已取消')
         if (!result.code) throw new Error('微信登录未返回有效凭证，请重试')
-        const value = await identityApi.miniapp(result.code)
+        const value = await identityApi.startOnboarding(result.code)
         if (revision !== credentials.revision) throw new Error('登录操作已取消')
-        credentials.set(value.token)
-        session.user = value.user
-        session.ready = true
+        return value
       } catch (error) {
         session.error = error instanceof Error ? error.message : '登录失败'
         throw error
@@ -57,6 +55,15 @@ export function login() {
       loggingIn = undefined
     })
   return loggingIn
+}
+export function acceptLogin(value: OnboardingReady) {
+  if (value.state !== 'ready' || !value.token || !value.user.bound_school_id) throw new Error('入驻尚未完成')
+  credentials.set(value.token)
+  session.user = value.user
+  session.ready = true
+}
+export async function login() {
+  await uni.navigateTo({ url: '/pages/user/login' })
 }
 export async function refreshUser(current: () => boolean = () => true) {
   const revision = credentials.revision

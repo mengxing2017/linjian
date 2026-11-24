@@ -383,8 +383,24 @@
     "values": ["feedbackApi"]
   },
   "apps/miniapp/src/features/identity/api/index.ts": {
-    "types": ["ApiError", "Cancellation", "Transport", "TransportRequest", "User"],
-    "values": ["ApiError", "client", "identityApi"]
+    "types": [
+      "ApiError",
+      "Cancellation",
+      "LegalAcceptance",
+      "OnboardingInput",
+      "OnboardingProgress",
+      "OnboardingReady",
+      "OnboardingResult",
+      "OnboardingSchool",
+      "Transport",
+      "TransportRequest",
+      "User"
+    ],
+    "values": [
+      "ApiError",
+      "client",
+      "identityApi"
+    ]
   },
   "apps/miniapp/src/features/media/api/index.ts": {
     "types": ["UploadPurpose"],

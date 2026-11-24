@@ -1,12 +1,12 @@
 import { beforeEach, afterEach, it, expect, vi } from 'vitest'
 const api = vi.hoisted(() => ({
-  miniapp: vi.fn(),
+  startOnboarding: vi.fn(),
   session: vi.fn(),
   logout: vi.fn(),
   profile: vi.fn(),
 }))
 vi.mock('../src/features/identity/api', () => ({ identityApi: api }))
-import { session, login, restoreSession, logout, refreshUser } from '../src/features/identity/session'
+import { session, startLogin, acceptLogin, restoreSession, logout, refreshUser } from '../src/features/identity/session'
 import { credentials } from '../src/app/credentials'
 const user = {
   id: 'u',
@@ -27,7 +27,7 @@ beforeEach(() => {
   credentials.set('')
   session.ready = false
   session.error = ''
-  api.miniapp.mockReset()
+  api.startOnboarding.mockReset()
   api.session.mockReset()
   api.logout.mockReset()
 })
@@ -41,11 +41,14 @@ it('does not apply a session refresh when its page operation has expired', async
   expect(session.user.display_name).toBe('过期昵称')
 })
 it('coalesces concurrent interactive logins and persists only the resulting session', async () => {
-  api.miniapp.mockResolvedValue({ token: 'new', user })
-  await Promise.all([login(), login()])
+  api.startOnboarding.mockResolvedValue({ state: 'consent_required', ticket: 'restricted' })
+  await Promise.all([startLogin(), startLogin()])
   expect(uni.login).toHaveBeenCalledOnce()
-  expect(api.miniapp).toHaveBeenCalledOnce()
-  expect(api.miniapp).toHaveBeenCalledWith('fresh')
+  expect(api.startOnboarding).toHaveBeenCalledOnce()
+  expect(api.startOnboarding).toHaveBeenCalledWith('fresh')
+  expect(credentials.token).toBe('')
+  expect(session.user).toBeNull()
+  acceptLogin({ id: 'current', state: 'ready', token: 'new', user })
   expect(credentials.token).toBe('new')
   expect(session.user?.id).toBe('u')
 })
@@ -56,12 +59,12 @@ it('does not accept a late login result after logout', async () => {
       finish = resolve
     }) as never,
   )
-  const pending = login()
+  const pending = startLogin()
   api.logout.mockResolvedValue(null)
   await logout()
   finish({ code: 'late' })
   await expect(pending).rejects.toThrow('已取消')
-  expect(api.miniapp).not.toHaveBeenCalled()
+  expect(api.startOnboarding).not.toHaveBeenCalled()
   expect(credentials.token).toBe('')
 })
 it('allows restore retry after a transient network error and does not invent an authenticated user', async () => {

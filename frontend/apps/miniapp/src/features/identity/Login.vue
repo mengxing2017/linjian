@@ -1,48 +1,64 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onUnmounted } from 'vue'
 import { resumeReturnTarget } from './resume-target'
 import { clearReturnTarget } from './return-target'
-import { login, session } from './session'
+import { startLogin, acceptLogin } from './session'
+import { identityApi } from './api'
 import { loadSchools } from '../school-context/context'
-const accepted = ref(false)
-async function submit() {
-  if (!accepted.value) return
-  try {
-    await login()
-    if (await loadSchools()) {
-      if (!(await resumeReturnTarget())) uni.reLaunch({ url: '/pages/index/index' })
-    } else uni.redirectTo({ url: '/pages/plugin/index' })
-  } catch (error) {
-    session.error = error instanceof Error ? error.message : '登录或学校加载失败'
-  }
+import { legalDocuments, legalTitles } from '../legal-documents/api'
+import { createOnboarding } from './use-onboarding'
+function requestKey() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, character => {
+    const value = Math.floor(Math.random() * 16)
+    return (character === 'x' ? value : (value & 3) | 8).toString(16)
+  })
 }
-function cancel() {
-  clearReturnTarget()
-  uni.reLaunch({ url: '/pages/index/index' })
-}
+const form = createOnboarding({
+  identity: identityApi, documents: legalDocuments, start: startLogin, requestKey,
+  ready: async value => {
+    acceptLogin(value)
+    if (!(await loadSchools())) throw new Error('学校暂不可用，请重试')
+    if (!(await resumeReturnTarget())) await uni.reLaunch({ url: '/pages/index/index' })
+  },
+})
+const { documents, schools, selected, bound, query, more, checked, progress, busy, error, loaded } = form
+function open(kind: string) { uni.navigateTo({ url: `/pages/user/policy?kind=${kind}` }) }
+function toggle(event: { detail: { value: string[] } }) { form.toggle(event.detail.value) }
+async function cancel() { clearReturnTarget(); await form.cancel() }
+defineExpose({ show: form.show, refresh: form.show })
+onUnmounted(form.dispose)
 </script>
 <template>
   <view class="page login">
     <text class="brand">Linjian</text>
-    <text class="heading">欢迎来到校园社区</text>
-    <text class="muted">使用微信身份登录，绑定学校后参与校园交流。</text>
+    <text class="heading">欢迎加入校园社区</text>
+    <text class="muted">选择你的学校，开启校园生活。使用微信身份登录并确认后才会实际绑定学校。</text>
     <view class="card">
-      <checkbox-group @change="accepted = !accepted">
-        <label>
-          <checkbox :checked="accepted" />
-          我同意使用微信身份登录并选择学校
-        </label>
-      </checkbox-group>
-      <text v-if="session.error" class="error">{{ session.error }}</text>
-      <button
-        class="primary"
-        :disabled="!accepted || session.busy"
-        :loading="session.busy"
-        @tap="submit"
-      >
-        微信登录
-      </button>
-      <button @tap="cancel">暂不登录</button>
+      <text class="title">我的学校</text>
+      <text v-if="bound" class="muted">将进入账号已绑定的学校，不能在首次入驻入口换校。</text>
+      <template v-else>
+        <input v-model="query" class="input" :disabled="busy" placeholder="搜索学校名称、简称或地区" />
+        <button :disabled="busy" @tap="form.find()">搜索学校</button>
+        <button v-for="school in schools" :key="school.id" :disabled="busy" :class="{ selected: selected === school.id }" @tap="form.choose(school.id)">{{ selected === school.id ? '✓ ' : '' }}{{ school.short_name || school.name }} · {{ school.province }} {{ school.city }}</button>
+        <text v-if="loaded && !schools.length" class="muted">暂无可选学校，请尝试其他搜索条件。</text>
+        <button v-if="more" :disabled="busy" @tap="form.find(false)">更多学校</button>
+      </template>
+      <text v-if="selected" class="muted">已选择：{{ schools.find(row => row.id === selected)?.name || '账号绑定学校' }}</text>
     </view>
+    <view v-if="documents.length" class="card">
+      <text class="title">协议与政策</text>
+      <checkbox-group @change="toggle">
+        <view v-for="document in documents" :key="`${document.kind}:${document.revision}`" class="row">
+          <label><checkbox :value="document.kind" :checked="checked[document.kind] === document.revision" :disabled="busy" />我已阅读并同意</label>
+          <text class="selected" @tap.stop="open(document.kind)">《{{ legalTitles[document.kind] }}》</text>
+        </view>
+      </checkbox-group>
+      <text v-if="progress?.first_login === false" class="muted">你已完成首次登录，本次不要求重复确认。</text>
+    </view>
+    <text v-if="error" class="error">{{ error }}</text>
+    <button v-if="error" :disabled="busy" @tap="form.show">重新读取并核对状态</button>
+    <button class="primary" :loading="busy" :disabled="busy || !loaded" @tap="form.submit">微信登录并进入</button>
+    <button :disabled="busy" @tap="cancel">暂不登录</button>
+    <text class="muted">未完成协议确认与学校准入时不能进入功能页面。暂不登录会留在本页，仍可阅读协议。</text>
   </view>
 </template>
