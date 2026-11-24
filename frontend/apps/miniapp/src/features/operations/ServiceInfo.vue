@@ -2,7 +2,7 @@
 import { ref, shallowRef, onUnmounted, nextTick } from 'vue'
 import { serviceApi, type EffectiveService, type EffectiveChannel } from './api'
 import { schoolContext, scopeKey, requireSchool, onScopeChange } from '../school-context/context'
-import { imagePath } from '../media/files'
+import { imagePath, releaseImages } from '../media/files'
 import { executeResourceAction } from '../resources/actions'
 import { executeServiceChannel } from './service-actions'
 import { sendServiceEvent, sendServiceOutcome } from './service-metrics'
@@ -10,7 +10,8 @@ import { uuid } from './policy'
 const props = defineProps<{ id: string }>()
 const service = shallowRef<EffectiveService>(), error = ref(''), busy = ref(false), qrPaths = ref<Record<string, string>>({})
 let generation = 0, active = false, expires = 0, offset = 0, cycle = ''
-function hide() { generation++; active = false; service.value = undefined; qrPaths.value = {}; busy.value = false }
+const imageOwner = {}
+function hide() { generation++; active = false; service.value = undefined; qrPaths.value = {}; busy.value = false; releaseImages(imageOwner) }
 const stop = onScopeChange(hide)
 onUnmounted(() => { stop(); hide() })
 async function show() {
@@ -26,7 +27,7 @@ async function show() {
     if (!active || scope !== scopeKey() || turn !== generation) return
     void sendServiceEvent(school,{event_id:uuid(),resource_id:value.id,event_type:'view',display_cycle:cycle,occurred_at:new Date(Date.now()+offset).toISOString(),channel:null,target_version_id:null,placement:'service_detail',attempt_id:null})
     for (const channel of value.channels) if (channel.action.kind === 'qr_code') {
-      try { const path = await imagePath(school, channel.action.image_url); if (!active || scope !== scopeKey() || turn !== generation) return; qrPaths.value = { ...qrPaths.value, [channel.key]: path } } catch { continue }
+      try { const path = await imagePath(school, channel.action.image_url, imageOwner); if (!active || scope !== scopeKey() || turn !== generation) return; qrPaths.value = { ...qrPaths.value, [channel.key]: path } } catch { continue }
     }
   } catch (cause) { if (scope === scopeKey() && turn === generation) error.value = cause instanceof Error ? cause.message : '服务暂不可用' }
 }

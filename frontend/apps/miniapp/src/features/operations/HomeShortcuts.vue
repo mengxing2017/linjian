@@ -3,7 +3,8 @@ import { ref, shallowRef, onUnmounted, getCurrentInstance, nextTick } from 'vue'
 import { serviceApi, type EffectiveService } from './api'
 import { schoolContext, scopeKey, onScopeChange } from '../school-context/context'
 import { session } from '../identity/session'
-import { imagePath } from '../media/files'
+import { imagePath, releaseImages } from '../media/files'
+import { mapConcurrent } from '../../shared/concurrency'
 import { uuid } from './policy'
 import { sendServiceEvent } from './service-metrics'
 import OfficialMarketing from './OfficialMarketing.vue'
@@ -15,8 +16,9 @@ const instance = getCurrentInstance()
 let active = false, generation = 0, cycle = '', offset = 0
 const observers = new Map<string, ReturnType<typeof uni.createIntersectionObserver>>()
 const impressions = new Set<string>()
+const imageOwner = {}
 function valid(item: EffectiveService) { return !item.ends_at || Date.parse(item.ends_at) > Date.now() + offset }
-function hide() { active = false; generation++; items.value = []; hasServices.value = false; paths.value = {}; for (const observer of observers.values()) observer.disconnect(); observers.clear(); impressions.clear(); marketing.value?.hide(); warm.value = false }
+function hide() { active = false; generation++; items.value = []; hasServices.value = false; paths.value = {}; releaseImages(imageOwner); for (const observer of observers.values()) observer.disconnect(); observers.clear(); impressions.clear(); marketing.value?.hide(); warm.value = false }
 const stop = onScopeChange(hide)
 onUnmounted(() => { stop(); hide() })
 async function show() {
@@ -28,24 +30,26 @@ async function show() {
     const data = await serviceApi.catalog(school)
     if (!active || scope !== scopeKey() || turn !== generation) return
     offset = Date.parse(data.server_time) - Date.now(); items.value = data.featured.slice(0, 3); hasServices.value = data.items.length > 0
-    for (const item of items.value) {
+    const loadedPaths = await mapConcurrent(items.value, async item => {
       try {
-        const path = await imagePath(school, item.image_url)
-        if (!active || scope !== scopeKey() || turn !== generation) return
-        paths.value = { ...paths.value, [item.id]: path }
-      } catch { continue }
-    }
+        return [item.id, await imagePath(school, item.image_url, imageOwner)] as const
+      } catch { return undefined }
+    }, () => active && scope === scopeKey() && turn === generation)
+    if (!active || scope !== scopeKey() || turn !== generation) return
+    paths.value = Object.fromEntries(loadedPaths.filter(item => item !== undefined))
   } catch { if (turn === generation) items.value = [] }
 }
 async function loaded(item: EffectiveService) {
   const turn = generation
   await nextTick()
-  if (!active || !instance || turn !== generation || observers.has(item.id)) return
+  if (!active || !instance || turn !== generation || observers.has(item.id) || impressions.has(item.id)) return
   const observer = uni.createIntersectionObserver(instance.proxy)
   observers.set(item.id, observer)
   observer.relativeToViewport().observe(`#service-${item.id}`, result => {
     if (!active || turn !== generation || result.intersectionRatio <= 0 || !valid(item) || !paths.value[item.id] || impressions.has(item.id)) return
     impressions.add(item.id)
+    observer.disconnect()
+    observers.delete(item.id)
     void sendServiceEvent(schoolContext.id, { event_id: uuid(), resource_id: item.id, event_type: 'view', display_cycle: cycle, occurred_at: new Date(Date.now() + offset).toISOString(), channel: null, target_version_id: null, placement: 'home_shortcut', attempt_id: null })
   })
 }

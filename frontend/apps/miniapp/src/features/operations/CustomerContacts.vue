@@ -2,27 +2,28 @@
 import { onUnmounted } from 'vue'
 import MenuItem from '../../shared/MenuItem.vue'
 import { operationsApi } from './api'
-import { imagePath } from '../media/files'
+import { imagePath, releaseImages } from '../media/files'
 import { scopeKey, onScopeChange } from '../school-context/context'
 import { handlePageError, navigate } from '../../shared/use-page'
 import { contactEntries, createCustomerContacts } from './use-customer-contacts'
 const emit = defineEmits<{ 'retry-prepare': [] }>()
+const imageOwner = {}
 const contacts = createCustomerContacts({
   display: operationsApi.display,
-  image: imagePath,
+  image: (school, source) => imagePath(school, source, imageOwner),
   key: scopeKey,
   failure: handlePageError,
   notify: title => uni.showToast({ title, icon: 'none' }),
   preview: path => new Promise<void>((resolve, reject) => uni.previewImage({ urls: [path], success: () => resolve(), fail: reject })),
 })
 const { state, config, error, failureStage, selected, imageState, path, imageError, title } = contacts
-const stop = onScopeChange(contacts.reset)
-onUnmounted(() => { stop(); contacts.dispose() })
+const stop = onScopeChange(() => { contacts.reset(); releaseImages(imageOwner) })
+onUnmounted(() => { stop(); contacts.dispose(); releaseImages(imageOwner) })
 function retry() {
   if (failureStage.value === 'prepare') emit('retry-prepare')
   else void contacts.retry()
 }
-defineExpose({ prepare: contacts.prepare, show: contacts.show, hide: contacts.hide })
+defineExpose({ prepare: contacts.prepare, show: contacts.show, hide: () => { contacts.hide(); releaseImages(imageOwner) } })
 </script>
 <template>
   <view v-if="state !== 'idle' && state !== 'disabled'" class="card menu">

@@ -2,7 +2,8 @@
 import { ref, shallowRef, onUnmounted } from 'vue'
 import { operationsApi, type Display, type OperationResource } from './api'
 import { uuid, shouldPopup, popupKey } from './policy'
-import { imagePath } from '../media/files'
+import { imagePath, releaseImages } from '../media/files'
+import { mapConcurrent } from '../../shared/concurrency'
 import { executeBannerAction } from './banner-actions'
 import { schoolContext, scopeKey, onScopeChange } from '../school-context/context'
 import { session } from '../identity/session'
@@ -10,9 +11,10 @@ const data = shallowRef<Display>(), paths = ref<Record<string, string>>({}), ind
 const error = ref('')
 let active = false, loading = false, generation = 0, cycle = '', offset = 0, timer: ReturnType<typeof globalThis.setTimeout> | undefined
 const loaded = new Set<string>(), exposed = new Set<string>()
+const imageOwner = {}
 function now() { return Date.now() + offset }
 function current(v: OperationResource) { return v.active && (!v.starts_at || Date.parse(v.starts_at) <= now()) && (!v.ends_at || Date.parse(v.ends_at) > now()) }
-function reset() { generation++; data.value = undefined; paths.value = {}; qrVisible.value = false; qrPath.value = ''; index.value = 0; loaded.clear(); exposed.clear(); if (timer) globalThis.clearTimeout(timer) }
+function reset() { generation++; data.value = undefined; paths.value = {}; qrVisible.value = false; qrPath.value = ''; index.value = 0; loaded.clear(); exposed.clear(); releaseImages(imageOwner); if (timer) globalThis.clearTimeout(timer) }
 const stop = onScopeChange(() => { reset(); active = false; loading = false })
 onUnmounted(() => { stop(); reset(); active = false })
 function metric(v: OperationResource, type: 'view' | 'click') {
@@ -37,11 +39,15 @@ async function show(force = false) {
     if (key !== scopeKey() || turn !== generation || !active) return
     offset = Date.parse(v.server_time) - Date.now(); data.value = v
     expire()
-    await Promise.all(v.banners.map(async r => { if (!r.image_url) return; try { const p = await imagePath(school, r.image_url); if (key === scopeKey() && turn === generation && active) paths.value = { ...paths.value, [r.id]: p } } catch { /* A failed image never creates an impression. */ } }))
+    const banners = await mapConcurrent(v.banners, async resource => {
+      if (!resource.image_url) return undefined
+      try { return [resource.id, await imagePath(school, resource.image_url, imageOwner)] as const } catch { return undefined }
+    }, () => key === scopeKey() && turn === generation && active)
     if (key !== scopeKey() || turn !== generation || !active) return
+    paths.value = Object.fromEntries(banners.filter(item => item !== undefined))
     const qr = v.qrcode
     if (qr?.image_url && current(qr)) {
-      const p = await imagePath(school, qr.image_url)
+      const p = await imagePath(school, qr.image_url, imageOwner)
       if (key !== scopeKey() || turn !== generation || !active) return
       qrPath.value = p
       const last = Number(uni.getStorageSync(popupKey(user, school, qr.id))) || 0

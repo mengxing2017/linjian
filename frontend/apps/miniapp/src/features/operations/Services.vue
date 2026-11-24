@@ -2,14 +2,16 @@
 import { ref, shallowRef, onUnmounted, getCurrentInstance, nextTick } from 'vue'
 import { serviceApi, type EffectiveService } from './api'
 import { schoolContext, scopeKey, requireSchool, onScopeChange } from '../school-context/context'
-import { imagePath } from '../media/files'
+import { imagePath, releaseImages } from '../media/files'
+import { mapConcurrent } from '../../shared/concurrency'
 import { uuid } from './policy'
 import { sendServiceEvent } from './service-metrics'
 const items = shallowRef<EffectiveService[]>([]), categories = ref<{ id: string; name: string }[]>([]), search = ref(''), category = ref(''), error = ref(''), busy = ref(false), more = ref(false), paths = ref<Record<string, string>>({})
 let page = 1, generation = 0, active = false, cycle = '', offset = 0
+const imageOwner = {}
 const instance = getCurrentInstance(), observers = new Map<string, ReturnType<typeof uni.createIntersectionObserver>>(), exposed = new Set<string>()
 function disconnect() { for (const observer of observers.values()) observer.disconnect(); observers.clear(); exposed.clear() }
-function hide() { generation++; active = false; busy.value = false; items.value = []; paths.value = {}; disconnect() }
+function hide() { generation++; active = false; busy.value = false; items.value = []; paths.value = {}; disconnect(); releaseImages(imageOwner) }
 const stop = onScopeChange(hide)
 onUnmounted(() => { stop(); hide() })
 async function load(reset = true) {
@@ -22,8 +24,12 @@ async function load(reset = true) {
     if (!active || scope !== scopeKey() || turn !== generation) return
     offset = Date.parse(value.server_time) - Date.now()
     items.value = reset ? value.items : [...items.value, ...value.items]; categories.value = value.categories; more.value = value.has_more; page = next
-    for (const item of value.items) {
-      try { const path = await imagePath(school, item.image_url); if (!active || scope !== scopeKey() || turn !== generation) return; paths.value = { ...paths.value, [item.id]: path } } catch { continue }
+    for (let start = 0; start < value.items.length; start += 3) {
+      const batch = await mapConcurrent(value.items.slice(start, start + 3), async item => {
+        try { return [item.id, await imagePath(school, item.image_url, imageOwner)] as const } catch { return undefined }
+      }, () => active && scope === scopeKey() && turn === generation)
+      if (!active || scope !== scopeKey() || turn !== generation) return
+      paths.value = { ...paths.value, ...Object.fromEntries(batch.filter(item => item !== undefined)) }
     }
   } catch (cause) { if (scope === scopeKey() && turn === generation) error.value = cause instanceof Error ? cause.message : '服务加载失败' }
   finally { if (turn === generation) busy.value = false }
@@ -31,13 +37,15 @@ async function load(reset = true) {
 async function loaded(item: EffectiveService) {
   const turn = generation
   await nextTick()
-  if (!active || !instance || turn !== generation || observers.has(item.id)) return
+  if (!active || !instance || turn !== generation || observers.has(item.id) || exposed.has(item.id)) return
   const observer = uni.createIntersectionObserver(instance.proxy)
   observers.set(item.id, observer)
   observer.relativeToViewport().observe(`#service-${item.id}`, result => {
-    if (!active || result.intersectionRatio <= 0 || exposed.has(item.id) || !paths.value[item.id]) return
+    if (!active || observers.get(item.id) !== observer || result.intersectionRatio <= 0 || exposed.has(item.id) || !paths.value[item.id]) return
     if (item.ends_at && Date.parse(item.ends_at) <= Date.now() + offset) return
     exposed.add(item.id)
+    observer.disconnect()
+    observers.delete(item.id)
     void sendServiceEvent(schoolContext.id, { event_id: uuid(), resource_id: item.id, event_type: 'view', display_cycle: cycle, occurred_at: new Date(Date.now() + offset).toISOString(), channel: null, target_version_id: null, placement: 'more_services', attempt_id: null })
   })
 }
