@@ -23,7 +23,13 @@ export function useProtectedScreen(share = false) {
   const allowed = ref(false)
   let generation = 0, visible = true, dispatched = false
   let entering: Promise<void> | undefined
-  const stop = credentials.subscribe(() => { generation++; allowed.value = false })
+  const stop = credentials.subscribe(() => {
+    generation++
+    allowed.value = false
+    entering = undefined
+    dispatched = false
+    if (visible) void enter()
+  })
   onUnmounted(() => { generation++; stop() })
   onLoad(query => {
     if (share && validPostTarget(String(query?.school ?? ''), String(query?.id ?? ''))) saveReturnTarget(String(query?.school), String(query?.id))
