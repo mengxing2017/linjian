@@ -5,6 +5,40 @@ use axum::{
 use linjian_api::{bootstrap, http};
 use tower::ServiceExt;
 #[tokio::test]
+async fn legal_and_onboarding_jsonapi_match_shared_fixtures() {
+    use axum::response::IntoResponse;
+    use serde_json::Value;
+    for source in [
+        include_str!("../../api-contract/fixtures/legal-documents-empty.json"),
+        include_str!("../../api-contract/fixtures/legal-documents.json"),
+        include_str!("../../api-contract/fixtures/legal-document.json"),
+        include_str!("../../api-contract/fixtures/onboarding-progress.json"),
+        include_str!("../../api-contract/fixtures/onboarding-ready.json"),
+    ] {
+        let fixture: Value = serde_json::from_str(source).unwrap();
+        let kind = fixture["data"]
+            .as_array()
+            .and_then(|rows| rows.first())
+            .unwrap_or(&fixture["data"])["type"]
+            .as_str()
+            .unwrap_or("legal-documents");
+        let restore = |resource: &Value| {
+            let mut value = resource["attributes"].clone();
+            value["id"] = resource["id"].clone();
+            value
+        };
+        let value = if let Some(rows) = fixture["data"].as_array() {
+            Value::Array(rows.iter().map(restore).collect())
+        } else {
+            restore(&fixture["data"])
+        };
+        let response = linjian_api::http::jsonapi::resource(kind, value).into_response();
+        let actual: Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 32768).await.unwrap()).unwrap();
+        assert_eq!(actual, fixture);
+    }
+}
+#[tokio::test]
 async fn phone_verification_error_matches_the_shared_fixture() {
     use axum::response::IntoResponse;
     let response =
