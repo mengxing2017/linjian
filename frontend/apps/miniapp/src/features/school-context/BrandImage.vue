@@ -7,6 +7,7 @@ const props = defineProps<{
   purpose: 'logo' | 'header'
   revision: number
   enabled: boolean
+  compact?: boolean
 }>()
 const path = ref('')
 let generation = 0
@@ -40,8 +41,9 @@ watch(
     :src="path"
     mode="aspectFill"
     :class="purpose === 'header' ? 'school-brand-background' : 'school-brand-logo'"
+    :style="purpose === 'logo' && compact ? { width: '64rpx', height: '64rpx' } : undefined"
   />
-  <view v-else-if="purpose === 'logo'" class="school-brand-logo">校</view>
+  <view v-else-if="purpose === 'logo'" class="school-brand-logo" :style="compact ? { width: '64rpx', height: '64rpx' } : undefined">校</view>
 </template>
 <style scoped>
 .school-brand-background {

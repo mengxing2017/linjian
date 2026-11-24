@@ -62,10 +62,10 @@ defineExpose({ show, hide, refresh: () => show(true) })
 </script>
 <template>
   <view>
-    <swiper v-if="data?.banners.length" :autoplay="active" circular indicator-dots style="height: 260rpx" @change="changed">
+    <swiper v-if="data?.banners.length" class="home-banners" :autoplay="active" circular indicator-dots @change="changed">
       <swiper-item v-for="v in data.banners" :key="v.id"><image v-if="paths[v.id]" :src="paths[v.id]" :alt="v.title" mode="aspectFill" style="width:100%;height:100%" @load="imageLoaded(v)" @tap="click(v)" /></swiper-item>
     </swiper>
-    <button size="mini" @tap="manual">查看群二维码</button>
+    <button v-if="data?.qrcode" class="home-qr" size="mini" @tap="manual">查看群二维码</button>
     <view v-if="error" class="muted" @tap="show(true)">展示配置加载失败，点击重试</view>
     <view v-if="qrVisible && data?.qrcode" class="operations-mask" @tap="qrVisible = false"><view class="operations-dialog" @tap.stop>
       <text class="heading">{{ data.qrcode.title }}</text><text>{{ data.qrcode.content }}</text>
@@ -75,5 +75,7 @@ defineExpose({ show, hide, refresh: () => show(true) })
   </view>
 </template>
 <style scoped>
+.home-banners { height: 180rpx; border-radius: var(--linjian-radius-card); overflow: hidden; margin-bottom: 12rpx; }
+.home-qr { min-height: 44px; display: flex; align-items: center; justify-content: center; line-height: 1.4; }
 .operations-mask{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:flex;align-items:center;justify-content:center}.operations-dialog{width:80%;padding:30rpx;background:white;border-radius:20rpx;display:flex;flex-direction:column;gap:20rpx}
 </style>

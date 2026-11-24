@@ -5,8 +5,8 @@ import type { SchoolDisplay } from './api'
 import BrandImage from './BrandImage.vue'
 import { defaultTheme, themeColor } from './branding'
 import { formatRegion } from '@linjian/china-regions'
-const props = defineProps<{ school?: SchoolDisplay; searchable?: boolean }>()
-const emit = defineEmits<{ search: [] }>()
+const props = defineProps<{ school?: SchoolDisplay; searchable?: boolean; compact?: boolean }>()
+const emit = defineEmits<{ search: []; changeSchool: [] }>()
 const regionLabel = computed(() =>
   props.school
     ? formatRegion({
@@ -30,7 +30,7 @@ const style = computed(() => {
 })
 </script>
 <template>
-  <view class="school-brand" :style="style">
+  <view class="school-brand" :class="{ 'school-brand-compact': compact }" :style="style">
     <BrandImage
       v-if="school"
       :school="school.id"
@@ -43,6 +43,7 @@ const style = computed(() => {
         v-if="school"
         :school="school.id"
         purpose="logo"
+        :compact="compact"
         :revision="school.revision"
         :enabled="!!school.logo_url"
       />
@@ -58,10 +59,13 @@ const style = computed(() => {
             @tap.stop="emit('search')"
           >
             <AppIcon name="search" :size="32" />
-            搜索
+            <text v-if="!compact">搜索</text>
+          </button>
+          <button v-if="compact" class="school-search" aria-label="选择学校" @tap.stop="emit('changeSchool')">
+            <AppIcon name="school" :size="32" />
           </button>
         </view>
-        <text>{{ regionLabel }}</text>
+        <text v-if="regionLabel" class="school-region">{{ regionLabel }}</text>
       </view>
     </view>
   </view>
@@ -118,4 +122,10 @@ const style = computed(() => {
 .school-search::after {
   border: 0;
 }
+.school-brand-compact { padding: 12rpx 16rpx; margin-bottom: 12rpx; border-radius: var(--linjian-radius-card); }
+.school-brand-compact .school-brand-content { gap: 12rpx; }
+.school-brand-compact .school-brand-title-row { gap: 4rpx; }
+.school-brand-compact .school-brand-title { flex: 1; font-size: 32rpx; margin: 0; line-height: 1.4; }
+.school-brand-compact .school-search { padding: 0; }
+.school-brand-compact .school-region { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--linjian-font-caption); line-height: 1.4; }
 </style>

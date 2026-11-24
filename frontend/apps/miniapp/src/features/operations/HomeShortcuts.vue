@@ -7,6 +7,7 @@ import { imagePath } from '../media/files'
 import { uuid } from './policy'
 import { sendServiceEvent } from './service-metrics'
 import OfficialMarketing from './OfficialMarketing.vue'
+import AppIcon from '../../shared/AppIcon.vue'
 const marketing = shallowRef<InstanceType<typeof OfficialMarketing>>(), warm = ref(false)
 const items = shallowRef<EffectiveService[]>([]), paths = ref<Record<string, string>>({})
 const hasServices = ref(false)
@@ -26,7 +27,7 @@ async function show() {
   try {
     const data = await serviceApi.catalog(school)
     if (!active || scope !== scopeKey() || turn !== generation) return
-    offset = Date.parse(data.server_time) - Date.now(); items.value = data.featured; hasServices.value = data.items.length > 0
+    offset = Date.parse(data.server_time) - Date.now(); items.value = data.featured.slice(0, 3); hasServices.value = data.items.length > 0
     for (const item of items.value) {
       try {
         const path = await imagePath(school, item.image_url)
@@ -57,14 +58,14 @@ defineExpose({ show, hide, refresh: show })
 </script>
 <template>
   <view :class="{ warm }"><view v-if="hasServices" class="services-home">
-    <view class="services-grid"><view v-for="item in items" :id="`service-${item.id}`" :key="item.id" class="service-card" @tap="open(item)">
+    <view class="services-grid"><button v-for="item in items" :id="`service-${item.id}`" :key="item.id" class="service-card" @tap="open(item)">
       <image v-if="paths[item.id]" :src="paths[item.id]" mode="aspectFit" @load="loaded(item)" />
-      <text>{{ item.title }}</text><text v-if="item.badge" class="badge">{{ item.badge }}</text><text class="muted">{{ item.subtitle }}</text>
-    </view></view>
-    <button size="mini" @tap="more">更多服务</button>
+      <view v-else class="service-icon"><AppIcon name="services" :size="40" /></view>
+      <text class="service-title">{{ item.title }}</text><text v-if="item.badge" class="badge">{{ item.badge }}</text>
+    </button><button class="service-card" @tap="more"><view class="service-icon"><AppIcon name="services" :size="40" /></view><text class="service-title">更多服务</text></button></view>
   </view><OfficialMarketing ref="marketing" @theme="warm = true" /></view>
 </template>
 <style scoped>
-.services-home{padding:20rpx}.services-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20rpx}.service-card{display:flex;align-items:center;flex-direction:column;position:relative;font-size:24rpx;gap:8rpx}.service-card image{width:80rpx;height:80rpx}.muted{font-size:20rpx;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.badge{color:#c34e25;font-size:20rpx}
+.services-home{padding:8rpx 0 12rpx}.services-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8rpx}.service-card{display:flex;align-items:center;flex-direction:column;position:relative;font-size:24rpx;gap:4rpx;min-height:44px;width:100%;min-width:0;margin:0;padding:8rpx 0;line-height:1.4;background:transparent;border-radius:12rpx}.service-card::after{border:0}.service-card image,.service-icon{width:56rpx;height:56rpx;flex-shrink:0}.service-icon{display:flex;align-items:center;justify-content:center;background:#eef3ff;border-radius:16rpx}.service-title{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.badge{position:absolute;right:0;top:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#9a3412;background:#fff4e8;border-radius:8rpx;font-size:20rpx}
 .warm .services-home{background:#fff4e8;border-radius:24rpx;color:#71430c}
 </style>
