@@ -34,11 +34,16 @@ it('creates one application client and preserves the identity alias', () => {
   expect(identityClient).toBe(client)
 })
 
+it('does not expose school lists or direct school binding to the miniapp', () => {
+  expect(schoolsApi).not.toHaveProperty('list')
+  expect(schoolsApi).not.toHaveProperty('bind')
+})
+
 it('all feature APIs delegate to the same application client', async () => {
   const request = vi.spyOn(client, 'requestResource').mockResolvedValue(null)
   await identityApi.logout()
   await communityApi.react('school', 'post', 'like', true)
-  await schoolsApi.bind('school')
+  await schoolsApi.detail('school')
   await operationsApi.event('school', {
     event_id: 'event',
     resource_id: 'resource',
@@ -64,7 +69,7 @@ it('all feature APIs delegate to the same application client', async () => {
   expect(request.mock.calls.map((call) => call[0])).toEqual([
     '/api/v1/auth/session',
     '/api/v1/schools/school/posts/post/reactions/like',
-    '/api/v1/schools/school/bind',
+    '/api/v1/schools/school',
     '/api/v1/schools/school/operation-events',
     '/api/v1/schools/school/resources/resource/click',
     '/api/v1/schools/school/home-menu-settings',
