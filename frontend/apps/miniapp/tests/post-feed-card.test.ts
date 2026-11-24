@@ -95,7 +95,8 @@ it('keeps moderation and visibility information only on personal posts and react
   await nextTick()
   expect(text(mounted.root)).toContain('校园成员')
   expect(text(mounted.root)).toContain('系统下架')
-  expect(text(mounted.root)).toContain('long'.repeat(1000))
+  expect(text(mounted.root)).toContain(`${'long'.repeat(60)}…`)
+  expect(text(mounted.root)).not.toContain('long'.repeat(1000))
   mounted.props.mine = false
   await nextTick()
   expect(text(mounted.root)).not.toContain('状态：')
